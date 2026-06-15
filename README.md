@@ -556,6 +556,6 @@ MIT License - Bebas untuk penggunaan komersial maupun personal. Lihat [LICENSE](
 
 ---
 
-**Made with ❤️ by [Arif Fendi](https://github.com/ariffend1)**
+**Made with ❤️ by [Ariffendi](https://github.com/ariffend1)**
 
 **Happy coding! 🚀**
