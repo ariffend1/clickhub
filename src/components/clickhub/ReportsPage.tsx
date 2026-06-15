@@ -440,7 +440,7 @@ export default function ReportsPage() {
         {/* Verification Status Badge */}
         <div className="flex items-center gap-1.5 rounded-full bg-violet-600/10 border border-violet-500/20 px-3 py-1 text-[10px] font-bold text-violet-400">
           <Database size={12} />
-          Active Database: hjgmrkgjstklrxcejlfk
+          Active Database: {import.meta.env.VITE_SUPABASE_URL?.split('//')[1]?.split('.')[0] || 'dtjsjbyoxwbrzlhdoaqn'}
         </div>
       </div>
 

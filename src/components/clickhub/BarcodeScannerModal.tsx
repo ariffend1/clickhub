@@ -18,7 +18,7 @@ export default function BarcodeScannerModal({
   const [error, setError] = useState<string | null>(null);
   const [cameraPermission, setCameraPermission] = useState<'prompt' | 'granted' | 'denied' | 'unknown'>('unknown');
   const scannerRef = useRef<Html5Qrcode | null>(null);
-  const containerId = "nexhub-barcode-reader";
+  const containerId = "clickhub-barcode-reader";
 
   useEffect(() => {
     if (!isOpen) return;
@@ -117,14 +117,14 @@ export default function BarcodeScannerModal({
           box-shadow: 0 0 8px rgba(139, 92, 246, 0.8);
           animation: scanLineAnimation 3s ease-in-out infinite;
         }
-        /* Override html5-qrcode styling to fit NexHub dark mode theme */
-        #nexhub-barcode-reader {
+        /* Override html5-qrcode styling to fit ClickHub dark mode theme */
+        #clickhub-barcode-reader {
           border: none !important;
           border-radius: 12px !important;
           overflow: hidden;
           background: #000;
         }
-        #nexhub-barcode-reader video {
+        #clickhub-barcode-reader video {
           object-fit: cover !important;
           border-radius: 12px;
           width: 100% !important;

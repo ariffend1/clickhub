@@ -612,7 +612,7 @@ export const useStore = create<AppState>()(
           const dbPartRequests = dbPartRequests_data || [];
           const dbStockRequests = dbStockRequests_data || [];
 
-          // Load NexHub features data from Supabase
+          // Load ClickHub features data from Supabase
           const dbChatSessions = dbChatSessions_data || [];
           const dbChatMessages = dbChatMessages_data || [];
           const dbHolidays = dbHolidays_data || [];
