@@ -15,7 +15,7 @@
 
 ## Overview
 
-**ClickHub** is a comprehensive **IT Operations Management web application** built with **React 19**, **TypeScript**, **Vite**, and **Tailwind CSS**. It provides an all-in-one solution for managing tasks, IT support tickets, assets/inventory, and team communication.
+**ClickHub** is a comprehensive **IT Operations Management web application** built with **React 19**, **TypeScript**, **Vite**, and **Tailwind CSS**. It provides an all-in-one solution for managing IT operations, task management, asset tracking, and customer support with offline capabilities.
 
 > 🎯 **Portfolio Project** - Demonstrating full-stack development with modern technologies
 
@@ -274,7 +274,6 @@ MIT License - Free for commercial and personal use. See [LICENSE](./LICENSE) for
 ## 📧 Support
 
 - **Issues**: [GitHub Issues](https://github.com/ariffend1/clickhub/issues)
-- **Email**: ariffend1@gmail.com
 - **Repo**: [ariffend1/clickhub](https://github.com/ariffend1/clickhub)
 
 ---
@@ -285,7 +284,7 @@ MIT License - Free for commercial and personal use. See [LICENSE](./LICENSE) for
 
 ## Ringkasan
 
-**ClickHub** adalah aplikasi web **Manajemen Operasi IT** yang komprehensif, dibangun dengan **React 19**, **TypeScript**, **Vite**, dan **Tailwind CSS**. Aplikasi ini menyediakan solusi all-in-one untuk mengelola tugas, tiket IT support, aset/inventaris, dan komunikasi tim.
+**ClickHub** adalah aplikasi web **Manajemen Operasi IT** yang komprehensif, dibangun dengan **React 19**, **TypeScript**, **Vite**, dan **Tailwind CSS**. Aplikasi ini menyediakan solusi all-in-one untuk mengelola operasi IT, manajemen tugas, tracking aset, dan dukungan pelanggan dengan kemampuan offline.
 
 > 🎯 **Proyek Portfolio** - Mendemonstrasikan full-stack development dengan teknologi modern
 
@@ -544,7 +543,6 @@ MIT License - Bebas untuk penggunaan komersial maupun personal. Lihat [LICENSE](
 ## 📧 Support
 
 - **Issues**: [GitHub Issues](https://github.com/ariffend1/clickhub/issues)
-- **Email**: ariffend1@gmail.com
 - **Repo**: [ariffend1/clickhub](https://github.com/ariffend1/clickhub)
 
 ---
