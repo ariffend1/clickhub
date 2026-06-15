@@ -31,3 +31,6 @@ Thumbs.db
 
 # Test results
 test_results_50_cases.json
+
+# Local test suites and scripts folder (ignored on GitHub)
+local_tests_and_scripts/
