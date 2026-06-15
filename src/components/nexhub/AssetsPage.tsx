@@ -1,0 +1,1271 @@
+import { useState } from 'react';
+import { useStore } from '../../store/useStore';
+import { cn } from '../../utils/cn';
+import { Plus, Search, X, Monitor, Laptop, Server, Printer, Wifi, Camera } from 'lucide-react';
+import type { AssetStatus, Asset } from '../../types';
+import BarcodeScannerModal from './BarcodeScannerModal';
+import EquipmentCheckoutPage from './EquipmentCheckoutPage';
+import GoodsReceiptPage from './GoodsReceiptPage';
+
+const statusConfig: Record<AssetStatus, { label: string; color: string; bg: string }> = {
+  AVAILABLE: { label: 'Available', color: 'text-green-400', bg: 'bg-green-500/20' },
+  IN_USE: { label: 'In Use', color: 'text-blue-400', bg: 'bg-blue-500/20' },
+  MAINTENANCE: { label: 'Maintenance', color: 'text-yellow-400', bg: 'bg-yellow-500/20' },
+  RETIRED: { label: 'Retired', color: 'text-gray-400', bg: 'bg-gray-500/20' },
+  BROKEN: { label: 'Broken', color: 'text-red-400', bg: 'bg-red-500/20' },
+};
+
+const typeIcons: Record<string, React.ReactNode> = {
+  Laptop: <Laptop size={16} />, Desktop: <Monitor size={16} />, Server: <Server size={16} />,
+  Printer: <Printer size={16} />, Switch: <Wifi size={16} />,
+};
+
+const assetTypes = ['Laptop', 'Desktop', 'Server', 'Printer', 'Switch', 'Monitor', 'Phone', 'Other'];
+
+export default function AssetsPage() {
+  const { 
+    assets, addAsset, updateAsset, deleteAsset, getUserById, hasRole,
+    inventories, partRequests, stockRequests, addPartRequest, addStockRequest,
+    approvePartRequest, approveStockRequest, users, equipmentCheckouts,
+    maintenanceSchedules, addMaintenanceSchedule, updateMaintenanceSchedule, deleteMaintenanceSchedule
+  } = useStore();
+
+  const [activeTab, setActiveTab] = useState<'assets' | 'inventory' | 'requests' | 'checkout' | 'receipt'>('assets');
+  const [search, setSearch] = useState('');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterType, setFilterType] = useState<string>('all');
+  const [showCreate, setShowCreate] = useState(false);
+  const [selected, setSelected] = useState<Asset | null>(null);
+  const [form, setForm] = useState({ name: '', brand: '', type: 'Laptop', serialNumber: '', location: '', price: '', vendor: '', processor: '', ram: '', storage: '', os: '' });
+  const [scanTarget, setScanTarget] = useState<'assets-search' | 'inventory-search' | 'form-sn' | null>(null);
+  const [modalTab, setModalTab] = useState<'specs' | 'audit' | 'maintenance' | 'qr_label'>('specs');
+
+  const [showAddSchedule, setShowAddSchedule] = useState(false);
+  const [scheduleForm, setScheduleForm] = useState({ title: '', description: '', frequency: 'WEEKLY' as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY', scheduledDate: '' });
+
+  // Direct Bon & Stock Request states
+  const [showDirectBon, setShowDirectBon] = useState(false);
+  const [directBonForm, setDirectBonForm] = useState({ inventoryId: '', quantity: 1, notes: '' });
+
+  const [showStockRequest, setShowStockRequest] = useState(false);
+  const [stockForm, setStockForm] = useState({
+    type: 'RESTOCK' as 'RESTOCK' | 'NEW_ITEM',
+    inventoryId: '',
+    itemName: '',
+    itemDescription: '',
+    category: 'General',
+    quantity: 1,
+    estimatedPrice: '',
+    reason: ''
+  });
+
+  const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
+
+  const handleToggleSelectAsset = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedAssetIds([...selectedAssetIds, id]);
+    } else {
+      setSelectedAssetIds(selectedAssetIds.filter(x => x !== id));
+    }
+  };
+
+  const handlePrintLabels = (assetsToPrint: Asset[]) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Pop-up blocked! Please allow pop-ups to print labels.');
+      return;
+    }
+
+    const labelsHtml = assetsToPrint.map(asset => {
+      const qrData = encodeURIComponent(`https://clickhub-id.vercel.app/assets?id=${asset.id}`);
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${qrData}`;
+      return `
+        <div class="label-card" style="width: 260px; height: 140px; border: 2px solid #000; border-radius: 6px; padding: 8px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; background: #fff; page-break-inside: avoid;">
+          <div class="label-header" style="font-size: 10px; font-weight: 800; text-align: center; border-bottom: 1px solid #000; padding-bottom: 3px; letter-spacing: 1px;">CLICKHUB IT ASSET</div>
+          <div class="label-body" style="display: flex; flex: 1; margin-top: 6px; gap: 8px; min-height: 0;">
+            <div class="label-info" style="flex: 1; display: flex; flex-direction: column; justify-content: space-between; min-width: 0;">
+              <div class="asset-name" style="font-size: 11px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px;">${asset.name}</div>
+              <div class="info-row" style="font-size: 9px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Brand: ${asset.brand || '-'}</div>
+              <div class="info-row font-mono" style="font-size: 9px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: Courier, monospace;">S/N: ${asset.serialNumber}</div>
+              <div class="info-row" style="font-size: 9px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Loc: ${asset.location}</div>
+              <div class="info-row" style="font-size: 9px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Status: ${asset.status}</div>
+            </div>
+            <div class="label-qr" style="width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; align-self: center;">
+              <img src="${qrUrl}" alt="QR Code" style="width: 100%; height: 100%; object-fit: contain;" onload="window.checkImagesLoaded()" />
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Print Asset Labels</title>
+          <style>
+            @page {
+              size: auto;
+              margin: 0mm;
+            }
+            body {
+              margin: 0;
+              padding: 10px;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+              background: #fff;
+              color: #000;
+            }
+            .label-grid {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 15px;
+              justify-content: center;
+            }
+          </style>
+          <script>
+            let loadedImages = 0;
+            const totalImages = ${assetsToPrint.length};
+            window.checkImagesLoaded = function() {
+              loadedImages++;
+              if (loadedImages === totalImages) {
+                setTimeout(() => {
+                  window.print();
+                  window.close();
+                }, 500);
+              }
+            }
+            // Fail-safe timeout
+            setTimeout(() => {
+              window.print();
+              window.close();
+            }, 5000);
+          </script>
+        </head>
+        <body>
+          <div class="label-grid">
+            ${labelsHtml}
+          </div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const canManage = hasRole(['ROOT', 'SUPER_ADMIN', 'ADMIN', 'MANAGER', 'TECHNICIAN']);
+  const formatPrice = (p: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(p);
+
+  const filteredAssets = assets.filter(a => {
+    if (search && !a.name.toLowerCase().includes(search.toLowerCase()) && !a.serialNumber.toLowerCase().includes(search.toLowerCase())) return false;
+    if (filterStatus !== 'all' && a.status !== filterStatus) return false;
+    if (filterType !== 'all' && a.type !== filterType) return false;
+    return true;
+  });
+
+  const handleCreate = () => {
+    if (!form.name.trim()) return;
+    addAsset({
+      name: form.name.trim(), brand: form.brand, type: form.type, serialNumber: form.serialNumber,
+      location: form.location, price: parseFloat(form.price) || 0, vendor: form.vendor,
+      specs: { processor: form.processor, ram: form.ram, storage: form.storage, os: form.os },
+    });
+    setForm({ name: '', brand: '', type: 'Laptop', serialNumber: '', location: '', price: '', vendor: '', processor: '', ram: '', storage: '', os: '' });
+    setShowCreate(false);
+  };
+
+  const handleDirectBon = () => {
+    if (!directBonForm.inventoryId || directBonForm.quantity <= 0) return;
+    addPartRequest(directBonForm.inventoryId, directBonForm.quantity, directBonForm.notes);
+    setDirectBonForm({ inventoryId: '', quantity: 1, notes: '' });
+    setShowDirectBon(false);
+  };
+
+  const handleStockRequest = () => {
+    if (stockForm.type === 'RESTOCK' && !stockForm.inventoryId) return;
+    if (stockForm.type === 'NEW_ITEM' && !stockForm.itemName.trim()) return;
+    if (stockForm.quantity <= 0) return;
+
+    const finalItemName = stockForm.type === 'RESTOCK'
+      ? inventories.find(i => i.id === stockForm.inventoryId)?.name || ''
+      : stockForm.itemName;
+
+    addStockRequest({
+      type: stockForm.type,
+      inventoryId: stockForm.type === 'RESTOCK' ? stockForm.inventoryId : undefined,
+      itemName: finalItemName,
+      itemDescription: stockForm.itemDescription,
+      category: stockForm.category,
+      quantity: stockForm.quantity,
+      estimatedPrice: parseFloat(stockForm.estimatedPrice) || 0,
+      reason: stockForm.reason
+    });
+
+    setStockForm({
+      type: 'RESTOCK',
+      inventoryId: '',
+      itemName: '',
+      itemDescription: '',
+      category: 'General',
+      quantity: 1,
+      estimatedPrice: '',
+      reason: ''
+    });
+    setShowStockRequest(false);
+  };
+
+  return (
+    <div className="h-full overflow-y-auto p-6">
+      {/* Header */}
+      {activeTab !== 'checkout' && activeTab !== 'receipt' && (
+        <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-bold text-white">🖥️ IT Resources & Inventory</h1>
+            <p className="text-xs text-gray-500">Manage hardware assets, spare parts inventory, and procurement requests.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Tabs */}
+      <div className="mb-6 flex gap-4 border-b border-gray-800 pb-px">
+        <button
+          onClick={() => { setActiveTab('assets'); setSearch(''); }}
+          className={cn(
+            "pb-3 text-xs font-semibold uppercase tracking-wider transition-colors border-b-2 px-1 -mb-px",
+            activeTab === 'assets'
+              ? "border-violet-500 text-violet-400 font-semibold"
+              : "border-transparent text-gray-400 hover:text-gray-200"
+          )}
+        >
+          🖥️ Hardware Assets ({assets.length})
+        </button>
+        <button
+          onClick={() => { setActiveTab('inventory'); setSearch(''); }}
+          className={cn(
+            "pb-3 text-xs font-semibold uppercase tracking-wider transition-colors border-b-2 px-1 -mb-px",
+            activeTab === 'inventory'
+              ? "border-violet-500 text-violet-400 font-semibold"
+              : "border-transparent text-gray-400 hover:text-gray-200"
+          )}
+        >
+          📦 Inventory / Spare Parts ({inventories.length})
+        </button>
+        <button
+          onClick={() => { setActiveTab('requests'); setSearch(''); }}
+          className={cn(
+            "pb-3 text-xs font-semibold uppercase tracking-wider transition-colors border-b-2 px-1 -mb-px flex items-center gap-1.5",
+            activeTab === 'requests'
+              ? "border-violet-500 text-violet-400 font-semibold"
+              : "border-transparent text-gray-400 hover:text-gray-200"
+          )}
+        >
+          📝 Requests ({partRequests.filter(r => r.status === 'PENDING').length + stockRequests.filter(r => r.status === 'PENDING').length})
+        </button>
+        {canManage && (
+          <button
+            onClick={() => { setActiveTab('checkout'); setSearch(''); }}
+            className={cn(
+              "pb-3 text-xs font-semibold uppercase tracking-wider transition-colors border-b-2 px-1 -mb-px flex items-center gap-1.5",
+              activeTab === 'checkout'
+                ? "border-violet-500 text-violet-400 font-semibold"
+                : "border-transparent text-gray-400 hover:text-gray-200"
+            )}
+          >
+            📋 Equipment Checkout
+          </button>
+        )}
+        {canManage && (
+          <button
+            onClick={() => { setActiveTab('receipt'); setSearch(''); }}
+            className={cn(
+              "pb-3 text-xs font-semibold uppercase tracking-wider transition-colors border-b-2 px-1 -mb-px flex items-center gap-1.5",
+              activeTab === 'receipt'
+                ? "border-violet-500 text-violet-400 font-semibold"
+                : "border-transparent text-gray-400 hover:text-gray-200"
+            )}
+          >
+            🚚 Goods Receipt
+          </button>
+        )}
+      </div>
+
+      {/* Assets Tab View */}
+      {activeTab === 'assets' && (
+        <>
+          {/* Stats */}
+          <div className="mb-6 grid grid-cols-2 md:grid-cols-5 gap-4">
+            {Object.entries(statusConfig).map(([status, config]) => (
+              <div key={status} className="rounded-xl border border-gray-800 bg-[#282c34] p-4 text-center shadow-lg">
+                <p className={cn("text-2xl font-bold", config.color)}>{assets.filter(a => a.status === status).length}</p>
+                <p className="text-xs text-gray-500 font-medium">{config.label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Toolbar */}
+          <div className="mb-4 flex items-center gap-3">
+            <div className="relative flex-1">
+              <Search size={14} className="absolute left-3 top-2.5 text-gray-500" />
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search assets..."
+                className="w-full rounded-lg border border-gray-700 bg-gray-800/50 py-2 pl-9 pr-10 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500" />
+              <button
+                type="button"
+                onClick={() => setScanTarget('assets-search')}
+                className="absolute right-3 top-2.5 text-gray-500 hover:text-white transition-colors"
+                title="Scan Barcode Aset"
+              >
+                <Camera size={14} />
+              </button>
+            </div>
+            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+              className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-xs text-white outline-none">
+              <option value="all">All Status</option>
+              {Object.entries(statusConfig).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+            </select>
+            <select value={filterType} onChange={e => setFilterType(e.target.value)}
+              className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-xs text-white outline-none">
+              <option value="all">All Types</option>
+              {assetTypes.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+            {canManage && selectedAssetIds.length > 0 && (
+              <button 
+                onClick={() => {
+                  const assetsToPrint = assets.filter(a => selectedAssetIds.includes(a.id));
+                  handlePrintLabels(assetsToPrint);
+                }} 
+                className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-500 transition-colors shadow"
+                id="print-selected-labels-btn"
+              >
+                Print Labels ({selectedAssetIds.length})
+              </button>
+            )}
+            {canManage && (
+              <button onClick={() => setShowCreate(true)} className="flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-xs font-medium text-white hover:bg-violet-500 transition-colors">
+                <Plus size={12} /> Add Asset
+              </button>
+            )}
+          </div>
+
+          {/* Assets Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredAssets.map(asset => {
+              const assignee = asset.assignedToId ? getUserById(asset.assignedToId) : null;
+              const sConfig = statusConfig[asset.status];
+              return (
+                <div key={asset.id} className="relative group">
+                  {canManage && (
+                    <input 
+                      type="checkbox"
+                      checked={selectedAssetIds.includes(asset.id)}
+                      onClick={e => e.stopPropagation()}
+                      onChange={e => handleToggleSelectAsset(asset.id, e.target.checked)}
+                      className="absolute top-4 right-4 z-10 h-4 w-4 rounded border-gray-700 bg-gray-800 text-violet-600 focus:ring-violet-500 cursor-pointer"
+                    />
+                  )}
+                  <button onClick={() => { setSelected(asset); setModalTab('specs'); }}
+                    className="w-full h-full rounded-xl border border-gray-700/50 bg-[#282c34] p-4 text-left hover:border-gray-600 transition shadow-md flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-3 pr-6">
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-400">{typeIcons[asset.type] || <Monitor size={16} />}</span>
+                          <span className="text-sm font-semibold text-white">{asset.name}</span>
+                        </div>
+                      </div>
+                      <div className="space-y-1 text-xs text-gray-500">
+                        <p>{asset.brand} • {asset.type}</p>
+                        <p>S/N: {asset.serialNumber}</p>
+                        <p>📍 {asset.location}</p>
+                        {assignee && <p>👤 {assignee.name}</p>}
+                      </div>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between">
+                      <p className="text-xs font-semibold text-gray-400">{formatPrice(asset.price)}</p>
+                      <span className={cn("rounded-full px-2 py-0.5 text-[9px] font-semibold", sConfig.bg, sConfig.color)}>{sConfig.label}</span>
+                    </div>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {/* Inventory Tab View */}
+      {activeTab === 'inventory' && (
+        <div>
+          {/* Inventory Toolbar */}
+          <div className="mb-4 flex items-center gap-3">
+            <div className="relative flex-1">
+              <Search size={14} className="absolute left-3 top-2.5 text-gray-500" />
+              <input 
+                value={search} 
+                onChange={e => setSearch(e.target.value)} 
+                placeholder="Search inventory..."
+                className="w-full rounded-lg border border-gray-700 bg-gray-800/50 py-2 pl-9 pr-10 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500" 
+              />
+              <button
+                type="button"
+                onClick={() => setScanTarget('inventory-search')}
+                className="absolute right-3 top-2.5 text-gray-500 hover:text-white transition-colors"
+                title="Scan SKU Barang"
+              >
+                <Camera size={14} />
+              </button>
+            </div>
+            <button 
+              onClick={() => setShowDirectBon(true)} 
+              className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-500 transition-colors"
+            >
+              <Plus size={12} /> Form Bon Barang
+            </button>
+            <button 
+              onClick={() => setShowStockRequest(true)} 
+              className="flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-xs font-medium text-white hover:bg-violet-500 transition-colors"
+            >
+              <Plus size={12} /> Ajukan Pengadaan Barang
+            </button>
+          </div>
+
+          {/* Inventory Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {inventories.filter(inv => !search || inv.name.toLowerCase().includes(search.toLowerCase()) || inv.sku.toLowerCase().includes(search.toLowerCase())).map(inv => (
+              <div 
+                key={inv.id} 
+                className="rounded-xl border border-gray-700/50 bg-[#282c34] p-4 flex flex-col justify-between hover:border-gray-600 transition shadow-md"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-violet-400 font-mono font-semibold">{inv.sku}</span>
+                    <span className={cn(
+                      "rounded-full px-2 py-0.5 text-[9px] font-semibold border",
+                      inv.quantity > inv.minStock ? "bg-green-500/10 text-green-400 border-green-500/20" :
+                      inv.quantity > 0 ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
+                      "bg-red-500/10 text-red-400 border-red-500/20"
+                    )}>
+                      {inv.quantity > inv.minStock ? `In Stock: ${inv.quantity} ${inv.unit}` :
+                       inv.quantity > 0 ? `Low Stock: ${inv.quantity} ${inv.unit}` : 'Out of Stock'}
+                    </span>
+                  </div>
+                  <h3 className="text-sm font-semibold text-white mb-1">{inv.name}</h3>
+                  <p className="text-xs text-gray-400 mb-3">{inv.description || 'No description provided.'}</p>
+                </div>
+                <div className="text-[11px] text-gray-500 border-t border-gray-800/80 pt-2 flex items-center justify-between">
+                  <span>📍 {inv.location || 'Warehouse'}</span>
+                  <span>Verifikasi: {inv.isVerified ? '✓ Verified' : '✗ Unverified'}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Requests Tab View */}
+      {activeTab === 'requests' && (
+        <div className="space-y-6 animate-fade-in">
+          {/* Part Requests (Bon) Section */}
+          <div id="part-requests-container">
+            <h2 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
+              📦 Permintaan Bon Barang (Part Requests)
+            </h2>
+            <div className="space-y-3">
+              {partRequests.length === 0 ? (
+                <p className="text-xs text-gray-500 italic">No part requests found.</p>
+              ) : (
+                partRequests.map(pr => {
+                  const inv = inventories.find(i => i.id === pr.inventoryId);
+                  const requester = users.find(u => u.id === pr.requestedBy);
+                  const taskObj = pr.taskId ? useStore.getState().tasks.find(t => t.id === pr.taskId) : null;
+                  const ticketObj = pr.ticketId ? useStore.getState().tickets.find(t => t.id === pr.ticketId) : null;
+                  const isPending = pr.status === 'PENDING';
+                  const canApprove = hasRole(['ROOT', 'ADMIN', 'MANAGER']);
+
+                  return (
+                    <div 
+                      key={pr.id} 
+                      className="rounded-xl border border-gray-700 bg-[#282c34] p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-md"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-white">{inv?.name || 'Unknown Item'}</span>
+                          <span className="text-xs text-gray-400">({pr.quantity} pcs)</span>
+                          <span className={cn(
+                            "rounded-full px-2 py-0.5 text-[9px] font-semibold",
+                            pr.status === 'APPROVED' ? "bg-green-500/10 text-green-400" :
+                            pr.status === 'REJECTED' ? "bg-red-500/10 text-red-400" :
+                            "bg-yellow-500/10 text-yellow-400"
+                          )}>
+                            {pr.status}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-400">Reason: {pr.notes || 'No notes'}</p>
+                        <p className="text-[10px] text-gray-500">
+                          Requested by: <span className="text-gray-400">{requester?.name || pr.requestedBy}</span>
+                          {taskObj && ` | Task: ${taskObj.title}`}
+                          {ticketObj && ` | Ticket: ${ticketObj.title}`}
+                          {!taskObj && !ticketObj && ` | Direct Request`}
+                        </p>
+                      </div>
+                      {isPending && canApprove && (
+                        <div className="flex items-center gap-2 self-end md:self-auto">
+                          <button
+                            onClick={() => approvePartRequest(pr.id)}
+                            className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 transition-colors shadow font-semibold"
+                          >
+                            Approve & Deduct Stock
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Stock Requests (Purchase) Section */}
+          <div id="stock-requests-container" className="border-t border-gray-800 pt-6">
+            <h2 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
+              🛒 Pengajuan Pengadaan / Restock Barang (Stock Requests)
+            </h2>
+            <div className="space-y-3">
+              {stockRequests.length === 0 ? (
+                <p className="text-xs text-gray-500 italic">No purchase or restock requests found.</p>
+              ) : (
+                stockRequests.map(sr => {
+                  const requester = users.find(u => u.id === sr.requestedById);
+                  const isPending = sr.status === 'PENDING';
+                  const canApprove = hasRole(['ROOT', 'ADMIN', 'MANAGER']);
+
+                  return (
+                    <div 
+                      key={sr.id} 
+                      className="rounded-xl border border-gray-700 bg-[#282c34] p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-md"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-white">{sr.itemName}</span>
+                          <span className="text-xs text-gray-400">({sr.quantity} pcs)</span>
+                          <span className={cn(
+                            "rounded-full px-2 py-0.5 text-[9px] font-semibold",
+                            sr.status === 'RECEIVED' ? "bg-green-500/10 text-green-400" :
+                            sr.status === 'APPROVED' ? "bg-blue-500/10 text-blue-400" :
+                            sr.status === 'REJECTED' ? "bg-red-500/10 text-red-400" :
+                            "bg-yellow-500/10 text-yellow-400"
+                          )}>
+                            {sr.status}
+                          </span>
+                          <span className="rounded bg-gray-800 px-1.5 py-0.5 text-[9px] text-gray-400 uppercase font-semibold">
+                            {sr.type}
+                          </span>
+                        </div>
+                        {sr.itemDescription && <p className="text-xs text-gray-400">{sr.itemDescription}</p>}
+                        <p className="text-xs text-gray-400">Reason: {sr.reason || 'No reason'}</p>
+                        <p className="text-[10px] text-gray-500">
+                          Requested by: <span className="text-gray-400">{requester?.name || sr.requestedById}</span> | Est. Price: {formatPrice(sr.estimatedPrice)}
+                        </p>
+                      </div>
+                      {isPending && canApprove && (
+                        <div className="flex items-center gap-2 self-end md:self-auto">
+                          <button
+                            onClick={() => approveStockRequest(sr.id, 'APPROVED')}
+                            className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500 transition-colors shadow font-semibold"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => approveStockRequest(sr.id, 'REJECTED')}
+                            className="rounded-lg bg-red-600/20 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-600/30 transition-colors shadow font-semibold"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      )}
+                      {sr.status === 'APPROVED' && canApprove && (
+                        <div className="flex items-center gap-2 self-end md:self-auto">
+                          <button
+                            onClick={() => approveStockRequest(sr.id, 'RECEIVED')}
+                            className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-500 transition-colors shadow font-semibold"
+                          >
+                            Mark Received (Update Inventory)
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Equipment Checkout Tab View */}
+      {activeTab === 'checkout' && (
+        <div className="animate-fade-in">
+          <EquipmentCheckoutPage />
+        </div>
+      )}
+
+      {/* Goods Receipt Tab View */}
+      {activeTab === 'receipt' && (
+        <div className="animate-fade-in">
+          <GoodsReceiptPage />
+        </div>
+      )}
+
+      {/* Add Asset Modal */}
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowCreate(false)}>
+          <div className="w-full max-w-lg rounded-2xl border border-gray-700 bg-[#1e2028] p-6 shadow-2xl animate-slide-up" onClick={e => e.stopPropagation()}>
+            <h2 className="mb-4 text-lg font-bold text-white">Add New Asset</h2>
+            <div className="grid grid-cols-2 gap-3">
+              <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Asset name *"
+                className="col-span-2 rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500" />
+              <input value={form.brand} onChange={e => setForm({ ...form, brand: e.target.value })} placeholder="Brand"
+                className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500" />
+              <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}
+                className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white outline-none">
+                {assetTypes.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <div className="relative">
+                <input value={form.serialNumber} onChange={e => setForm({ ...form, serialNumber: e.target.value })} placeholder="Serial Number"
+                  className="w-full rounded-lg border border-gray-700 bg-gray-800/50 pl-3 pr-9 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500" />
+                <button
+                  type="button"
+                  onClick={() => setScanTarget('form-sn')}
+                  className="absolute right-3 top-2.5 text-gray-500 hover:text-white transition-colors"
+                  title="Scan Serial Number"
+                >
+                  <Camera size={14} />
+                </button>
+              </div>
+              <input value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} placeholder="Location"
+                className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500" />
+              <input value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} placeholder="Price" type="number"
+                className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500" />
+              <input value={form.vendor} onChange={e => setForm({ ...form, vendor: e.target.value })} placeholder="Vendor"
+                className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500" />
+            </div>
+            <p className="mt-3 mb-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">Specifications (optional)</p>
+            <div className="grid grid-cols-2 gap-3">
+              <input value={form.processor} onChange={e => setForm({ ...form, processor: e.target.value })} placeholder="Processor"
+                className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500" />
+              <input value={form.ram} onChange={e => setForm({ ...form, ram: e.target.value })} placeholder="RAM"
+                className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500" />
+              <input value={form.storage} onChange={e => setForm({ ...form, storage: e.target.value })} placeholder="Storage"
+                className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500" />
+              <input value={form.os} onChange={e => setForm({ ...form, os: e.target.value })} placeholder="OS"
+                className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500" />
+            </div>
+            <div className="mt-4 flex justify-end gap-3">
+              <button onClick={() => setShowCreate(false)} className="rounded-lg px-4 py-2 text-sm text-gray-400 hover:text-white">Cancel</button>
+              <button onClick={handleCreate} className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 transition-colors">Add Asset</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Asset Detail Modal */}
+      {selected && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => { setSelected(null); setShowAddSchedule(false); }} id="asset-detail-modal-overlay">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-700 bg-[#1e2028] p-6 shadow-2xl animate-slide-up" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-white">{selected.name}</h2>
+              <button onClick={() => { setSelected(null); setShowAddSchedule(false); }} className="text-gray-500 hover:text-white"><X size={18} /></button>
+            </div>
+            
+            {/* Modal Tabs */}
+            <div className="mb-4 flex gap-4 border-b border-gray-800 pb-px">
+              <button
+                onClick={() => setModalTab('specs')}
+                className={cn(
+                  "pb-2 text-xs font-semibold uppercase tracking-wider transition-colors border-b-2 px-1 -mb-px",
+                  modalTab === 'specs'
+                    ? "border-violet-500 text-violet-400 font-semibold"
+                    : "border-transparent text-gray-400 hover:text-gray-200"
+                )}
+              >
+                Specifications
+              </button>
+              <button
+                onClick={() => setModalTab('maintenance')}
+                className={cn(
+                  "pb-2 text-xs font-semibold uppercase tracking-wider transition-colors border-b-2 px-1 -mb-px",
+                  modalTab === 'maintenance'
+                    ? "border-violet-500 text-violet-400 font-semibold"
+                    : "border-transparent text-gray-400 hover:text-gray-200"
+                )}
+                id="asset-maintenance-tab-btn"
+              >
+                Maintenance
+              </button>
+              <button
+                onClick={() => setModalTab('audit')}
+                className={cn(
+                  "pb-2 text-xs font-semibold uppercase tracking-wider transition-colors border-b-2 px-1 -mb-px",
+                  modalTab === 'audit'
+                    ? "border-violet-500 text-violet-400 font-semibold"
+                    : "border-transparent text-gray-400 hover:text-gray-200"
+                )}
+              >
+                Audit Trail
+              </button>
+              <button
+                onClick={() => setModalTab('qr_label')}
+                className={cn(
+                  "pb-2 text-xs font-semibold uppercase tracking-wider transition-colors border-b-2 px-1 -mb-px asset-qr-tab-btn",
+                  modalTab === 'qr_label'
+                    ? "border-violet-500 text-violet-400 font-semibold"
+                    : "border-transparent text-gray-400 hover:text-gray-200"
+                )}
+              >
+                QR Label
+              </button>
+            </div>
+
+            {modalTab === 'specs' && (
+              <>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div><span className="text-gray-500">Brand:</span> <span className="text-gray-300">{selected.brand}</span></div>
+                  <div><span className="text-gray-500">Type:</span> <span className="text-gray-300">{selected.type}</span></div>
+                  <div><span className="text-gray-500">S/N:</span> <span className="text-gray-300">{selected.serialNumber}</span></div>
+                  <div><span className="text-gray-500">Location:</span> <span className="text-gray-300">{selected.location}</span></div>
+                  <div><span className="text-gray-500">Status:</span> <span className={statusConfig[selected.status].color}>{statusConfig[selected.status].label}</span></div>
+                  <div><span className="text-gray-500">Price:</span> <span className="text-gray-300">{formatPrice(selected.price)}</span></div>
+                  <div><span className="text-gray-500">Vendor:</span> <span className="text-gray-300">{selected.vendor}</span></div>
+                  <div><span className="text-gray-500">Assigned To:</span> <span className="text-gray-300">{selected.assignedToId ? getUserById(selected.assignedToId)?.name : 'N/A'}</span></div>
+                </div>
+                {Object.keys(selected.specs).length > 0 && (
+                  <div className="mt-3 rounded-lg bg-gray-800/30 p-3">
+                    <p className="mb-2 text-xs font-medium text-gray-400">Specifications</p>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      {selected.specs.processor && <div><span className="text-gray-500">CPU:</span> <span className="text-gray-300">{selected.specs.processor}</span></div>}
+                      {selected.specs.ram && <div><span className="text-gray-500">RAM:</span> <span className="text-gray-300">{selected.specs.ram}</span></div>}
+                      {selected.specs.storage && <div><span className="text-gray-500">Storage:</span> <span className="text-gray-300">{selected.specs.storage}</span></div>}
+                      {selected.specs.os && <div><span className="text-gray-500">OS:</span> <span className="text-gray-300">{selected.specs.os}</span></div>}
+                      {selected.specs.ipAddress && <div><span className="text-gray-500">IP:</span> <span className="text-gray-300">{selected.specs.ipAddress}</span></div>}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {modalTab === 'maintenance' && (
+              <div className="space-y-4">
+                {/* Header with Add Button */}
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Jadwal Perawatan (PM)</h3>
+                  {canManage && (
+                    <button
+                      onClick={() => {
+                        setShowAddSchedule(!showAddSchedule);
+                        setScheduleForm({ title: '', description: '', frequency: 'WEEKLY', scheduledDate: new Date().toISOString().split('T')[0] });
+                      }}
+                      className="flex items-center gap-1 rounded bg-violet-600/30 px-2 py-1 text-[11px] font-medium text-violet-300 hover:bg-violet-600/40 transition-colors"
+                      id="add-pm-schedule-btn"
+                    >
+                      <Plus size={10} /> {showAddSchedule ? 'Batal' : 'Tambah Jadwal'}
+                    </button>
+                  )}
+                </div>
+
+                {/* Add Schedule Form */}
+                {showAddSchedule && (
+                  <div className="rounded-lg border border-gray-800 bg-gray-900/40 p-3 space-y-3">
+                    <p className="text-[11px] font-semibold text-white">Buat Jadwal Baru</p>
+                    <div className="space-y-2">
+                      <input
+                        type="text"
+                        placeholder="Nama Pemeliharaan (misal: Bersihkan Kipas)"
+                        value={scheduleForm.title}
+                        onChange={e => setScheduleForm({ ...scheduleForm, title: e.target.value })}
+                        className="w-full rounded border border-gray-800 bg-gray-900 px-2.5 py-1.5 text-xs text-white outline-none focus:border-violet-500 font-medium"
+                        id="pm-title-input"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Deskripsi langkah (opsional)"
+                        value={scheduleForm.description}
+                        onChange={e => setScheduleForm({ ...scheduleForm, description: e.target.value })}
+                        className="w-full rounded border border-gray-800 bg-gray-900 px-2.5 py-1.5 text-xs text-white outline-none focus:border-violet-500 font-medium"
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[10px] text-gray-500 font-medium mb-1">Frekuensi</label>
+                          <select
+                            value={scheduleForm.frequency}
+                            onChange={e => setScheduleForm({ ...scheduleForm, frequency: e.target.value as any })}
+                            className="w-full rounded border border-gray-800 bg-gray-900 px-2.5 py-1.5 text-xs text-white outline-none focus:border-violet-500 font-medium"
+                            id="pm-frequency-select"
+                          >
+                            <option value="DAILY">Daily</option>
+                            <option value="WEEKLY">Weekly</option>
+                            <option value="MONTHLY">Monthly</option>
+                            <option value="YEARLY">Yearly</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-gray-500 font-medium mb-1">Tanggal Mulai</label>
+                          <input
+                            type="date"
+                            value={scheduleForm.scheduledDate}
+                            onChange={e => setScheduleForm({ ...scheduleForm, scheduledDate: e.target.value })}
+                            className="w-full rounded border border-gray-800 bg-gray-900 px-2.5 py-1.5 text-xs text-white outline-none focus:border-violet-500 font-medium"
+                            id="pm-date-input"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => {
+                          if (!scheduleForm.title.trim() || !scheduleForm.scheduledDate) return;
+                          addMaintenanceSchedule({
+                            assetId: selected.id,
+                            title: scheduleForm.title.trim(),
+                            description: scheduleForm.description || null,
+                            frequency: scheduleForm.frequency,
+                            scheduledDate: new Date(scheduleForm.scheduledDate).toISOString(),
+                            isActive: true,
+                            notifyDaysBefore: 7
+                          });
+                          setShowAddSchedule(false);
+                        }}
+                        className="rounded bg-violet-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-violet-500 transition shadow"
+                        id="save-pm-schedule-btn"
+                      >
+                        Simpan Jadwal
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Schedules List */}
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  {(() => {
+                    const schedules = maintenanceSchedules.filter(s => s.assetId === selected.id);
+                    if (schedules.length === 0) {
+                      return <p className="text-xs text-gray-500 italic text-center py-4">Belum ada jadwal pemeliharaan rutin untuk aset ini.</p>;
+                    }
+                    return schedules.map(s => (
+                      <div key={s.id} className="rounded-lg border border-gray-850 bg-[#282c34]/50 p-3 flex items-center justify-between gap-4 shadow-sm">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <p className="text-xs font-semibold text-white">{s.title}</p>
+                            <span className="rounded bg-gray-800 px-1 py-0.5 text-[9px] font-semibold text-violet-400 uppercase tracking-wider">{s.frequency}</span>
+                            <span className={cn(
+                              "rounded-full px-1.5 py-0.2 text-[8px] font-bold",
+                              s.isActive ? "bg-green-500/10 text-green-400 border border-green-500/20" : "bg-gray-850 text-gray-400"
+                            )}>
+                              {s.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                          </div>
+                          {s.description && <p className="text-[11px] text-gray-400">{s.description}</p>}
+                          <div className="text-[10px] text-gray-500 space-y-0.5 pt-1">
+                            <p>Jatuh Tempo: <span className="text-gray-300 font-medium">{new Date(s.scheduledDate).toLocaleDateString()}</span></p>
+                            {s.lastPerformed && <p>Terakhir Dilakukan: <span className="text-gray-300 font-medium">{new Date(s.lastPerformed).toLocaleDateString()}</span></p>}
+                          </div>
+                        </div>
+                        {canManage && (
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => updateMaintenanceSchedule(s.id, { isActive: !s.isActive })}
+                              className="text-[10px] rounded px-1.5 py-0.5 bg-gray-850 hover:bg-gray-800 text-gray-300 transition"
+                            >
+                              {s.isActive ? 'Disable' : 'Enable'}
+                            </button>
+                            <button
+                              onClick={() => deleteMaintenanceSchedule(s.id)}
+                              className="text-[10px] rounded px-1.5 py-0.5 bg-red-950 hover:bg-red-900 text-red-400 transition"
+                            >
+                              Hapus
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ));
+                  })()}
+                </div>
+              </div>
+            )}
+
+            {modalTab === 'audit' && (
+              <div className="max-h-60 overflow-y-auto space-y-4 pr-1">
+                {(() => {
+                  const assetCheckouts = equipmentCheckouts.filter(c =>
+                    c.items?.some(item => item.assetId === selected.id)
+                  );
+                  if (assetCheckouts.length === 0) {
+                    return <p className="text-xs text-gray-500 italic">No audit logs found for this asset.</p>;
+                  }
+                  return (
+                    <div className="relative border-l border-gray-800 pl-4 ml-2 space-y-4">
+                      {assetCheckouts.map(c => {
+                        const item = c.items?.find(i => i.assetId === selected.id);
+                        const tech = getUserById(c.technicianId);
+                        const isReturned = c.status === 'RETURNED' || item?.scannedIn;
+                        return (
+                          <div key={c.id} className="relative">
+                            {/* Timeline dot */}
+                            <div className={cn(
+                              "absolute -left-[21px] top-1.5 h-2 w-2 rounded-full border border-[#1e2028]",
+                              isReturned ? "bg-green-500" : "bg-blue-500"
+                            )} />
+                            <div className="text-xs">
+                              <div className="flex justify-between text-[10px] text-gray-500 font-semibold uppercase tracking-wider mb-0.5">
+                                <span>{c.checkoutNumber}</span>
+                                <span>{new Date(c.createdAt).toLocaleDateString()}</span>
+                              </div>
+                              <p className="text-white font-medium">Checked out by <span className="text-violet-400">{tech?.name || c.technicianId}</span></p>
+                              <p className="text-gray-400 mt-0.5"><span className="text-gray-500">Purpose:</span> {c.purpose}</p>
+                              <p className="text-gray-400"><span className="text-gray-500">Expected Return:</span> {new Date(c.expectedReturn).toLocaleDateString()}</p>
+                              
+                              {item?.scannedIn ? (
+                                <div className="mt-1 bg-green-500/10 border border-green-500/20 rounded p-1.5 text-[11px] text-green-400">
+                                  <p className="font-semibold font-mono">Returned on {item.scannedInAt ? new Date(item.scannedInAt).toLocaleDateString() : 'N/A'}</p>
+                                  <p><span className="text-gray-400">Condition:</span> <span className="font-medium">{item.conditionIn || 'GOOD'}</span></p>
+                                  {item.damageNotes && <p><span className="text-gray-400">Damage Notes:</span> {item.damageNotes}</p>}
+                                </div>
+                              ) : (
+                                <div className="mt-1 bg-blue-500/10 border border-blue-500/20 rounded p-1.5 text-[11px] text-blue-400 flex items-center justify-between">
+                                  <span>Not returned yet ({c.status})</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {modalTab === 'qr_label' && (
+              <div className="flex flex-col items-center justify-center p-4 bg-gray-900/40 rounded-xl border border-gray-800 space-y-4">
+                <p className="text-xs text-gray-400 text-center font-medium">Pratinjau Stiker Label Thermal Aset</p>
+                
+                <div className="label-sticker-preview w-64 h-36 border border-gray-600 bg-white rounded-md p-3 text-black flex flex-col justify-between shadow-lg font-sans">
+                  <div className="text-[9px] font-black text-center border-b border-black pb-1 uppercase tracking-wider">
+                    CLICKHUB IT ASSET
+                  </div>
+                  <div className="flex flex-1 mt-1.5 gap-2 min-h-0">
+                    <div className="flex-1 flex flex-col justify-between text-left min-w-0">
+                      <div className="text-[10px] font-bold truncate leading-tight">{selected.name}</div>
+                      <div className="text-[8px] text-gray-800 leading-tight">Brand: {selected.brand || '-'}</div>
+                      <div className="text-[8px] font-mono font-bold leading-tight">S/N: {selected.serialNumber}</div>
+                      <div className="text-[8px] text-gray-800 leading-tight font-medium">Loc: {selected.location}</div>
+                      <div className="text-[8px] text-gray-800 leading-tight">Status: {selected.status}</div>
+                    </div>
+                    <div className="w-16 h-16 flex items-center justify-center self-center shrink-0 border border-gray-200">
+                      <img 
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(selected.serialNumber)}`} 
+                        alt="QR Code" 
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 w-full justify-center">
+                  <button
+                    onClick={() => {
+                      const printWindow = window.open('', '_blank');
+                      if (!printWindow) {
+                        alert('Pop-up blocked! Please allow pop-ups to print labels.');
+                        return;
+                      }
+                      const qrData = encodeURIComponent(selected.serialNumber);
+                      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${qrData}`;
+                      const labelHtml = `
+                        <div class="label-card" style="width: 260px; height: 140px; border: 2px solid #000; border-radius: 6px; padding: 8px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; background: #fff; page-break-inside: avoid;">
+                          <div class="label-header" style="font-size: 10px; font-weight: 800; text-align: center; border-bottom: 1px solid #000; padding-bottom: 3px; letter-spacing: 1px;">CLICKHUB IT ASSET</div>
+                          <div class="label-body" style="display: flex; flex: 1; margin-top: 6px; gap: 8px; min-height: 0;">
+                            <div class="label-info" style="flex: 1; display: flex; flex-direction: column; justify-content: space-between; min-width: 0;">
+                              <div class="asset-name" style="font-size: 11px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px;">${selected.name}</div>
+                              <div class="info-row" style="font-size: 9px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Brand: ${selected.brand || '-'}</div>
+                              <div class="info-row font-mono" style="font-size: 9px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: Courier, monospace;">S/N: ${selected.serialNumber}</div>
+                              <div class="info-row" style="font-size: 9px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Loc: ${selected.location}</div>
+                              <div class="info-row" style="font-size: 9px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Status: ${selected.status}</div>
+                            </div>
+                            <div class="label-qr" style="width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; align-self: center;">
+                              <img src="${qrUrl}" alt="QR Code" style="width: 100%; height: 100%; object-fit: contain;" onload="window.checkImagesLoaded()" />
+                            </div>
+                          </div>
+                        </div>
+                      `;
+                      
+                      printWindow.document.write(`
+                        <html>
+                          <head>
+                            <title>Print Asset Label</title>
+                            <style>
+                              @page {
+                                size: auto;
+                                margin: 0mm;
+                              }
+                              body {
+                                margin: 0;
+                                padding: 10px;
+                                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                                background: #fff;
+                                color: #000;
+                              }
+                              .label-card {
+                                margin: 0 auto;
+                              }
+                              @media print {
+                                body {
+                                  padding: 0;
+                                }
+                              }
+                            </style>
+                            <script>
+                              window.checkImagesLoaded = function() {
+                                setTimeout(function() {
+                                  window.print();
+                                  window.close();
+                                }, 500);
+                              };
+                            </script>
+                          </head>
+                          <body>
+                            ${labelHtml}
+                          </body>
+                        </html>
+                      `);
+                      printWindow.document.close();
+                    }}
+                    className="rounded-lg bg-violet-600 hover:bg-violet-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors shadow flex items-center gap-1.5 btn-print-single-qr"
+                  >
+                    <span>🖨️ Print Label</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {canManage && (
+              <div className="mt-4 flex justify-between gap-2">
+                <div className="flex gap-2">
+                  <select value={selected.status} onChange={e => { updateAsset(selected.id, { status: e.target.value as AssetStatus }); setSelected({ ...selected, status: e.target.value as AssetStatus }); }}
+                    className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-1.5 text-xs text-white outline-none">
+                    {Object.entries(statusConfig).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                  </select>
+                  <button onClick={() => handlePrintLabels([selected])}
+                    className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 transition-colors shadow">
+                    Print Label
+                  </button>
+                </div>
+                <button onClick={() => { deleteAsset(selected.id); setSelected(null); }}
+                  className="rounded-lg bg-red-600/20 px-3 py-1.5 text-xs text-red-400 hover:bg-red-600/30">Delete</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Direct Bon Modal */}
+      {showDirectBon && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowDirectBon(false)}>
+          <div className="w-full max-w-md rounded-2xl border border-gray-700 bg-[#1e2028] p-6 shadow-2xl animate-slide-up" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-white">Direct Bon Request</h2>
+              <button onClick={() => setShowDirectBon(false)} className="text-gray-500 hover:text-white"><X size={18} /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-400 uppercase mb-1.5">Select Part/Item</label>
+                <select 
+                  value={directBonForm.inventoryId}
+                  onChange={e => setDirectBonForm({ ...directBonForm, inventoryId: e.target.value })}
+                  className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white outline-none focus:border-violet-500 font-medium"
+                >
+                  <option value="">Select Part...</option>
+                  {inventories.map(inv => (
+                    <option key={inv.id} value={inv.id}>
+                      {inv.name} (Stock: {inv.quantity} {inv.unit})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-1">
+                  <label className="block text-xs font-semibold text-gray-400 uppercase mb-1.5">Qty</label>
+                  <input 
+                    type="number" 
+                    min="1"
+                    value={directBonForm.quantity}
+                    onChange={e => setDirectBonForm({ ...directBonForm, quantity: Math.max(1, parseInt(e.target.value) || 1) })}
+                    className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white outline-none focus:border-violet-500 font-medium"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-semibold text-gray-400 uppercase mb-1.5">Notes / Usage</label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. Server Room D"
+                    value={directBonForm.notes}
+                    onChange={e => setDirectBonForm({ ...directBonForm, notes: e.target.value })}
+                    className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500 font-medium"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button onClick={() => setShowDirectBon(false)} className="rounded-lg px-4 py-2 text-sm text-gray-400 hover:text-white">Cancel</button>
+                <button onClick={handleDirectBon} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 transition-colors shadow">Submit Request</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stock Request Modal */}
+      {showStockRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowStockRequest(false)}>
+          <div className="w-full max-w-lg rounded-2xl border border-gray-700 bg-[#1e2028] p-6 shadow-2xl animate-slide-up" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-white">Purchase / Restock Request</h2>
+              <button onClick={() => setShowStockRequest(false)} className="text-gray-500 hover:text-white"><X size={18} /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-400 uppercase mb-1.5">Request Type</label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                    <input 
+                      type="radio" 
+                      name="stockType"
+                      checked={stockForm.type === 'RESTOCK'}
+                      onChange={() => setStockForm({ ...stockForm, type: 'RESTOCK' })}
+                      className="accent-violet-600"
+                    />
+                    Restock Existing Item
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+                    <input 
+                      type="radio" 
+                      name="stockType"
+                      checked={stockForm.type === 'NEW_ITEM'}
+                      onChange={() => setStockForm({ ...stockForm, type: 'NEW_ITEM' })}
+                      className="accent-violet-600"
+                    />
+                    Request New Item
+                  </label>
+                </div>
+              </div>
+
+              {stockForm.type === 'RESTOCK' ? (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-400 uppercase mb-1.5">Select Item to Restock</label>
+                  <select 
+                    value={stockForm.inventoryId}
+                    onChange={e => setStockForm({ ...stockForm, inventoryId: e.target.value })}
+                    className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white outline-none focus:border-violet-500 font-medium"
+                  >
+                    <option value="">Select Item...</option>
+                    {inventories.map(inv => (
+                      <option key={inv.id} value={inv.id}>
+                        {inv.name} (Current Stock: {inv.quantity})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2">
+                    <label className="block text-xs font-semibold text-gray-400 uppercase mb-1.5">Item Name</label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. Cat6 LAN Cable 300m"
+                      value={stockForm.itemName}
+                      onChange={e => setStockForm({ ...stockForm, itemName: e.target.value })}
+                      className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500 font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-400 uppercase mb-1.5">Category</label>
+                    <input 
+                      type="text" 
+                      placeholder="e.g. Cables"
+                      value={stockForm.category}
+                      onChange={e => setStockForm({ ...stockForm, category: e.target.value })}
+                      className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500 font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-400 uppercase mb-1.5">Description</label>
+                    <input 
+                      type="text" 
+                      placeholder="Specs, links, etc."
+                      value={stockForm.itemDescription}
+                      onChange={e => setStockForm({ ...stockForm, itemDescription: e.target.value })}
+                      className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500 font-medium"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-400 uppercase mb-1.5">Quantity Requested</label>
+                  <input 
+                    type="number" 
+                    min="1"
+                    value={stockForm.quantity}
+                    onChange={e => setStockForm({ ...stockForm, quantity: Math.max(1, parseInt(e.target.value) || 1) })}
+                    className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white outline-none focus:border-violet-500 font-medium"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-400 uppercase mb-1.5">Estimated Price (IDR)</label>
+                  <input 
+                    type="number" 
+                    placeholder="e.g. 500000"
+                    value={stockForm.estimatedPrice}
+                    onChange={e => setStockForm({ ...stockForm, estimatedPrice: e.target.value })}
+                    className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500 font-medium"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-400 uppercase mb-1.5">Reason for Request</label>
+                <textarea 
+                  placeholder="Why do we need this item/restock?"
+                  rows={2}
+                  value={stockForm.reason}
+                  onChange={e => setStockForm({ ...stockForm, reason: e.target.value })}
+                  className="w-full rounded-lg border border-gray-700 bg-gray-800 p-3 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500 font-medium"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button onClick={() => setShowStockRequest(false)} className="rounded-lg px-4 py-2 text-sm text-gray-400 hover:text-white">Cancel</button>
+                <button onClick={handleStockRequest} className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500 transition-colors shadow">Submit Request</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {scanTarget && (
+        <BarcodeScannerModal
+          isOpen={!!scanTarget}
+          onClose={() => setScanTarget(null)}
+          onScan={(code) => {
+            if (scanTarget === 'assets-search' || scanTarget === 'inventory-search') {
+              setSearch(code);
+            } else if (scanTarget === 'form-sn') {
+              setForm(f => ({ ...f, serialNumber: code }));
+            }
+            setScanTarget(null);
+          }}
+          title={
+            scanTarget === 'form-sn'
+              ? "Scan Serial Number Aset"
+              : scanTarget === 'assets-search'
+              ? "Scan Serial Number untuk Cari"
+              : "Scan SKU Barang untuk Cari"
+          }
+        />
+      )}
+    </div>
+  );
+}
