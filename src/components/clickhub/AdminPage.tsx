@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { cn } from '../../utils/cn';
-import { BarChart3, Users, FileText, AlertTriangle, Server, TicketCheck, Plus, X } from 'lucide-react';
+import { BarChart3, Users, FileText, AlertTriangle, Server, TicketCheck, Plus, X, CheckSquare } from 'lucide-react';
 import type { UserRole } from '../../types';
 import { isPast } from 'date-fns';
 import { toast } from 'sonner';
 
-type Tab = 'overview' | 'users' | 'logs';
+type Tab = 'overview' | 'users' | 'approvals' | 'logs';
 
 const roleLabels: Record<UserRole, { label: string; color: string }> = {
   ROOT: { label: 'Root', color: 'bg-red-500/20 text-red-400' },
@@ -18,7 +18,12 @@ const roleLabels: Record<UserRole, { label: string; color: string }> = {
 };
 
 export default function AdminPage() {
-  const { tickets, assets, tasks, users, auditLogs, adminAddUser } = useStore();
+  const { 
+    tickets, assets, tasks, users, auditLogs, adminAddUser,
+    equipmentCheckouts, partRequests, stockRequests, directoryEntries,
+    approveEquipmentCheckout, approvePartRequest, approveStockRequest, 
+    approveDeleteDirectoryConfig, rejectDeleteDirectoryConfig
+  } = useStore();
   const [tab, setTab] = useState<Tab>('overview');
 
   // Add User states
@@ -47,6 +52,7 @@ export default function AdminPage() {
   const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
     { key: 'overview', label: 'Overview', icon: <BarChart3 size={14} /> },
     { key: 'users', label: 'Users', icon: <Users size={14} /> },
+    { key: 'approvals', label: 'Approvals', icon: <CheckSquare size={14} /> },
     { key: 'logs', label: 'Audit Logs', icon: <FileText size={14} /> },
   ];
 
@@ -185,6 +191,270 @@ export default function AdminPage() {
               </tbody>
             </table>
           </div>
+          </div>
+        )}
+
+        {tab === 'approvals' && (
+          <div className="space-y-6 animate-fade-in text-left">
+            {/* 1. Equipment Checkout Approvals */}
+            <div className="bg-[#282c34] border border-gray-800 rounded-xl p-5 space-y-4">
+              <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                📋 Equipment Checkout Approvals
+                <span className="rounded bg-violet-500/10 text-violet-400 border border-violet-500/20 px-1.5 py-0.5 text-[10px] font-bold">
+                  {equipmentCheckouts.filter(c => c.status === 'PENDING_APPROVAL').length} Pending
+                </span>
+              </h3>
+              
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead>
+                    <tr className="border-b border-gray-800 text-gray-500 uppercase tracking-wider text-[10px] font-semibold">
+                      <th className="py-2.5 px-3">Checkout No</th>
+                      <th className="py-2.5 px-3">Technician</th>
+                      <th className="py-2.5 px-3">Purpose</th>
+                      <th className="py-2.5 px-3">Items</th>
+                      <th className="py-2.5 px-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {equipmentCheckouts.filter(c => c.status === 'PENDING_APPROVAL').length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="py-6 text-center text-gray-500 italic">No checkout requests pending approval.</td>
+                      </tr>
+                    ) : (
+                      equipmentCheckouts.filter(c => c.status === 'PENDING_APPROVAL').map(c => {
+                        const tech = users.find(u => u.id === c.technicianId);
+                        const itemsSummary = (c.items || []).map(item => {
+                          if (item.assetId) {
+                            const asset = assets.find(a => a.id === item.assetId);
+                            return `${asset?.name || 'Asset'} (Qty: ${item.quantity})`;
+                          } else {
+                            const inv = useStore.getState().inventories.find(i => i.id === item.inventoryId);
+                            return `${inv?.name || 'Part'} (Qty: ${item.quantity})`;
+                          }
+                        }).join(', ');
+
+                        return (
+                          <tr key={c.id} className="border-b border-gray-800/40 hover:bg-gray-800/20">
+                            <td className="py-3 px-3 font-mono font-bold text-white">{c.checkoutNumber}</td>
+                            <td className="py-3 px-3 text-gray-300">{tech?.name || c.technicianId}</td>
+                            <td className="py-3 px-3 text-gray-350">{c.purpose}</td>
+                            <td className="py-3 px-3 text-gray-400 truncate max-w-[200px]" title={itemsSummary}>{itemsSummary}</td>
+                            <td className="py-3 px-3 text-right">
+                              <button
+                                onClick={async () => {
+                                  if (confirm(`Setujui peminjaman alat ${c.checkoutNumber}?`)) {
+                                    await approveEquipmentCheckout(c.id);
+                                    toast.success('Checkout request approved.');
+                                  }
+                                }}
+                                className="rounded bg-green-950/40 px-2.5 py-1 text-green-400 hover:bg-green-900/40 hover:text-green-300 transition-colors text-[10px] font-bold border border-green-800/30"
+                              >
+                                ✓ Approve
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* 2. Stock Purchase Request Approvals */}
+            <div className="bg-[#282c34] border border-gray-800 rounded-xl p-5 space-y-4">
+              <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                🛒 Stock Purchase Request Approvals
+                <span className="rounded bg-violet-500/10 text-violet-400 border border-violet-500/20 px-1.5 py-0.5 text-[10px] font-bold">
+                  {stockRequests.filter(r => r.status === 'PENDING').length} Pending
+                </span>
+              </h3>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead>
+                    <tr className="border-b border-gray-800 text-gray-500 uppercase tracking-wider text-[10px] font-semibold">
+                      <th className="py-2.5 px-3">Req No</th>
+                      <th className="py-2.5 px-3">Item Name</th>
+                      <th className="py-2.5 px-3">Qty</th>
+                      <th className="py-2.5 px-3">Reason</th>
+                      <th className="py-2.5 px-3">Requested By</th>
+                      <th className="py-2.5 px-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stockRequests.filter(r => r.status === 'PENDING').length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-6 text-center text-gray-500 italic">No purchase requests pending approval.</td>
+                      </tr>
+                    ) : (
+                      stockRequests.filter(r => r.status === 'PENDING').map(r => {
+                        const requester = users.find(u => u.id === r.requestedById);
+                        return (
+                          <tr key={r.id} className="border-b border-gray-800/40 hover:bg-gray-800/20">
+                            <td className="py-3 px-3 font-mono font-semibold text-white">{r.requestNumber}</td>
+                            <td className="py-3 px-3 text-gray-300 font-semibold">{r.itemName}</td>
+                            <td className="py-3 px-3 text-gray-400">{r.quantity}</td>
+                            <td className="py-3 px-3 text-gray-400 max-w-[200px] truncate" title={r.reason}>{r.reason}</td>
+                            <td className="py-3 px-3 text-gray-350">{requester?.name || r.requestedById}</td>
+                            <td className="py-3 px-3 text-right">
+                              <div className="flex justify-end gap-1.5">
+                                <button
+                                  onClick={async () => {
+                                    if (confirm(`Approve stock request for "${r.itemName}"?`)) {
+                                      await approveStockRequest(r.id, 'APPROVED');
+                                      toast.success('Stock request approved.');
+                                    }
+                                  }}
+                                  className="rounded bg-green-950/40 px-2.5 py-1 text-green-400 hover:bg-green-900/40 hover:text-green-300 transition-colors text-[10px] font-bold border border-green-800/30"
+                                >
+                                  ✓ Approve
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    if (confirm(`Reject stock request for "${r.itemName}"?`)) {
+                                      await approveStockRequest(r.id, 'REJECTED');
+                                      toast.success('Stock request rejected.');
+                                    }
+                                  }}
+                                  className="rounded bg-gray-850 px-2.5 py-1 text-gray-400 hover:bg-gray-800 hover:text-white transition-colors text-[10px] border border-gray-700"
+                                >
+                                  × Reject
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* 3. Part Request (Bon Barang) Approvals */}
+            <div className="bg-[#282c34] border border-gray-800 rounded-xl p-5 space-y-4">
+              <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                🔧 Part Request (Bon) Approvals
+                <span className="rounded bg-violet-500/10 text-violet-400 border border-violet-500/20 px-1.5 py-0.5 text-[10px] font-bold">
+                  {partRequests.filter(r => r.status === 'PENDING').length} Pending
+                </span>
+              </h3>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead>
+                    <tr className="border-b border-gray-800 text-gray-500 uppercase tracking-wider text-[10px] font-semibold">
+                      <th className="py-2.5 px-3">Item Name</th>
+                      <th className="py-2.5 px-3">Quantity</th>
+                      <th className="py-2.5 px-3">Requested By</th>
+                      <th className="py-2.5 px-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {partRequests.filter(r => r.status === 'PENDING').length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="py-6 text-center text-gray-500 italic">No part requests pending approval.</td>
+                      </tr>
+                    ) : (
+                      partRequests.filter(r => r.status === 'PENDING').map(r => {
+                        const requester = users.find(u => u.id === r.requestedBy);
+                        const invItem = useStore.getState().inventories.find(i => i.id === r.inventoryId);
+                        return (
+                          <tr key={r.id} className="border-b border-gray-800/40 hover:bg-gray-800/20">
+                            <td className="py-3 px-3 text-white font-semibold">{invItem?.name || 'Unknown Part'}</td>
+                            <td className="py-3 px-3 text-gray-300">{r.quantity} {invItem?.unit || 'pcs'}</td>
+                            <td className="py-3 px-3 text-gray-350">{requester?.name || r.requestedBy}</td>
+                            <td className="py-3 px-3 text-right">
+                              <button
+                                onClick={async () => {
+                                  if (confirm(`Approve part request for ${invItem?.name}?`)) {
+                                    await approvePartRequest(r.id);
+                                    toast.success('Part request approved.');
+                                  }
+                                }}
+                                className="rounded bg-green-950/40 px-2.5 py-1 text-green-400 hover:bg-green-900/40 hover:text-green-300 transition-colors text-[10px] font-bold border border-green-800/30"
+                              >
+                                ✓ Approve
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* 4. IT CMDB Delete Approvals */}
+            <div className="bg-[#282c34] border border-gray-800 rounded-xl p-5 space-y-4">
+              <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                🛡️ IT Configuration Deletion Approvals
+                <span className="rounded bg-violet-500/10 text-violet-400 border border-violet-500/20 px-1.5 py-0.5 text-[10px] font-bold">
+                  {directoryEntries.filter(e => e.location?.includes('PENDING_DELETE')).length} Pending
+                </span>
+              </h3>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead>
+                    <tr className="border-b border-gray-800 text-gray-500 uppercase tracking-wider text-[10px] font-semibold">
+                      <th className="py-2.5 px-3">Config Name</th>
+                      <th className="py-2.5 px-3">Value</th>
+                      <th className="py-2.5 px-3">Requested By</th>
+                      <th className="py-2.5 px-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {directoryEntries.filter(e => e.location?.includes('PENDING_DELETE')).length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="py-6 text-center text-gray-500 italic">No deletion requests pending approval.</td>
+                      </tr>
+                    ) : (
+                      directoryEntries.filter(e => e.location?.includes('PENDING_DELETE')).map(e => {
+                        const parts = e.location ? e.location.split(':') : [];
+                        const requesterId = parts[3] || 'unknown';
+                        const requesterName = users.find(u => u.id === requesterId)?.name || requesterId;
+
+                        return (
+                          <tr key={e.id} className="border-b border-gray-800/40 hover:bg-gray-800/20">
+                            <td className="py-3 px-3 text-white font-semibold">{e.name}</td>
+                            <td className="py-3 px-3 text-gray-300 font-mono">{e.value}</td>
+                            <td className="py-3 px-3 text-gray-350">{requesterName}</td>
+                            <td className="py-3 px-3 text-right">
+                              <div className="flex justify-end gap-1.5">
+                                <button
+                                  onClick={async () => {
+                                    if (confirm(`Approve deletion of "${e.name}"?`)) {
+                                      await approveDeleteDirectoryConfig(e.id);
+                                      toast.success('Config deleted permanently.');
+                                    }
+                                  }}
+                                  className="rounded bg-red-950/40 px-2.5 py-1 text-red-400 hover:bg-red-900/40 hover:text-red-300 transition-colors text-[10px] font-bold border border-red-800/30"
+                                >
+                                  ✓ Approve Delete
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    await rejectDeleteDirectoryConfig(e.id);
+                                    toast.success('Deletion request rejected.');
+                                  }}
+                                  className="rounded bg-gray-850 px-2.5 py-1 text-gray-400 hover:bg-gray-800 hover:text-white transition-colors text-[10px] border border-gray-700"
+                                >
+                                  × Cancel
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
 
