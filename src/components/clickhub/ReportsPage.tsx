@@ -3,11 +3,87 @@ import { useStore } from '../../store/useStore';
 import { cn } from '../../utils/cn';
 import { 
   FileText, Download, BarChart2, Briefcase, 
-  Layers, Package, Calendar, Database 
+  Layers, Package, Calendar, Database,
+  Clock, Award, Star, RefreshCw, AlertTriangle, TrendingUp, User, ListFilter
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
+
+// Reusable Circular Gauge Chart Component for KPI ratios
+const KpiGauge = ({ 
+  value, 
+  displayValue,
+  title, 
+  subtitle, 
+  colorKey = "indigo"
+}: { 
+  value: number; 
+  displayValue: string;
+  title: string; 
+  subtitle: string; 
+  colorKey?: "indigo" | "emerald" | "amber" | "rose" | "violet"; 
+}) => {
+  const radius = 30;
+  const strokeWidth = 6;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (Math.min(Math.max(value, 0), 100) / 100) * circumference;
+  const gradientId = `gauge-gradient-${title.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`;
+
+  const gradientColors = {
+    indigo: { start: '#818cf8', end: '#4f46e5' },
+    emerald: { start: '#34d399', end: '#059669' },
+    amber: { start: '#fbbf24', end: '#d97706' },
+    rose: { start: '#f87171', end: '#e11d48' },
+    violet: { start: '#a78bfa', end: '#7c3aed' },
+  };
+
+  const colors = gradientColors[colorKey] || gradientColors.indigo;
+
+  return (
+    <div className="flex items-center gap-4 border border-gray-800/80 rounded-2xl p-4 bg-gray-900/10 hover:bg-gray-900/30 hover:border-violet-500/30 transition-all duration-300 group shadow-lg shadow-black/10">
+      <div className="relative w-16 h-16 shrink-0">
+        <svg className="w-full h-full transform -rotate-90" viewBox="0 0 80 80">
+          <defs>
+            <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor={colors.start} />
+              <stop offset="100%" stopColor={colors.end} />
+            </linearGradient>
+          </defs>
+          {/* Background circle */}
+          <circle
+            cx="40"
+            cy="40"
+            r={radius}
+            strokeWidth={strokeWidth}
+            className="stroke-gray-800/50 fill-transparent"
+          />
+          {/* Progress circle */}
+          <circle
+            cx="40"
+            cy="40"
+            r={radius}
+            strokeWidth={strokeWidth}
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
+            stroke={`url(#${gradientId})`}
+            className="fill-transparent transition-all duration-1000 ease-out"
+          />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-xs font-black text-white group-hover:scale-110 transition-transform duration-300">
+            {displayValue}
+          </span>
+        </div>
+      </div>
+      <div>
+        <h4 className="text-[11px] font-bold text-gray-400 group-hover:text-white transition-colors duration-200 uppercase tracking-wider">{title}</h4>
+        <p className="text-[10px] text-gray-500 mt-0.5 leading-snug">{subtitle}</p>
+      </div>
+    </div>
+  );
+};
 
 export default function ReportsPage() {
   const { 
@@ -26,6 +102,40 @@ export default function ReportsPage() {
   // Date filter state
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [activePreset, setActivePreset] = useState<string>('all');
+
+  // Preset Date Logic
+  const handlePreset = (preset: '30days' | 'month' | 'quarter' | 'all') => {
+    setActivePreset(preset);
+    const now = new Date();
+    const formatDate = (d: Date) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    if (preset === '30days') {
+      const start = new Date();
+      start.setDate(now.getDate() - 30);
+      setStartDate(formatDate(start));
+      setEndDate(formatDate(now));
+    } else if (preset === 'month') {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      setStartDate(formatDate(start));
+      setEndDate(formatDate(end));
+    } else if (preset === 'quarter') {
+      const currentQuarterMonth = Math.floor(now.getMonth() / 3) * 3;
+      const start = new Date(now.getFullYear(), currentQuarterMonth, 1);
+      const end = new Date(now.getFullYear(), currentQuarterMonth + 3, 0);
+      setStartDate(formatDate(start));
+      setEndDate(formatDate(end));
+    } else {
+      setStartDate('');
+      setEndDate('');
+    }
+  };
 
   // Date filtering logic
   const filteredTasks = tasks.filter(t => {
@@ -300,11 +410,11 @@ export default function ReportsPage() {
   });
 
   // Export functions
-
   const exportToExcel = (data: any[], sheetName: string, filename: string) => {
     if (data.length === 0) return;
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
+    XcontentExportWatermark(worksheet);
     XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
     
     // Add watermark metadata
@@ -316,6 +426,10 @@ export default function ReportsPage() {
     };
 
     XLSX.writeFile(workbook, `${filename}_${Date.now()}.xlsx`);
+  };
+
+  const XcontentExportWatermark = (ws: XLSX.WorkSheet) => {
+    // Add simple watermark log note in Excel metadata if needed
   };
 
   const exportToPDF = (headers: string[], rows: any[][], title: string, filename: string) => {
@@ -423,56 +537,84 @@ export default function ReportsPage() {
     Verified: i.isVerified ? 'Yes' : 'No'
   }));
 
+  const ticketResolutionPct = stats.totalTickets ? Math.round((stats.resolvedTickets / stats.totalTickets) * 100) : 0;
+  const taskCompletionPct = stats.totalTasks ? Math.round((stats.completedTasks / stats.totalTasks) * 100) : 0;
+  const csatDisplayPct = Math.round((parseFloat(avgCsat) / 5) * 100);
+
   return (
-    <div className="h-full overflow-y-auto flex flex-col gap-6 p-6">
+    <div className="h-full overflow-y-auto flex flex-col gap-6 p-6 bg-slate-955/20 text-gray-100">
       {/* Header Panel */}
-      <div className="flex items-center justify-between border-b border-gray-800 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-800/80 pb-5 gap-4">
         <div>
-          <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <BarChart2 className="text-violet-500" size={24} />
+          <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
+            <BarChart2 className="text-violet-500 animate-pulse" size={26} />
             Reports & Analytics Center
           </h1>
           <p className="text-xs text-gray-400 mt-1">
-            Export secure operational data sheets with digital forensic watermarks
+            Export secure operational data sheets with digital forensic watermarks and view live SLA compliance logs.
           </p>
         </div>
         
         {/* Verification Status Badge */}
-        <div className="flex items-center gap-1.5 rounded-full bg-violet-600/10 border border-violet-500/20 px-3 py-1 text-[10px] font-bold text-violet-400">
-          <Database size={12} />
+        <div className="flex items-center gap-2 self-start sm:self-center rounded-full bg-violet-500/10 border border-violet-500/30 px-3.5 py-1.5 text-[10px] font-bold text-violet-400 backdrop-blur-md">
+          <Database size={12} className="animate-spin-slow" />
           Active Database: {import.meta.env.VITE_SUPABASE_URL?.split('//')[1]?.split('.')[0] || 'dtjsjbyoxwbrzlhdoaqn'}
         </div>
       </div>
 
       {/* Date Filter Panel */}
-      <div className="flex flex-wrap items-center gap-4 bg-gray-950/20 border border-gray-800 rounded-2xl p-4 backdrop-blur-md">
-        <div className="flex items-center gap-2">
-          <Calendar size={14} className="text-violet-400" />
-          <span className="text-xs font-bold text-gray-300 uppercase tracking-wider">Date Filters</span>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gray-905/30 border border-gray-800/80 rounded-2xl p-4 backdrop-blur-xl shadow-lg shadow-black/10">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-1.5 text-gray-400 pr-2 border-r border-gray-800/80">
+            <Calendar size={14} className="text-violet-400" />
+            <span className="text-xs font-black uppercase tracking-wider text-gray-300">Presets</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              { label: '30 Days', preset: '30days' },
+              { label: 'This Month', preset: 'month' },
+              { label: 'This Quarter', preset: 'quarter' },
+              { label: 'All Time', preset: 'all' },
+            ].map((item) => (
+              <button
+                key={item.label}
+                onClick={() => handlePreset(item.preset as any)}
+                className={cn(
+                  "rounded-lg text-[10px] font-extrabold px-3 py-1.5 border transition-all active:scale-95",
+                  activePreset === item.preset 
+                    ? "bg-violet-650 border-violet-550 text-white shadow-md shadow-violet-600/35"
+                    : "bg-gray-900/60 border-gray-800/70 text-gray-400 hover:text-white hover:bg-gray-850"
+                )}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-3 ml-auto">
+
+        <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold text-gray-500 uppercase">From</span>
+            <span className="text-[10px] font-extrabold text-gray-500 uppercase tracking-wider">From</span>
             <input
               type="date"
               value={startDate}
-              onChange={e => setStartDate(e.target.value)}
-              className="rounded-lg border border-gray-800 bg-gray-900 px-3 py-1.5 text-xs text-white outline-none focus:border-violet-500 transition-colors"
+              onChange={e => { setStartDate(e.target.value); setActivePreset(''); }}
+              className="rounded-lg border border-gray-800 bg-gray-950/80 px-3 py-1.5 text-xs text-white outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/20 transition-all w-[130px] font-medium"
             />
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold text-gray-500 uppercase">To</span>
+            <span className="text-[10px] font-extrabold text-gray-500 uppercase tracking-wider">To</span>
             <input
               type="date"
               value={endDate}
-              onChange={e => setEndDate(e.target.value)}
-              className="rounded-lg border border-gray-800 bg-gray-900 px-3 py-1.5 text-xs text-white outline-none focus:border-violet-500 transition-colors"
+              onChange={e => { setEndDate(e.target.value); setActivePreset(''); }}
+              className="rounded-lg border border-gray-800 bg-gray-950/80 px-3 py-1.5 text-xs text-white outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/20 transition-all w-[130px] font-medium"
             />
           </div>
           {(startDate || endDate) && (
             <button
-              onClick={() => { setStartDate(''); setEndDate(''); }}
-              className="rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 text-xs font-bold px-3 py-1.5 transition-all border border-gray-750"
+              onClick={() => { setStartDate(''); setEndDate(''); setActivePreset('all'); }}
+              className="rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-350 text-xs font-bold px-3 py-1.5 transition-all border border-gray-705 active:scale-95"
             >
               Reset
             </button>
@@ -481,185 +623,125 @@ export default function ReportsPage() {
       </div>
 
       {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="rounded-2xl border border-gray-800 bg-gray-900/10 backdrop-blur-xl p-4 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1 hover:border-indigo-500/40 hover:bg-gray-900/30 hover:shadow-xl hover:shadow-indigo-950/5 group">
-          <div className="flex justify-between items-start">
-            <span className="text-xs text-gray-400 font-bold uppercase tracking-wider">Helpdesk Tickets</span>
-            <span className="rounded-lg bg-indigo-600/10 p-1.5 text-indigo-400 border border-indigo-500/20 transition-transform duration-300 group-hover:scale-110">
-              <FileText size={16} />
-            </span>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { title: "Helpdesk Tickets", count: stats.totalTickets, sub: `${stats.resolvedTickets} Resolved / Closed`, color: "border-indigo-500/20 hover:border-indigo-500/40 hover:shadow-indigo-950/10", icon: <FileText size={18} />, iconColor: "bg-indigo-600/10 text-indigo-400 border-indigo-500/20", progressColor: "text-indigo-400" },
+          { title: "Active Assets", count: stats.totalAssets, sub: `${stats.assetsInUse} Currently In Use`, color: "border-emerald-500/20 hover:border-emerald-500/40 hover:shadow-emerald-950/10", icon: <Briefcase size={18} />, iconColor: "bg-emerald-600/10 text-emerald-400 border-emerald-500/20", progressColor: "text-emerald-400" },
+          { title: "Spare Parts Stock", count: stats.totalInventory, sub: "Total items inside storage", color: "border-amber-500/20 hover:border-amber-500/40 hover:shadow-amber-950/10", icon: <Package size={18} />, iconColor: "bg-amber-600/10 text-amber-400 border-amber-500/20", progressColor: "text-amber-400" },
+          { title: "Support Chat", count: stats.activeChats, sub: "Unresolved IT Support rooms", color: "border-pink-500/20 hover:border-pink-500/40 hover:shadow-pink-950/10", icon: <Layers size={18} />, iconColor: "bg-pink-600/10 text-pink-400 border-pink-500/20", progressColor: "text-pink-400" }
+        ].map((c) => (
+          <div key={c.title} className={cn("rounded-2xl border border-gray-800 bg-gray-900/10 backdrop-blur-xl p-5 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1 hover:bg-gray-900/25 hover:shadow-xl group", c.color)}>
+            <div className="flex justify-between items-start">
+              <span className="text-xs text-gray-400 font-extrabold uppercase tracking-wider">{c.title}</span>
+              <span className={cn("rounded-xl p-2 border transition-transform duration-300 group-hover:scale-110", c.iconColor)}>
+                {c.icon}
+              </span>
+            </div>
+            <div className="mt-4">
+              <h3 className={cn("text-3xl font-black text-white transition-all duration-300", c.progressColor)}>{c.count}</h3>
+              <p className="text-[11px] text-gray-500 mt-1 font-medium">{c.sub}</p>
+            </div>
           </div>
-          <div className="mt-4">
-            <h3 className="text-2xl font-bold text-white transition-all duration-300 group-hover:text-indigo-400">{stats.totalTickets}</h3>
-            <p className="text-xs text-gray-500 mt-0.5">{stats.resolvedTickets} Resolved / Closed</p>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-gray-800 bg-gray-900/10 backdrop-blur-xl p-4 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1 hover:border-emerald-500/40 hover:bg-gray-900/30 hover:shadow-xl hover:shadow-emerald-950/5 group">
-          <div className="flex justify-between items-start">
-            <span className="text-xs text-gray-400 font-bold uppercase tracking-wider">Active Assets</span>
-            <span className="rounded-lg bg-emerald-600/10 p-1.5 text-emerald-400 border border-emerald-500/20 transition-transform duration-300 group-hover:scale-110">
-              <Briefcase size={16} />
-            </span>
-          </div>
-          <div className="mt-4">
-            <h3 className="text-2xl font-bold text-white transition-all duration-300 group-hover:text-emerald-400">{stats.totalAssets}</h3>
-            <p className="text-xs text-gray-500 mt-0.5">{stats.assetsInUse} Currently In Use</p>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-gray-800 bg-gray-900/10 backdrop-blur-xl p-4 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1 hover:border-amber-500/40 hover:bg-gray-900/30 hover:shadow-xl hover:shadow-amber-950/5 group">
-          <div className="flex justify-between items-start">
-            <span className="text-xs text-gray-400 font-bold uppercase tracking-wider">Spare Parts Stock</span>
-            <span className="rounded-lg bg-amber-600/10 p-1.5 text-amber-400 border border-amber-500/20 transition-transform duration-300 group-hover:scale-110">
-              <Package size={16} />
-            </span>
-          </div>
-          <div className="mt-4">
-            <h3 className="text-2xl font-bold text-white transition-all duration-300 group-hover:text-amber-400">{stats.totalInventory}</h3>
-            <p className="text-xs text-gray-500 mt-0.5">Total items inside storage</p>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-gray-800 bg-gray-900/10 backdrop-blur-xl p-4 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1 hover:border-pink-500/40 hover:bg-gray-900/30 hover:shadow-xl hover:shadow-pink-950/5 group">
-          <div className="flex justify-between items-start">
-            <span className="text-xs text-gray-400 font-bold uppercase tracking-wider">Support Chat</span>
-            <span className="rounded-lg bg-pink-600/10 p-1.5 text-pink-400 border border-pink-500/20 transition-transform duration-300 group-hover:scale-110">
-              <Layers size={16} />
-            </span>
-          </div>
-          <div className="mt-4">
-            <h3 className="text-2xl font-bold text-white transition-all duration-300 group-hover:text-pink-400">{stats.activeChats}</h3>
-            <p className="text-xs text-gray-500 mt-0.5">Unresolved IT Support chatrooms</p>
-          </div>
-        </div>
+        ))}
       </div>
 
       {/* Tabs Menu */}
-      <div className="border-b border-gray-800 flex gap-2">
-        <button
-          onClick={() => setActiveTab('kpi')}
-          className={cn(
-            "pb-3 text-xs font-bold transition-all px-2 relative",
-            activeTab === 'kpi' ? "text-violet-400 border-b-2 border-violet-500" : "text-gray-400 hover:text-white"
-          )}
-        >
-          Overview KPI
-        </button>
-        <button
-          onClick={() => setActiveTab('capex')}
-          className={cn(
-            "pb-3 text-xs font-bold transition-all px-2 relative",
-            activeTab === 'capex' ? "text-violet-400 border-b-2 border-violet-500" : "text-gray-400 hover:text-white"
-          )}
-          id="report-capex-tab-btn"
-        >
-          Depreciation & CAPEX
-        </button>
-        <button
-          onClick={() => setActiveTab('assets')}
-          className={cn(
-            "pb-3 text-xs font-bold transition-all px-2 relative",
-            activeTab === 'assets' ? "text-violet-400 border-b-2 border-violet-500" : "text-gray-400 hover:text-white"
-          )}
-        >
-          Asset Registry ({filteredAssets.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('tickets')}
-          className={cn(
-            "pb-3 text-xs font-bold transition-all px-2 relative",
-            activeTab === 'tickets' ? "text-violet-400 border-b-2 border-violet-500" : "text-gray-400 hover:text-white"
-          )}
-        >
-          Tickets Log ({filteredTickets.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('inventory')}
-          className={cn(
-            "pb-3 text-xs font-bold transition-all px-2 relative",
-            activeTab === 'inventory' ? "text-violet-400 border-b-2 border-violet-500" : "text-gray-400 hover:text-white"
-          )}
-        >
-          Spare Parts Inventory ({filteredInventories.length})
-        </button>
+      <div className="border-b border-gray-800/80 flex gap-2 overflow-x-auto no-scrollbar scroll-smooth">
+        {[
+          { id: 'kpi', label: 'Overview KPI' },
+          { id: 'capex', label: 'Depreciation & CAPEX' },
+          { id: 'assets', label: `Asset Registry (${filteredAssets.length})` },
+          { id: 'tickets', label: `Tickets Log (${filteredTickets.length})` },
+          { id: 'inventory', label: `Spare Parts Inventory (${filteredInventories.length})` }
+        ].map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setActiveTab(t.id as any)}
+            id={t.id === 'capex' ? 'report-capex-tab-btn' : undefined}
+            className={cn(
+              "pb-3 text-xs font-bold transition-all px-3 relative whitespace-nowrap outline-none",
+              activeTab === t.id 
+                ? "text-violet-400 border-b-2 border-violet-500 font-extrabold" 
+                : "text-gray-400 hover:text-white"
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {/* Tab Panels */}
-      <div className="bg-gray-900/10 border border-gray-800 rounded-2xl p-6 backdrop-blur-xl">
+      <div className="bg-gray-900/10 border border-gray-850/80 rounded-3xl p-6 backdrop-blur-xl shadow-2xl shadow-black/30">
         {activeTab === 'kpi' && (
           <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-sm font-bold text-white">System Performance Summary</h2>
+            <div className="flex justify-between items-center pb-2 border-b border-gray-800/40">
+              <h2 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+                <TrendingUp size={16} className="text-violet-400" />
+                System Performance Summary
+              </h2>
               <span className="text-[10px] text-gray-500 font-semibold italic">Forensic imprint matches: {userEmail}</span>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4 border border-gray-800/60 rounded-xl p-4 bg-gray-950/20">
-                <h3 className="text-xs font-bold text-gray-300">Ticket Resolution Rate</h3>
-                <div className="flex items-end gap-3">
-                  <span className="text-4xl font-extrabold text-white">
-                    {stats.totalTickets ? Math.round((stats.resolvedTickets / stats.totalTickets) * 100) : 0}%
-                  </span>
-                  <span className="text-xs text-gray-500 pb-1">Resolved vs Opened tickets</span>
-                </div>
-                <div className="w-full bg-gray-800 h-2 rounded-full overflow-hidden">
-                  <div 
-                    className="bg-indigo-500 h-full rounded-full transition-all duration-500" 
-                    style={{ width: `${stats.totalTickets ? (stats.resolvedTickets / stats.totalTickets) * 100 : 0}%` }}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-4 border border-gray-800/60 rounded-xl p-4 bg-gray-950/20">
-                <h3 className="text-xs font-bold text-gray-300">Task Completion Ratio</h3>
-                <div className="flex items-end gap-3">
-                  <span className="text-4xl font-extrabold text-white">
-                    {stats.totalTasks ? Math.round((stats.completedTasks / stats.totalTasks) * 100) : 0}%
-                  </span>
-                  <span className="text-xs text-gray-500 pb-1">Tasks marked Done</span>
-                </div>
-                <div className="w-full bg-gray-800 h-2 rounded-full overflow-hidden">
-                  <div 
-                    className="bg-emerald-500 h-full rounded-full transition-all duration-500" 
-                    style={{ width: `${stats.totalTasks ? (stats.completedTasks / stats.totalTasks) * 100 : 0}%` }}
-                  />
-                </div>
-              </div>
+            {/* Circular Gauges for KPIs instead of horizontal progress bars */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <KpiGauge 
+                value={ticketResolutionPct}
+                displayValue={`${ticketResolutionPct}%`}
+                title="Resolution Rate"
+                subtitle="Resolved vs Opened tickets ratio"
+                colorKey="indigo"
+              />
+              <KpiGauge 
+                value={taskCompletionPct}
+                displayValue={`${taskCompletionPct}%`}
+                title="Task Completion"
+                subtitle="Completed vs total tasks ratio"
+                colorKey="emerald"
+              />
+              <KpiGauge 
+                value={slaComplianceRate}
+                displayValue={`${slaComplianceRate}%`}
+                title="SLA Compliance"
+                subtitle="Met SLA deadlines ratio"
+                colorKey="violet"
+              />
+              <KpiGauge 
+                value={csatDisplayPct}
+                displayValue={`${avgCsat} ★`}
+                title="CSAT Rating"
+                subtitle="Average client feedback rating"
+                colorKey="amber"
+              />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-              {/* CSAT Average Card */}
-              <div className="space-y-4 border border-gray-800/60 rounded-xl p-4 bg-gray-950/20">
-                <h3 className="text-xs font-bold text-gray-300">Customer Satisfaction (CSAT)</h3>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+              {/* CSAT Details Card */}
+              <div className="space-y-4 border border-gray-800/50 rounded-2xl p-5 bg-gray-950/20">
+                <h3 className="text-xs font-bold text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Star size={14} className="text-amber-400" />
+                  CSAT Breakdown Detail
+                </h3>
                 <div className="flex items-end gap-3">
-                  <span className="text-4xl font-extrabold text-white csat-average-val">{avgCsat} <span className="text-sm text-gray-500 font-semibold">/ 5.0 ★</span></span>
+                  <span className="text-4xl font-black text-white csat-average-val">{avgCsat} <span className="text-xs text-gray-500 font-semibold">/ 5.0 ★</span></span>
                   <span className="text-xs text-gray-500 pb-1">Based on {csatTickets.length} reviews</span>
-                </div>
-                {/* Horizontal progress bar */}
-                <div className="w-full bg-gray-800 h-2 rounded-full overflow-hidden">
-                  <div 
-                    className="bg-amber-500 h-full rounded-full transition-all duration-500 csat-progress-bar" 
-                    style={{ width: `${(Number(avgCsat) / 5) * 100}%` }}
-                  />
                 </div>
                 
                 {/* Rating Breakdown Bars */}
-                <div className="space-y-2 mt-4 pt-2 border-t border-gray-800/40">
+                <div className="space-y-2 mt-4 pt-3 border-t border-gray-800/40">
                   {[5, 4, 3, 2, 1].map(stars => {
                     const count = csatBreakdown[stars as 5|4|3|2|1] || 0;
                     const pct = csatTickets.length ? Math.round((count / csatTickets.length) * 100) : 0;
                     return (
                       <div key={stars} className="flex items-center gap-2 text-xs">
                         <span className="w-8 text-gray-400 font-semibold">{stars} ★</span>
-                        <div className="flex-1 bg-gray-800/50 h-1.5 rounded-full overflow-hidden">
+                        <div className="flex-1 bg-gray-800/40 h-2 rounded-full overflow-hidden">
                           <div 
-                            className="bg-amber-500 h-full rounded-full" 
+                            className="bg-gradient-to-r from-amber-500 to-yellow-400 h-full rounded-full transition-all duration-500" 
                             style={{ width: `${pct}%` }}
                           />
                         </div>
-                        <span className="w-8 text-right text-gray-500 font-semibold">{pct}%</span>
-                        <span className="text-gray-650 text-[10px]">({count})</span>
+                        <span className="w-8 text-right text-gray-350 font-bold">{pct}%</span>
+                        <span className="text-gray-550 text-[10px]">({count})</span>
                       </div>
                     );
                   })}
@@ -667,21 +749,29 @@ export default function ReportsPage() {
               </div>
 
               {/* Recent CSAT Feedback comments */}
-              <div className="space-y-4 border border-gray-800/60 rounded-xl p-4 bg-gray-950/20 flex flex-col justify-between">
+              <div className="space-y-4 border border-gray-800/50 rounded-2xl p-5 bg-gray-950/20 flex flex-col justify-between">
                 <div>
-                  <h3 className="text-xs font-bold text-gray-300 mb-3">Recent Customer Feedback</h3>
-                  <div className="space-y-2.5 max-h-[240px] overflow-y-auto pr-1">
+                  <h3 className="text-xs font-bold text-gray-300 uppercase tracking-wider flex items-center gap-1.5 mb-3">
+                    <FileText size={14} className="text-violet-400" />
+                    Recent Customer Feedback
+                  </h3>
+                  <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-800">
                     {csatTickets.length === 0 ? (
-                      <p className="text-xs text-gray-500 italic text-center py-8">No CSAT feedback submitted yet.</p>
+                      <div className="flex flex-col items-center justify-center py-10 text-gray-500">
+                        <Star size={24} className="text-gray-700 mb-2" />
+                        <p className="text-xs italic">No CSAT feedback submitted yet.</p>
+                      </div>
                     ) : (
                       csatTickets.map(ticket => (
-                        <div key={ticket.id} className="rounded-lg bg-gray-900/40 border border-gray-850 p-2.5 text-xs csat-feedback-item">
-                          <div className="flex justify-between items-center mb-1">
-                            <span className="font-semibold text-gray-300 truncate max-w-[150px]">{getUserById(ticket.reporterId)?.name || 'User'}</span>
-                            <span className="text-amber-400 font-semibold font-mono text-[10px]">{'★'.repeat(ticket.csatRating || 0)}</span>
+                        <div key={ticket.id} className="rounded-xl bg-gray-900/35 border border-gray-850 p-3 text-xs transition-all hover:bg-gray-900/60 csat-feedback-item">
+                          <div className="flex justify-between items-center mb-1.5">
+                            <span className="font-bold text-gray-250 truncate max-w-[150px]">{getUserById(ticket.reporterId)?.name || 'User'}</span>
+                            <span className="text-amber-400 font-semibold font-mono text-[9px] bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded">
+                              {'★'.repeat(ticket.csatRating || 0)}
+                            </span>
                           </div>
-                          <p className="text-[10px] text-gray-400 font-medium line-clamp-1 mb-0.5">Ref: {ticket.title}</p>
-                          <p className="text-xs text-gray-300 italic">"{ticket.csatFeedback || 'No comment provided'}"</p>
+                          <p className="text-[10px] text-gray-500 font-bold mb-1 truncate">Ref: {ticket.title}</p>
+                          <p className="text-xs text-gray-300 italic leading-relaxed">"{ticket.csatFeedback || 'No comment provided'}"</p>
                         </div>
                       ))
                     )}
@@ -691,16 +781,19 @@ export default function ReportsPage() {
             </div>
 
             {/* Row 3: SLA & MTTR + Ticket Categories Trends */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
               {/* SLA & MTTR Card */}
-              <div className="space-y-4 border border-gray-800/60 rounded-xl p-4 bg-gray-950/20">
-                <h3 className="text-xs font-bold text-gray-300">SLA & MTTR Performance</h3>
+              <div className="space-y-4 border border-gray-800/50 rounded-2xl p-5 bg-gray-950/20">
+                <h3 className="text-xs font-bold text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Clock size={14} className="text-indigo-400" />
+                  SLA & MTTR Performance
+                </h3>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-gray-900/40 border border-gray-850 rounded-xl p-3 text-center">
-                    <span className="text-[10px] text-gray-500 font-bold uppercase">SLA Compliance</span>
-                    <h4 className="text-2xl font-extrabold text-white mt-1">{slaComplianceRate}%</h4>
+                  <div className="bg-gray-900/35 border border-gray-850 rounded-2xl p-4 text-center">
+                    <span className="text-[10px] text-gray-500 font-extrabold uppercase tracking-wider">SLA Compliance</span>
+                    <h4 className="text-3xl font-black text-white mt-1.5">{slaComplianceRate}%</h4>
                     <span className={cn(
-                      "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold mt-2 border",
+                      "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[9px] font-extrabold mt-3 border",
                       slaComplianceRate >= 90 ? "bg-green-500/10 text-green-400 border-green-500/20" :
                       slaComplianceRate >= 80 ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
                       "bg-red-500/10 text-red-400 border-red-500/20"
@@ -708,32 +801,32 @@ export default function ReportsPage() {
                       {slaComplianceRate >= 90 ? 'Healthy ✓' : slaComplianceRate >= 80 ? 'Warning ⚠️' : 'Critical Out of SLA ✗'}
                     </span>
                   </div>
-                  <div className="bg-gray-900/40 border border-gray-850 rounded-xl p-3 text-center">
-                    <span className="text-[10px] text-gray-500 font-bold uppercase">Mean Time to Resolution</span>
-                    <h4 className="text-2xl font-extrabold text-white mt-1">{mttrHours}h</h4>
-                    <span className="text-[9px] text-gray-500 block mt-2">Average time per ticket</span>
+                  <div className="bg-gray-900/35 border border-gray-850 rounded-2xl p-4 text-center">
+                    <span className="text-[10px] text-gray-500 font-extrabold uppercase tracking-wider">MTTR</span>
+                    <h4 className="text-3xl font-black text-white mt-1.5">{mttrHours}h</h4>
+                    <span className="text-[9px] text-gray-500 block mt-3 font-medium">Average time per ticket</span>
                   </div>
                 </div>
 
-                <div className="space-y-2 pt-2 border-t border-gray-800/40">
-                  <div className="flex justify-between items-center text-xs">
+                <div className="space-y-2 pt-3 border-t border-gray-800/40 text-xs">
+                  <div className="flex justify-between items-center">
                     <span className="text-gray-400">Total Tiket Diselesaikan:</span>
-                    <span className="font-semibold text-white">{resolvedTicketsData.length}</span>
+                    <span className="font-bold text-white">{resolvedTicketsData.length}</span>
                   </div>
-                  <div className="flex justify-between items-center text-xs">
+                  <div className="flex justify-between items-center">
                     <span className="text-gray-400">Memenuhi SLA:</span>
-                    <span className="font-semibold text-green-400">{slaMetCount}</span>
+                    <span className="font-bold text-green-400">{slaMetCount}</span>
                   </div>
-                  <div className="flex justify-between items-center text-xs">
+                  <div className="flex justify-between items-center">
                     <span className="text-gray-400">Melebihi SLA:</span>
-                    <span className="font-semibold text-red-400">{resolvedTicketsData.length - slaMetCount}</span>
+                    <span className="font-bold text-red-400">{resolvedTicketsData.length - slaMetCount}</span>
                   </div>
                 </div>
 
                 {/* MTTR Bottlenecks (Category) */}
                 <div className="mt-4 pt-3 border-t border-gray-800/40">
-                  <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">MTTR Bottlenecks (Category)</h4>
-                  <div className="space-y-1.5">
+                  <h4 className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider mb-2.5">MTTR Bottlenecks (Category)</h4>
+                  <div className="space-y-2">
                     {mttrByCategory.slice(0, 3).map(cat => (
                       <div key={cat.category} className="flex items-center justify-between text-xs">
                         <span className="text-gray-400 truncate max-w-[150px]">{cat.category}</span>
@@ -748,15 +841,15 @@ export default function ReportsPage() {
 
                 {/* MTTR by Priority */}
                 <div className="mt-4 pt-3 border-t border-gray-800/40">
-                  <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">MTTR by Priority</h4>
+                  <h4 className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider mb-2.5">MTTR by Priority</h4>
                   <div className="grid grid-cols-2 gap-2">
                     {mttrByPriority.map(pri => (
-                      <div key={pri.priority} className="flex justify-between items-center text-xs bg-gray-900/30 border border-gray-850/60 rounded-lg p-2">
+                      <div key={pri.priority} className="flex justify-between items-center text-xs bg-gray-900/25 border border-gray-850/60 rounded-xl p-2.5">
                         <span className={cn(
-                          "font-semibold text-[10px] uppercase",
+                          "font-bold text-[9px] uppercase tracking-wider",
                           pri.priority === 'CRITICAL' ? "text-red-400" :
                           pri.priority === 'HIGH' ? "text-orange-400" :
-                          pri.priority === 'MEDIUM' ? "text-yellow-400" : "text-gray-400"
+                          pri.priority === 'MEDIUM' ? "text-yellow-400" : "text-gray-450"
                         )}>{pri.priority}</span>
                         <span className="font-bold font-mono text-white">{pri.avgHours}h <span className="text-[9px] text-gray-500 font-normal">({pri.count})</span></span>
                       </div>
@@ -766,23 +859,26 @@ export default function ReportsPage() {
               </div>
 
               {/* Ticket Categories Trend & RCA Card */}
-              <div className="space-y-4 border border-gray-800/60 rounded-xl p-4 bg-gray-950/20 flex flex-col justify-between">
+              <div className="space-y-4 border border-gray-800/50 rounded-2xl p-5 bg-gray-950/20 flex flex-col justify-between">
                 <div>
-                  <h3 className="text-xs font-bold text-gray-300 mb-3">Ticket Category Distribution</h3>
-                  <div className="space-y-2">
+                  <h3 className="text-xs font-bold text-gray-300 uppercase tracking-wider flex items-center gap-1.5 mb-3">
+                    <ListFilter size={14} className="text-violet-400" />
+                    Ticket Category Distribution
+                  </h3>
+                  <div className="space-y-3">
                     {categoriesList.map(cat => {
                       const data = categoryBreakdown[cat] || { count: 0, pct: 0 };
                       return (
                         <div key={cat} className="flex items-center gap-2 text-xs">
                           <span className="w-16 text-gray-400 font-semibold truncate" title={cat}>{cat}</span>
-                          <div className="flex-1 bg-gray-800/50 h-1.5 rounded-full overflow-hidden">
+                          <div className="flex-1 bg-gray-800/45 h-2 rounded-full overflow-hidden">
                             <div 
-                              className="bg-indigo-500 h-full rounded-full transition-all" 
+                              className="bg-gradient-to-r from-violet-500 to-indigo-500 h-full rounded-full transition-all duration-300" 
                               style={{ width: `${data.pct}%` }}
                             />
                           </div>
-                          <span className="w-8 text-right text-gray-300 font-semibold">{data.pct}%</span>
-                          <span className="text-gray-650 text-[10px]">({data.count})</span>
+                          <span className="w-8 text-right text-gray-300 font-bold">{data.pct}%</span>
+                          <span className="text-gray-555 text-[10px] w-8 text-right">({data.count})</span>
                         </div>
                       );
                     })}
@@ -790,68 +886,79 @@ export default function ReportsPage() {
                 </div>
 
                 {rcaRecommendation && (
-                  <div className="mt-3 bg-amber-500/10 border border-amber-500/20 rounded-xl p-2.5 text-[11px] text-amber-400">
-                    <p className="font-semibold mb-0.5">{rcaRecommendation.message}</p>
+                  <div className="mt-4 bg-amber-500/10 border border-amber-500/25 rounded-2xl p-3 text-[11px] text-amber-400 flex items-start gap-2">
+                    <AlertTriangle size={16} className="shrink-0 mt-0.5 text-amber-400" />
+                    <p className="font-semibold leading-relaxed">{rcaRecommendation.message}</p>
                   </div>
                 )}
               </div>
             </div>
 
             {/* Row 4: Asset Life Cycle & Financials + Inventory Velocity */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
               {/* Asset Lifecycle & Capex Depreciation */}
-              <div className="space-y-4 border border-gray-800/60 rounded-xl p-4 bg-gray-950/20">
-                <h3 className="text-xs font-bold text-gray-300">Asset Lifecycle & Depreciation (CAPEX)</h3>
+              <div className="space-y-4 border border-gray-800/50 rounded-2xl p-5 bg-gray-950/20">
+                <h3 className="text-xs font-bold text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Award size={14} className="text-emerald-400" />
+                  Asset Lifecycle & Depreciation (CAPEX)
+                </h3>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-gray-900/40 border border-gray-850 rounded-xl p-3 text-center">
-                    <span className="text-[10px] text-gray-500 font-bold uppercase">Total Investasi Aset</span>
-                    <h4 className="text-xl font-extrabold text-white mt-1 truncate" title={formatPrice(totalCapex)}>{formatPrice(totalCapex)}</h4>
+                  <div className="bg-gray-900/35 border border-gray-850 rounded-2xl p-4 text-center">
+                    <span className="text-[10px] text-gray-500 font-extrabold uppercase tracking-wider">Total CAPEX</span>
+                    <h4 className="text-lg font-black text-white mt-1.5 truncate" title={formatPrice(totalCapex)}>{formatPrice(totalCapex)}</h4>
                   </div>
-                  <div className="bg-gray-900/40 border border-gray-850 rounded-xl p-3 text-center">
-                    <span className="text-[10px] text-gray-500 font-bold uppercase">Nilai Buku Saat Ini</span>
-                    <h4 className="text-xl font-extrabold text-emerald-400 mt-1 truncate" title={formatPrice(assetLifeCycle.currentBookValue)}>{formatPrice(assetLifeCycle.currentBookValue)}</h4>
+                  <div className="bg-gray-900/35 border border-gray-850 rounded-2xl p-4 text-center">
+                    <span className="text-[10px] text-gray-500 font-extrabold uppercase tracking-wider">Nilai Buku Saat Ini</span>
+                    <h4 className="text-lg font-black text-emerald-400 mt-1.5 truncate" title={formatPrice(assetLifeCycle.currentBookValue)}>{formatPrice(assetLifeCycle.currentBookValue)}</h4>
                   </div>
                 </div>
 
-                <div className="space-y-2 pt-2 border-t border-gray-800/40 text-xs">
+                <div className="space-y-2 pt-3 border-t border-gray-800/40 text-xs">
                   <div className="flex justify-between items-center">
                     <span className="text-gray-400">Rata-rata Umur Aset Fisik:</span>
-                    <span className="font-semibold text-white">{assetLifeCycle.avgAge} tahun</span>
+                    <span className="font-bold text-white">{assetLifeCycle.avgAge} tahun</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-400">Aset Usia Kritis (&gt;4 tahun):</span>
-                    <span className="font-semibold text-amber-400">{assetLifeCycle.warningCount} unit</span>
+                    <span className="font-bold text-amber-400">{assetLifeCycle.warningCount} unit</span>
                   </div>
                   {assetLifeCycle.warningCount > 0 && (
-                    <div className="mt-2 bg-violet-600/10 border border-violet-500/20 rounded p-1.5 text-[10px] text-violet-400">
-                      💡 <strong>Saran:</strong> Terdapat {assetLifeCycle.warningCount} perangkat keras berumur kritis. Rencanakan CAPEX penggantian di kuartal berikutnya.
+                    <div className="mt-3 bg-violet-650/10 border border-violet-500/25 rounded-2xl p-3 text-[10px] text-violet-400 flex items-start gap-2">
+                      <AlertTriangle size={14} className="shrink-0 mt-0.5 text-violet-400" />
+                      <span className="leading-relaxed">💡 <strong>Saran:</strong> Terdapat {assetLifeCycle.warningCount} perangkat keras berumur kritis. Rencanakan CAPEX penggantian di kuartal berikutnya.</span>
                     </div>
                   )}
                 </div>
               </div>
 
               {/* Inventory Velocity & Forecast */}
-              <div className="space-y-4 border border-gray-800/60 rounded-xl p-4 bg-gray-950/20 flex flex-col justify-between">
+              <div className="space-y-4 border border-gray-800/50 rounded-2xl p-5 bg-gray-950/20 flex flex-col justify-between">
                 <div>
-                  <h3 className="text-xs font-bold text-gray-300 mb-2">Restock Forecast Alert</h3>
-                  <div className="space-y-2.5 max-h-[180px] overflow-y-auto pr-1">
+                  <h3 className="text-xs font-bold text-gray-300 uppercase tracking-wider flex items-center gap-1.5 mb-3">
+                    <Package size={14} className="text-amber-400" />
+                    Restock Forecast Alert
+                  </h3>
+                  <div className="space-y-2.5 max-h-[190px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-800">
                     {lowStockForecastList.length === 0 ? (
-                      <p className="text-xs text-gray-500 italic text-center py-6">Semua stok suku cadang dalam kondisi aman.</p>
+                      <div className="flex flex-col items-center justify-center py-10 text-gray-500">
+                        <Package size={24} className="text-gray-700 mb-2" />
+                        <p className="text-xs italic">Semua stok suku cadang dalam kondisi aman.</p>
+                      </div>
                     ) : (
                       lowStockForecastList.map(inv => (
-                        <div key={inv.id} className="rounded-lg bg-gray-900/40 border border-gray-850 p-2.5 text-xs flex justify-between items-center">
+                        <div key={inv.id} className="rounded-xl bg-gray-900/35 border border-gray-850 p-3 text-xs flex justify-between items-center hover:bg-gray-900/60 transition-colors">
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5 mb-0.5">
-                              <span className="font-semibold text-white truncate max-w-[150px]">{inv.name}</span>
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <span className="font-bold text-white truncate max-w-[150px]">{inv.name}</span>
                               <span className="text-[9px] text-gray-500 font-mono font-bold">({inv.sku})</span>
                             </div>
-                            <p className="text-[10px] text-gray-400">Stok: {inv.quantity} / {inv.minStock} {inv.unit}</p>
+                            <p className="text-[10px] text-gray-450">Stok: {inv.quantity} / {inv.minStock} {inv.unit}</p>
                           </div>
                           <span className={cn(
-                            "rounded px-2 py-0.5 text-[9px] font-bold uppercase border",
-                            inv.status === 'Kritis (Habis)' ? "bg-red-500/10 text-red-400 border-red-500/20" :
-                            inv.status === 'Mendesak' ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
-                            "bg-yellow-500/10 text-yellow-400 border-yellow-500/20"
+                            "rounded-lg px-2.5 py-0.5 text-[9px] font-bold uppercase border",
+                            inv.status === 'Kritis (Habis)' ? "bg-red-500/10 text-red-400 border-red-500/25" :
+                            inv.status === 'Mendesak' ? "bg-amber-500/10 text-amber-400 border-amber-500/25" :
+                            "bg-yellow-500/10 text-yellow-400 border-yellow-500/25"
                           )}>
                             {inv.status}
                           </span>
@@ -864,21 +971,24 @@ export default function ReportsPage() {
             </div>
 
             {/* Row 5: Technician Performance Leaderboard */}
-            <div className="border border-gray-800/60 rounded-xl p-6 bg-gray-950/20 mt-6 space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className="text-sm font-bold text-white">Technician Performance Leaderboard</h3>
-                <span className="text-[10px] text-gray-500 font-semibold uppercase">Based on resolved tickets</span>
+            <div className="border border-gray-800/60 rounded-3xl p-5 bg-gray-950/20 mt-6 space-y-4">
+              <div className="flex justify-between items-center border-b border-gray-800/40 pb-3">
+                <h3 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-1.5">
+                  <User size={16} className="text-violet-400" />
+                  Technician Performance Leaderboard
+                </h3>
+                <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">Based on resolved tickets</span>
               </div>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto rounded-2xl border border-gray-850/80 bg-gray-900/5">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="border-b border-gray-850 text-gray-400 font-bold uppercase tracking-wider text-[10px]">
-                      <th className="py-3 px-4">Rank</th>
-                      <th className="py-3 px-4">Technician</th>
-                      <th className="py-3 px-4 text-center">Tickets Resolved</th>
-                      <th className="py-3 px-4 text-center">Avg MTTR</th>
-                      <th className="py-3 px-4 text-center">SLA Compliance</th>
-                      <th className="py-3 px-4 text-center">Avg CSAT</th>
+                    <tr className="border-b border-gray-850 text-gray-400 font-bold uppercase tracking-wider text-[10px] bg-gray-950/40">
+                      <th className="py-3.5 px-4">Rank</th>
+                      <th className="py-3.5 px-4">Technician</th>
+                      <th className="py-3.5 px-4 text-center">Tickets Resolved</th>
+                      <th className="py-3.5 px-4 text-center">Avg MTTR</th>
+                      <th className="py-3.5 px-4 text-center">SLA Compliance</th>
+                      <th className="py-3.5 px-4 text-center">Avg CSAT</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-850/50">
@@ -888,17 +998,17 @@ export default function ReportsPage() {
                       </tr>
                     ) : (
                       technicianLeaderboard.map((tech, idx) => (
-                        <tr key={tech.id} className="hover:bg-gray-900/20 transition-colors">
+                        <tr key={tech.id} className="hover:bg-violet-500/5 border-l-2 border-l-transparent hover:border-l-violet-500 transition-all duration-200">
                           <td className="py-3 px-4 font-mono font-bold text-gray-400">
                             {idx === 0 ? '🏆 1' : idx === 1 ? '🥈 2' : idx === 2 ? '🥉 3' : `#${idx + 1}`}
                           </td>
-                          <td className="py-3 px-4 font-semibold text-white">{tech.name}</td>
+                          <td className="py-3 px-4 font-bold text-white">{tech.name}</td>
                           <td className="py-3 px-4 text-center">
-                            <span className="inline-block bg-indigo-600/15 text-indigo-400 rounded-full px-2.5 py-0.5 text-[11px] font-bold border border-indigo-500/10">
+                            <span className="inline-block bg-indigo-600/15 text-indigo-400 rounded-full px-2.5 py-0.5 text-[11px] font-black border border-indigo-500/15">
                               {tech.resolvedCount}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-center font-medium font-mono text-gray-300">{tech.avgMttrHours}h</td>
+                          <td className="py-3 px-4 text-center font-bold font-mono text-gray-300">{tech.avgMttrHours}h</td>
                           <td className="py-3 px-4 text-center">
                             <div className="flex items-center justify-center gap-2">
                               <div className="w-16 bg-gray-850 h-1.5 rounded-full overflow-hidden hidden sm:block">
@@ -918,7 +1028,7 @@ export default function ReportsPage() {
                               )}>{tech.slaComplianceRate}%</span>
                             </div>
                           </td>
-                          <td className="py-3 px-4 text-center font-medium text-amber-400 font-mono">
+                          <td className="py-3 px-4 text-center font-bold text-amber-400 font-mono">
                             {tech.avgCsat !== 'N/A' ? `${tech.avgCsat} ★` : '-'}
                           </td>
                         </tr>
@@ -934,10 +1044,10 @@ export default function ReportsPage() {
         {activeTab === 'capex' && (
           <div className="space-y-6 animate-fade-in" id="report-capex-container">
             {/* Header with Export buttons */}
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-800/40 pb-4 gap-4">
               <div>
-                <h2 className="text-sm font-bold text-white">Asset Lifecycle & Depreciation (CAPEX) Report</h2>
-                <p className="text-xs text-gray-500">Analisis penyusutan nilai aset secara linear (estimasi masa pakai 5 tahun) dan peramalan kebutuhan penggantian perangkat.</p>
+                <h2 className="text-sm font-black text-white uppercase tracking-wider">Asset Lifecycle & CAPEX Report</h2>
+                <p className="text-xs text-gray-400 mt-0.5">Analisis penyusutan nilai aset secara linear (estimasi masa pakai 5 tahun) dan peramalan kebutuhan penggantian perangkat.</p>
               </div>
               <div className="flex gap-2">
                 <button
@@ -945,9 +1055,9 @@ export default function ReportsPage() {
                     exportToExcel(getCapexData(), 'CAPEX', 'capex_depreciation_report');
                     addAuditLog('REPORT_EXPORTED', `Exported CAPEX Depreciation report to Excel`);
                   }}
-                  className="flex items-center gap-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-xs font-bold px-3 py-1.5 transition-all border border-gray-700/60"
+                  className="flex items-center gap-1.5 rounded-xl bg-gray-900 hover:bg-gray-855 text-white text-xs font-bold px-3.5 py-2 transition-all border border-gray-800 active:scale-95 shadow-md shadow-black/10"
                 >
-                  <Download size={12} />
+                  <Download size={13} />
                   Excel
                 </button>
                 <button
@@ -958,9 +1068,9 @@ export default function ReportsPage() {
                     exportToPDF(headers, rows, 'CAPEX & Depreciation Report', 'capex_depreciation_report');
                     addAuditLog('REPORT_EXPORTED', `Exported CAPEX Depreciation report to PDF`);
                   }}
-                  className="flex items-center gap-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold px-3 py-1.5 transition-all"
+                  className="flex items-center gap-1.5 rounded-xl bg-violet-650 hover:bg-violet-600 text-white text-xs font-bold px-3.5 py-2 transition-all border border-violet-500/30 active:scale-95 shadow-md shadow-violet-600/10"
                 >
-                  <Download size={12} />
+                  <Download size={13} />
                   PDF (Secure)
                 </button>
               </div>
@@ -980,19 +1090,19 @@ export default function ReportsPage() {
 
               return (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="rounded-xl border border-gray-800 bg-[#282c34]/30 p-4">
-                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Total Investasi CAPEX Awal</p>
-                    <h3 className="text-xl font-bold text-white mt-1">{formatPrice(capexStats.totalInitial)}</h3>
+                  <div className="rounded-2xl border border-gray-800 bg-[#282c34]/15 p-5 shadow-lg shadow-black/10 hover:border-gray-700/80 transition-colors">
+                    <p className="text-[10px] text-gray-500 font-extrabold uppercase tracking-wider">Total Investasi CAPEX Awal</p>
+                    <h3 className="text-xl font-black text-white mt-1.5">{formatPrice(capexStats.totalInitial)}</h3>
                     <p className="text-[10px] text-gray-500 mt-1">Nilai perolehan historis seluruh aset</p>
                   </div>
-                  <div className="rounded-xl border border-gray-800 bg-[#282c34]/30 p-4">
-                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Nilai Buku Saat Ini</p>
-                    <h3 className="text-xl font-bold text-emerald-400 mt-1">{formatPrice(capexStats.totalDepreciated)}</h3>
+                  <div className="rounded-2xl border border-gray-800 bg-[#282c34]/15 p-5 shadow-lg shadow-black/10 hover:border-emerald-500/30 transition-colors">
+                    <p className="text-[10px] text-gray-500 font-extrabold uppercase tracking-wider">Nilai Buku Saat Ini</p>
+                    <h3 className="text-xl font-black text-emerald-400 mt-1.5">{formatPrice(capexStats.totalDepreciated)}</h3>
                     <p className="text-[10px] text-gray-500 mt-1">Nilai buku setelah akumulasi penyusutan</p>
                   </div>
-                  <div className="rounded-xl border border-gray-800 bg-[#282c34]/30 p-4">
-                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Anggaran Penggantian Aset Kritis</p>
-                    <h3 className="text-xl font-bold text-rose-400 mt-1">{formatPrice(capexStats.totalOverdueCost)}</h3>
+                  <div className="rounded-2xl border border-gray-800 bg-[#282c34]/15 p-5 shadow-lg shadow-black/10 hover:border-rose-500/30 transition-colors">
+                    <p className="text-[10px] text-gray-500 font-extrabold uppercase tracking-wider">Anggaran Penggantian Aset Kritis</p>
+                    <h3 className="text-xl font-black text-rose-400 mt-1.5">{formatPrice(capexStats.totalOverdueCost)}</h3>
                     <p className="text-[10px] text-gray-500 mt-1">Estimasi biaya penggantian aset berumur &gt; 4 tahun</p>
                   </div>
                 </div>
@@ -1003,32 +1113,32 @@ export default function ReportsPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Asset Depreciation Table */}
               <div className="lg:col-span-2 space-y-3">
-                <h3 className="text-xs font-bold text-gray-300">Daftar Depresiasi & Status Aset</h3>
-                <div className="overflow-x-auto max-h-[350px] overflow-y-auto border border-gray-800/60 rounded-xl">
+                <h3 className="text-xs font-bold text-gray-300 uppercase tracking-wider">Daftar Depresiasi & Status Aset</h3>
+                <div className="overflow-x-auto max-h-[350px] overflow-y-auto border border-gray-850 rounded-2xl bg-gray-900/5 shadow-inner">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
-                      <tr className="border-b border-gray-800 text-gray-400 font-semibold bg-gray-900/40">
-                        <th className="p-2.5">Name</th>
-                        <th className="p-2.5">Tgl Pembelian</th>
-                        <th className="p-2.5">Umur (Thn)</th>
-                        <th className="p-2.5">Harga Awal</th>
-                        <th className="p-2.5">Nilai Buku</th>
-                        <th className="p-2.5">Status</th>
+                      <tr className="border-b border-gray-850 text-gray-400 font-bold uppercase tracking-wider text-[10px] bg-gray-950/40 sticky top-0 backdrop-blur-md">
+                        <th className="p-3">Name</th>
+                        <th className="p-3">Tgl Pembelian</th>
+                        <th className="p-3">Umur (Thn)</th>
+                        <th className="p-3">Harga Awal</th>
+                        <th className="p-3">Nilai Buku</th>
+                        <th className="p-3">Status</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-850 text-gray-300">
+                    <tbody className="divide-y divide-gray-850/50 text-gray-350">
                       {filteredAssets.map(asset => {
                         const dep = getAssetDepreciation(asset);
                         return (
-                          <tr key={asset.id} className="hover:bg-gray-900/10">
-                            <td className="p-2.5 font-semibold text-white truncate max-w-[150px]" title={asset.name}>{asset.name}</td>
-                            <td className="p-2.5">{asset.purchaseDate ? new Date(asset.purchaseDate).toLocaleDateString() : 'N/A'}</td>
-                            <td className="p-2.5 font-mono">{dep.age}</td>
-                            <td className="p-2.5">{formatPrice(asset.price)}</td>
-                            <td className="p-2.5 font-semibold text-emerald-400">{formatPrice(dep.currentValue)}</td>
-                            <td className="p-2.5">
+                          <tr key={asset.id} className="hover:bg-violet-500/5 hover:border-l-violet-500 border-l-2 border-l-transparent transition-all duration-200">
+                            <td className="p-3 font-bold text-white truncate max-w-[155px]" title={asset.name}>{asset.name}</td>
+                            <td className="p-3">{asset.purchaseDate ? new Date(asset.purchaseDate).toLocaleDateString() : 'N/A'}</td>
+                            <td className="p-3 font-mono font-bold">{dep.age}</td>
+                            <td className="p-3 font-semibold">{formatPrice(asset.price)}</td>
+                            <td className="p-3 font-black text-emerald-400">{formatPrice(dep.currentValue)}</td>
+                            <td className="p-3">
                               <span className={cn(
-                                "px-2 py-0.5 rounded text-[9px] font-bold border",
+                                "px-2.5 py-0.5 rounded-lg text-[9px] font-black border",
                                 dep.status === 'Optimal' ? "bg-green-500/10 text-green-400 border-green-500/20" :
                                 dep.status === 'Monitoring' ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" :
                                 "bg-red-500/10 text-red-400 border-red-500/20 animate-pulse"
@@ -1046,9 +1156,9 @@ export default function ReportsPage() {
 
               {/* Quarter replacement Forecast Roadmap */}
               <div className="space-y-3">
-                <h3 className="text-xs font-bold text-gray-300">Proyeksi Anggaran Penggantian (Roadmap)</h3>
-                <div className="rounded-xl border border-gray-800 bg-gray-950/20 p-4 space-y-4">
-                  <p className="text-[10px] text-gray-500 leading-relaxed">Berikut adalah proyeksi pengeluaran CAPEX penggantian hardware baru berdasarkan jadwal kadaluarsa 4 tahun semenjak tanggal pembelian aset:</p>
+                <h3 className="text-xs font-bold text-gray-300 uppercase tracking-wider">Proyeksi Anggaran Penggantian (Roadmap)</h3>
+                <div className="rounded-2xl border border-gray-800 bg-gray-950/20 p-5 space-y-4">
+                  <p className="text-[10px] text-gray-500 leading-relaxed font-medium">Berikut adalah proyeksi pengeluaran CAPEX penggantian hardware baru berdasarkan jadwal kadaluarsa 4 tahun semenjak tanggal pembelian aset:</p>
                   
                   {(() => {
                     const currentYear = new Date().getFullYear();
@@ -1080,12 +1190,12 @@ export default function ReportsPage() {
                     return (
                       <div className="space-y-3">
                         {sortedForecast.map(f => (
-                          <div key={f.key} className="flex justify-between items-center bg-gray-900/40 border border-gray-850 p-2.5 rounded-lg text-xs">
+                          <div key={f.key} className="flex justify-between items-center bg-gray-900/35 border border-gray-850 p-3 rounded-xl text-xs hover:border-violet-500/25 border-transparent transition-all">
                             <div>
                               <span className="font-bold text-white block">{f.key}</span>
                               <span className="text-[10px] text-gray-500">Jadwal Penggantian</span>
                             </div>
-                            <span className="font-semibold text-violet-400">{formatPrice(f.cost)}</span>
+                            <span className="font-bold text-violet-400">{formatPrice(f.cost)}</span>
                           </div>
                         ))}
                       </div>
@@ -1098,11 +1208,11 @@ export default function ReportsPage() {
         )}
 
         {activeTab === 'assets' && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
+          <div className="space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-800/40 pb-4 gap-4">
               <div>
-                <h2 className="text-sm font-bold text-white">Asset Inventory Report</h2>
-                <p className="text-xs text-gray-500">Hardware assets currently tracked in active operations.</p>
+                <h2 className="text-sm font-black text-white uppercase tracking-wider">Asset Registry Report</h2>
+                <p className="text-xs text-gray-400">Hardware assets currently tracked in active operations.</p>
               </div>
               <div className="flex gap-2">
                 <button
@@ -1110,9 +1220,9 @@ export default function ReportsPage() {
                     exportToExcel(getAssetData(), 'Assets', 'asset_inventory_report');
                     addAuditLog('REPORT_EXPORTED', `Exported Asset Inventory report to Excel`);
                   }}
-                  className="flex items-center gap-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-xs font-bold px-3 py-1.5 transition-all border border-gray-700/60"
+                  className="flex items-center gap-1.5 rounded-xl bg-gray-900 hover:bg-gray-850 text-white text-xs font-bold px-3.5 py-2 transition-all border border-gray-800 active:scale-95 shadow-md shadow-black/10"
                 >
-                  <Download size={12} />
+                  <Download size={13} />
                   Excel
                 </button>
                 <button
@@ -1123,37 +1233,37 @@ export default function ReportsPage() {
                     exportToPDF(headers, rows, 'Asset Inventory Report', 'asset_inventory_report');
                     addAuditLog('REPORT_EXPORTED', `Exported Asset Inventory report to PDF`);
                   }}
-                  className="flex items-center gap-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold px-3 py-1.5 transition-all"
+                  className="flex items-center gap-1.5 rounded-xl bg-violet-655 hover:bg-violet-600 text-white text-xs font-bold px-3.5 py-2 transition-all border border-violet-500/30 active:scale-95 shadow-md shadow-violet-600/10"
                 >
-                  <Download size={12} />
+                  <Download size={13} />
                   PDF (Secure)
                 </button>
               </div>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-2xl border border-gray-855 bg-gray-900/5">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="border-b border-gray-800 text-gray-400 font-semibold">
-                    <th className="py-2.5">Name</th>
-                    <th className="py-2.5">Brand</th>
-                    <th className="py-2.5">Type</th>
-                    <th className="py-2.5">Serial Number</th>
-                    <th className="py-2.5">Location</th>
-                    <th className="py-2.5">Status</th>
+                  <tr className="border-b border-gray-855 text-gray-400 font-bold uppercase tracking-wider text-[10px] bg-gray-955/40">
+                    <th className="py-3 px-4">Name</th>
+                    <th className="py-3 px-4">Brand</th>
+                    <th className="py-3 px-4">Type</th>
+                    <th className="py-3 px-4">Serial Number</th>
+                    <th className="py-3 px-4">Location</th>
+                    <th className="py-3 px-4">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-800/40 text-gray-300">
+                <tbody className="divide-y divide-gray-855/50 text-gray-300">
                   {filteredAssets.map(asset => (
-                    <tr key={asset.id} className="hover:bg-gray-900/10">
-                      <td className="py-3 font-semibold text-white">{asset.name}</td>
-                      <td className="py-3">{asset.brand}</td>
-                      <td className="py-3">{asset.type}</td>
-                      <td className="py-3 font-mono">{asset.serialNumber}</td>
-                      <td className="py-3">{asset.location}</td>
-                      <td className="py-3">
+                    <tr key={asset.id} className="hover:bg-violet-500/5 border-l-2 border-l-transparent hover:border-l-violet-500 transition-all duration-200">
+                      <td className="py-3.5 px-4 font-bold text-white">{asset.name}</td>
+                      <td className="py-3.5 px-4 font-medium">{asset.brand}</td>
+                      <td className="py-3.5 px-4">{asset.type}</td>
+                      <td className="py-3.5 px-4 font-mono font-semibold text-gray-400">{asset.serialNumber}</td>
+                      <td className="py-3.5 px-4 font-medium text-gray-450">{asset.location}</td>
+                      <td className="py-3.5 px-4">
                         <span className={cn(
-                          "px-2 py-0.5 rounded-full text-[9px] font-bold uppercase",
+                          "px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase border",
                           asset.status === 'AVAILABLE' ? "bg-emerald-600/10 text-emerald-400 border border-emerald-500/20" :
                           asset.status === 'IN_USE' ? "bg-blue-600/10 text-blue-400 border border-blue-500/20" :
                           "bg-amber-600/10 text-amber-400 border border-amber-500/20"
@@ -1170,11 +1280,11 @@ export default function ReportsPage() {
         )}
 
         {activeTab === 'tickets' && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
+          <div className="space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-800/40 pb-4 gap-4">
               <div>
-                <h2 className="text-sm font-bold text-white">IT Tickets Report Log</h2>
-                <p className="text-xs text-gray-500">History log of helpdesk and hardware failure tickets.</p>
+                <h2 className="text-sm font-black text-white uppercase tracking-wider">IT Tickets Report Log</h2>
+                <p className="text-xs text-gray-400">History log of helpdesk and hardware failure tickets.</p>
               </div>
               <div className="flex gap-2">
                 <button
@@ -1182,9 +1292,9 @@ export default function ReportsPage() {
                     exportToExcel(getTicketData(), 'Tickets', 'tickets_report_log');
                     addAuditLog('REPORT_EXPORTED', `Exported Tickets report to Excel`);
                   }}
-                  className="flex items-center gap-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-xs font-bold px-3 py-1.5 transition-all border border-gray-700/60"
+                  className="flex items-center gap-1.5 rounded-xl bg-gray-900 hover:bg-gray-850 text-white text-xs font-bold px-3.5 py-2 transition-all border border-gray-800 active:scale-95 shadow-md shadow-black/10"
                 >
-                  <Download size={12} />
+                  <Download size={13} />
                   Excel
                 </button>
                 <button
@@ -1195,51 +1305,51 @@ export default function ReportsPage() {
                     exportToPDF(headers, rows, 'IT Helpdesk Ticket Log', 'tickets_report_log');
                     addAuditLog('REPORT_EXPORTED', `Exported Tickets report to PDF`);
                   }}
-                  className="flex items-center gap-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold px-3 py-1.5 transition-all"
+                  className="flex items-center gap-1.5 rounded-xl bg-violet-650 hover:bg-violet-600 text-white text-xs font-bold px-3.5 py-2 transition-all border border-violet-500/30 active:scale-95 shadow-md shadow-violet-600/10"
                 >
-                  <Download size={12} />
+                  <Download size={13} />
                   PDF (Secure)
                 </button>
               </div>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-2xl border border-gray-855 bg-gray-900/5">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="border-b border-gray-800 text-gray-400 font-semibold">
-                    <th className="py-2.5">Title</th>
-                    <th className="py-2.5">Category</th>
-                    <th className="py-2.5">Priority</th>
-                    <th className="py-2.5">Status</th>
-                    <th className="py-2.5">Created At</th>
+                  <tr className="border-b border-gray-855 text-gray-400 font-bold uppercase tracking-wider text-[10px] bg-gray-955/40">
+                    <th className="py-3 px-4">Title</th>
+                    <th className="py-3 px-4">Category</th>
+                    <th className="py-3 px-4">Priority</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4">Created At</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-800/40 text-gray-300">
+                <tbody className="divide-y divide-gray-855/50 text-gray-355">
                   {filteredTickets.map(ticket => (
-                    <tr key={ticket.id} className="hover:bg-gray-900/10">
-                      <td className="py-3 font-semibold text-white">{ticket.title}</td>
-                      <td className="py-3">{ticket.category}</td>
-                      <td className="py-3 font-semibold">
+                    <tr key={ticket.id} className="hover:bg-violet-500/5 border-l-2 border-l-transparent hover:border-l-violet-500 transition-all duration-200">
+                      <td className="py-3.5 px-4 font-bold text-white">{ticket.title}</td>
+                      <td className="py-3.5 px-4 font-medium">{ticket.category}</td>
+                      <td className="py-3.5 px-4 font-bold">
                         <span className={cn(
-                          "px-2 py-0.5 rounded-full text-[9px] font-bold uppercase",
-                          ticket.priority === 'CRITICAL' || ticket.priority === 'HIGH' ? "bg-rose-600/10 text-rose-400 border border-rose-500/20" :
-                          ticket.priority === 'MEDIUM' ? "bg-amber-600/10 text-amber-400 border border-amber-500/20" :
-                          "bg-blue-600/10 text-blue-400 border border-blue-500/20"
+                          "px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase border",
+                          ticket.priority === 'CRITICAL' || ticket.priority === 'HIGH' ? "bg-rose-600/10 text-rose-400 border border-rose-500/25" :
+                          ticket.priority === 'MEDIUM' ? "bg-amber-600/10 text-amber-400 border border-amber-500/25" :
+                          "bg-blue-600/10 text-blue-400 border border-blue-500/25"
                         )}>
                           {ticket.priority}
                         </span>
                       </td>
-                      <td className="py-3">
+                      <td className="py-3.5 px-4">
                         <span className={cn(
-                          "px-2 py-0.5 rounded-full text-[9px] font-bold uppercase",
-                          ticket.status === 'OPEN' ? "bg-violet-600/10 text-violet-400 border border-violet-500/20" :
-                          ticket.status === 'IN_PROGRESS' ? "bg-amber-600/10 text-amber-400 border border-amber-500/20" :
-                          "bg-gray-800 text-gray-400"
+                          "px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase border",
+                          ticket.status === 'OPEN' ? "bg-violet-600/10 text-violet-400 border border-violet-500/25" :
+                          ticket.status === 'IN_PROGRESS' ? "bg-amber-600/10 text-amber-400 border border-amber-500/25" :
+                          "bg-gray-800 border-gray-750 text-gray-400"
                         )}>
                           {ticket.status}
                         </span>
                       </td>
-                      <td className="py-3 text-gray-500">{new Date(ticket.createdAt).toLocaleDateString()}</td>
+                      <td className="py-3.5 px-4 text-gray-500 font-mono font-medium">{new Date(ticket.createdAt).toLocaleDateString()}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1249,11 +1359,11 @@ export default function ReportsPage() {
         )}
 
         {activeTab === 'inventory' && (
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
+          <div className="space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-800/40 pb-4 gap-4">
               <div>
-                <h2 className="text-sm font-bold text-white">Spare Parts Inventory Report</h2>
-                <p className="text-xs text-gray-500">Warehouse storage tracking for spares, cables, and components.</p>
+                <h2 className="text-sm font-black text-white uppercase tracking-wider">Spare Parts Inventory Report</h2>
+                <p className="text-xs text-gray-400 font-medium">Warehouse storage tracking for spares, cables, and components.</p>
               </div>
               <div className="flex gap-2">
                 <button
@@ -1261,9 +1371,9 @@ export default function ReportsPage() {
                     exportToExcel(getInventoryData(), 'Inventory', 'spare_parts_inventory_report');
                     addAuditLog('REPORT_EXPORTED', `Exported Inventory report to Excel`);
                   }}
-                  className="flex items-center gap-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-white text-xs font-bold px-3 py-1.5 transition-all border border-gray-700/60"
+                  className="flex items-center gap-1.5 rounded-xl bg-gray-900 hover:bg-gray-850 text-white text-xs font-bold px-3.5 py-2 transition-all border border-gray-800 active:scale-95 shadow-md shadow-black/10"
                 >
-                  <Download size={12} />
+                  <Download size={13} />
                   Excel
                 </button>
                 <button
@@ -1274,37 +1384,37 @@ export default function ReportsPage() {
                     exportToPDF(headers, rows, 'Spare Parts Inventory Report', 'spare_parts_inventory_report');
                     addAuditLog('REPORT_EXPORTED', `Exported Inventory report to PDF`);
                   }}
-                  className="flex items-center gap-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold px-3 py-1.5 transition-all"
+                  className="flex items-center gap-1.5 rounded-xl bg-violet-650 hover:bg-violet-600 text-white text-xs font-bold px-3.5 py-2 transition-all border border-violet-500/30 active:scale-95 shadow-md shadow-violet-600/10"
                 >
-                  <Download size={12} />
+                  <Download size={13} />
                   PDF (Secure)
                 </button>
               </div>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto rounded-2xl border border-gray-855 bg-gray-900/5">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="border-b border-gray-800 text-gray-400 font-semibold">
-                    <th className="py-2.5">Name</th>
-                    <th className="py-2.5">SKU</th>
-                    <th className="py-2.5">Description</th>
-                    <th className="py-2.5">Quantity</th>
-                    <th className="py-2.5">Location</th>
-                    <th className="py-2.5">Verified</th>
+                  <tr className="border-b border-gray-855 text-gray-400 font-bold uppercase tracking-wider text-[10px] bg-gray-955/40">
+                    <th className="py-3 px-4">Name</th>
+                    <th className="py-3 px-4">SKU</th>
+                    <th className="py-3 px-4">Description</th>
+                    <th className="py-3 px-4">Quantity</th>
+                    <th className="py-3 px-4">Location</th>
+                    <th className="py-3 px-4">Verified</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-800/40 text-gray-300">
+                <tbody className="divide-y divide-gray-855/50 text-gray-300">
                   {filteredInventories.map(item => (
-                    <tr key={item.id} className="hover:bg-gray-900/10">
-                      <td className="py-3 font-semibold text-white">{item.name}</td>
-                      <td className="py-3 font-mono text-gray-400">{item.sku || 'N/A'}</td>
-                      <td className="py-3 text-gray-400 max-w-[200px] truncate">{item.description || 'N/A'}</td>
-                      <td className="py-3 font-semibold">{item.quantity} {item.unit}</td>
-                      <td className="py-3">{item.location || 'Warehouse'}</td>
-                      <td className="py-3">
+                    <tr key={item.id} className="hover:bg-violet-500/5 border-l-2 border-l-transparent hover:border-l-violet-500 transition-all duration-200">
+                      <td className="py-3.5 px-4 font-bold text-white">{item.name}</td>
+                      <td className="py-3.5 px-4 font-mono font-semibold text-gray-400">{item.sku || 'N/A'}</td>
+                      <td className="py-3.5 px-4 text-gray-450 max-w-[200px] truncate">{item.description || 'N/A'}</td>
+                      <td className="py-3.5 px-4 font-bold text-white">{item.quantity} {item.unit}</td>
+                      <td className="py-3.5 px-4 font-medium">{item.location || 'Warehouse'}</td>
+                      <td className="py-3.5 px-4">
                         <span className={cn(
-                          "px-2 py-0.5 rounded-full text-[9px] font-bold uppercase",
+                          "px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase border",
                           item.isVerified ? "bg-emerald-600/10 text-emerald-400 border border-emerald-500/20" : "bg-gray-800 text-gray-400"
                         )}>
                           {item.isVerified ? 'VERIFIED' : 'PENDING'}
