@@ -33,6 +33,22 @@ export const userService = {
     if (error) throw error;
   },
 
+  // --- AUDIT LOGS ---
+  async getAuditLogs() {
+    const { data, error } = await supabase
+      .from('AuditLog')
+      .select('*')
+      .order('createdAt', { ascending: false })
+      .limit(250);
+    if (error) throw error;
+    return data || [];
+  },
+
+  async insertAuditLog(payload: any) {
+    const { error } = await supabase.from('AuditLog').insert([payload]);
+    if (error) throw error;
+  },
+
   // --- NOTIFICATIONS ---
   async getNotifications(userId: string) {
     const { data, error } = await supabase

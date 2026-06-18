@@ -473,7 +473,8 @@ export const useStore = create<AppState>()(
             dbNotifs,
             dbAttachments,
             dbDirCategories,
-            dbDirEntries
+            dbDirEntries,
+            dbAuditLogs
           ] = await Promise.all([
             userService.getUsers().catch(e => { console.error("Error loading users:", e); return []; }),
             taskService.getSpaces().catch(e => { console.error("Error loading spaces:", e); return []; }),
@@ -494,7 +495,8 @@ export const useStore = create<AppState>()(
             cu ? userService.getNotifications(cu.id).catch(e => { console.error("Error loading notifications:", e); return []; }) : Promise.resolve([]),
             ticketService.getAttachments().catch(e => { console.error("Error loading attachments:", e); return []; }),
             assetService.getDirectoryCategories().catch(e => { console.error("Error loading dir categories:", e); return []; }),
-            assetService.getDirectoryEntries().catch(e => { console.error("Error loading dir entries:", e); return []; })
+            assetService.getDirectoryEntries().catch(e => { console.error("Error loading dir entries:", e); return []; }),
+            userService.getAuditLogs().catch(e => { console.error("Error loading audit logs:", e); return []; })
           ]);
 
           const taskIds = (dbTasks || []).map(t => t.id);
@@ -692,7 +694,14 @@ export const useStore = create<AppState>()(
             maintenanceSchedules: dbMaintenanceSchedules,
             notifications: mappedNotifications,
             directoryCategories: dbDirCategories || [],
-            directoryEntries: dbDirEntries || []
+            directoryEntries: dbDirEntries || [],
+            auditLogs: (dbAuditLogs || []).map(log => ({
+              id: log.id,
+              action: log.action,
+              details: log.details || '',
+              userId: log.userId,
+              createdAt: log.createdAt
+            }))
           });
 
           // Run PM Scheduler Logic
@@ -3166,9 +3175,21 @@ export const useStore = create<AppState>()(
       },
 
       // AUDIT & UI MANAGEMENT
-      addAuditLog: (action, details) => {
+      addAuditLog: async (action, details) => {
         const cu = get().currentUser;
-        set({ auditLogs: [{ id: uuidv4(), action, details, userId: cu?.id || 'system', createdAt: new Date().toISOString() }, ...get().auditLogs].slice(0, 200) });
+        const newLog = { 
+          id: uuidv4(), 
+          action, 
+          details: details || '', 
+          userId: cu?.id || 'system', 
+          createdAt: new Date().toISOString() 
+        };
+        set({ auditLogs: [newLog, ...get().auditLogs].slice(0, 200) });
+        try {
+          await userService.insertAuditLog(newLog);
+        } catch (e) {
+          console.error("Error inserting audit log to Supabase:", e);
+        }
       },
       markNotificationRead: async (id) => {
         set({ notifications: get().notifications.map(n => n.id === id ? { ...n, read: true } : n) });
