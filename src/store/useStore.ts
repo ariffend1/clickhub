@@ -13,7 +13,8 @@ import type {
   Task, Space, TaskList, Comment, Activity, User, Tag,
   TaskStatus, Priority, ViewMode, ActivePage, Notification,
   AuthUser, UserRole, Ticket, TicketStatus, TicketPriority, Asset, AssetStatus, Article, Attachment,
-  ChatMessage, ChatSession, AuditLog, EquipmentCheckout, CheckoutItem, GoodsReceipt, Holiday, Inventory, MaintenanceSchedule
+  ChatMessage, ChatSession, AuditLog, EquipmentCheckout, CheckoutItem, GoodsReceipt, Holiday, Inventory, MaintenanceSchedule,
+  DirectoryCategory, DirectoryEntry, ConfigType
 } from '../types';
 import { getEncryptedItem, STORAGE_KEYS } from '../utils/crypto';
 import { compressImage } from '../utils/imageCompressor';
@@ -96,6 +97,8 @@ interface AppState {
   goodsReceipts: GoodsReceipt[];
   holidays: Holiday[];
   auditLogs: AuditLog[];
+  directoryCategories: DirectoryCategory[];
+  directoryEntries: DirectoryEntry[];
   activePage: ActivePage;
   selectedSpaceId: string | null;
   selectedListId: string | null;
@@ -177,6 +180,13 @@ interface AppState {
   returnEquipmentItem: (checkoutId: string, itemId: string, condition: 'GOOD' | 'DAMAGED' | 'BROKEN', notes: string) => Promise<void>;
   adminAddUser: (name: string, email: string, password: string, role: UserRole, department?: string, phone?: string) => Promise<{ success: boolean; error?: string }>;
   addGoodsReceipt: (data: { receiptNumber: string; purchaseRequestId: string | null; itemName: string; quantityOrdered: number; quantityReceived: number; destinationType: 'ASSET' | 'INVENTORY'; inventoryId?: string | null; assetId?: string | null; condition: 'GOOD' | 'DAMAGED' | 'INCOMPLETE'; notes?: string; assetSerialNumber?: string | null; assetLocation?: string | null }) => Promise<void>;
+  addDirectoryConfig: (name: string, type: ConfigType, categoryName: string, value: string, notes: string, linkedAssetId: string) => Promise<void>;
+  deleteDirectoryConfig: (id: string) => Promise<void>;
+  requestDeleteDirectoryConfig: (id: string) => Promise<void>;
+  approveDeleteDirectoryConfig: (id: string) => Promise<void>;
+  rejectDeleteDirectoryConfig: (id: string) => Promise<void>;
+  deleteDirectoryCategory: (id: string) => Promise<void>;
+  addDirectoryCategory: (name: string) => Promise<DirectoryCategory>;
   addAuditLog: (action: string, details: string) => void;
   markNotificationRead: (id: string) => Promise<void>;
   markAllNotificationsRead: () => Promise<void>;
@@ -207,8 +217,11 @@ interface AppState {
   addPartRequest: (inventoryId: string, quantity: number, notes: string, taskId?: string, ticketId?: string) => Promise<void>;
   addStockRequest: (data: { type: 'RESTOCK' | 'NEW_ITEM'; inventoryId?: string; itemName: string; itemDescription?: string; category?: string; quantity: number; estimatedPrice?: number; reason: string }) => Promise<void>;
   approvePartRequest: (id: string) => Promise<void>;
-  approveStockRequest: (id: string, newStatus: string) => Promise<void>;
   loadAllArchivedTickets: () => Promise<void>;
+  systemCompanyName: string;
+  systemLogoBase64: string;
+  loadBrandingSettings: () => Promise<void>;
+  updateBrandingSettings: (companyName: string, logoBase64: string) => Promise<void>;
 }
 
 const defaultUsers: User[] = [
@@ -381,18 +394,18 @@ export const useStore = create<AppState>()(
       syncQueue: [],
       failedSyncQueue: [],
 
-      spaces: defaultSpaces,
-      lists: defaultLists,
-      tasks: defaultTasks,
-      comments: defaultComments,
-      activities: defaultActivities,
+      spaces: [],
+      lists: [],
+      tasks: [],
+      comments: [],
+      activities: [],
       users: defaultUsers,
-      tags: defaultTags,
-      notifications: defaultNotifications,
+      tags: [],
+      notifications: [],
 
-      tickets: defaultTickets,
-      assets: defaultAssets,
-      articles: defaultArticles,
+      tickets: [],
+      assets: [],
+      articles: [],
       partRequests: [],
       stockRequests: [],
       inventories: [],
@@ -403,6 +416,8 @@ export const useStore = create<AppState>()(
       goodsReceipts: [],
       holidays: [],
       auditLogs: defaultAuditLogs,
+      directoryCategories: [],
+      directoryEntries: [],
 
       activePage: 'home',
       selectedSpaceId: 'space-1',
@@ -423,6 +438,8 @@ export const useStore = create<AppState>()(
       settingsActiveTab: 'profile',
       archivedTicketsLoaded: false,
       showChatWidget: false,
+      systemCompanyName: 'CLICKHUB',
+      systemLogoBase64: '',
 
       // SUPABASE LOAD DATA
       loadAllData: async () => {
@@ -434,6 +451,7 @@ export const useStore = create<AppState>()(
           }
         }
         try {
+          await get().loadBrandingSettings().catch(e => console.error(e));
           const cu = get().currentUser;
           const [
             dbUsers,
@@ -453,7 +471,9 @@ export const useStore = create<AppState>()(
             dbReceipts_data,
             dbMaintenanceSchedules_data,
             dbNotifs,
-            dbAttachments
+            dbAttachments,
+            dbDirCategories,
+            dbDirEntries
           ] = await Promise.all([
             userService.getUsers().catch(e => { console.error("Error loading users:", e); return []; }),
             taskService.getSpaces().catch(e => { console.error("Error loading spaces:", e); return []; }),
@@ -472,7 +492,9 @@ export const useStore = create<AppState>()(
             operationsService.getGoodsReceipts().catch(e => { console.error("Error loading goods receipts:", e); return []; }),
             assetService.getMaintenanceSchedules().catch(e => { console.error("Error loading maintenance schedules:", e); return []; }),
             cu ? userService.getNotifications(cu.id).catch(e => { console.error("Error loading notifications:", e); return []; }) : Promise.resolve([]),
-            ticketService.getAttachments().catch(e => { console.error("Error loading attachments:", e); return []; })
+            ticketService.getAttachments().catch(e => { console.error("Error loading attachments:", e); return []; }),
+            assetService.getDirectoryCategories().catch(e => { console.error("Error loading dir categories:", e); return []; }),
+            assetService.getDirectoryEntries().catch(e => { console.error("Error loading dir entries:", e); return []; })
           ]);
 
           const taskIds = (dbTasks || []).map(t => t.id);
@@ -646,12 +668,12 @@ export const useStore = create<AppState>()(
 
           set({
             users: mappedUsers,
-            spaces: mappedSpaces.length ? mappedSpaces : defaultSpaces,
-            lists: mappedLists.length ? mappedLists : defaultLists,
-            tasks: mappedTasks.length ? mappedTasks : defaultTasks,
-            tickets: mappedTickets.length ? mappedTickets : defaultTickets,
-            assets: mappedAssets.length ? mappedAssets : defaultAssets,
-            articles: mappedArticles.length ? mappedArticles : defaultArticles,
+            spaces: mappedSpaces,
+            lists: mappedLists,
+            tasks: mappedTasks,
+            tickets: mappedTickets,
+            assets: mappedAssets,
+            articles: mappedArticles,
             inventories: dbInventories || [],
             partRequests: dbPartRequests || [],
             stockRequests: dbStockRequests || [],
@@ -668,13 +690,200 @@ export const useStore = create<AppState>()(
             equipmentCheckouts: mappedCheckouts,
             goodsReceipts: dbReceipts || [],
             maintenanceSchedules: dbMaintenanceSchedules,
-            notifications: mappedNotifications.length ? mappedNotifications : defaultNotifications
+            notifications: mappedNotifications,
+            directoryCategories: dbDirCategories || [],
+            directoryEntries: dbDirEntries || []
           });
 
           // Run PM Scheduler Logic
           await get().processMaintenanceSchedules();
         } catch (err) {
           console.error("Error loading data from Supabase:", err);
+        }
+      },
+
+      loadBrandingSettings: async () => {
+        try {
+          const { data, error } = await supabase
+            .from('MasterData')
+            .select('*')
+            .eq('category', 'BRANDING');
+          
+          if (error) {
+            console.error("Error loading branding settings:", error);
+            return;
+          }
+          
+          if (data && data.length > 0) {
+            const companyNameRow = data.find(r => r.id === 'branding_company_name');
+            const logoRow = data.find(r => r.id === 'branding_logo_base64');
+            
+            set({
+              systemCompanyName: companyNameRow ? companyNameRow.name : 'CLICKHUB',
+              systemLogoBase64: logoRow ? logoRow.name : ''
+            });
+          }
+        } catch (err) {
+          console.error("Failed to fetch branding from MasterData:", err);
+        }
+      },
+
+      updateBrandingSettings: async (companyName, logoBase64) => {
+        set({
+          systemCompanyName: companyName,
+          systemLogoBase64: logoBase64
+        });
+        
+        try {
+          const now = new Date().toISOString();
+          const { error: err1 } = await supabase
+            .from('MasterData')
+            .upsert({
+              id: 'branding_company_name',
+              category: 'BRANDING',
+              name: companyName,
+              updatedAt: now
+            });
+            
+          const { error: err2 } = await supabase
+            .from('MasterData')
+            .upsert({
+              id: 'branding_logo_base64',
+              category: 'BRANDING',
+              name: logoBase64,
+              updatedAt: now
+            });
+            
+          if (err1 || err2) {
+            console.error("Error saving branding settings to Supabase:", err1 || err2);
+          }
+        } catch (err) {
+          console.error("Failed to upsert branding to MasterData:", err);
+        }
+      },
+
+      addDirectoryCategory: async (name: string) => {
+        const id = uuidv4();
+        const payload = {
+          id,
+          name,
+          icon: 'folder',
+          color: '#6B7280',
+          order: 0,
+          visibility: 'PUBLIC'
+        };
+        try {
+          const data = await assetService.insertDirectoryCategory(payload);
+          await get().loadAllData();
+          return data;
+        } catch (e) {
+          console.error("Error creating directory category:", e);
+          throw e;
+        }
+      },
+
+      addDirectoryConfig: async (name, type: ConfigType, categoryName, value, notes, linkedAssetId) => {
+        let category = get().directoryCategories.find(c => c.name.toLowerCase() === categoryName.toLowerCase());
+        let categoryId = category?.id;
+        
+        if (!categoryId) {
+          const newCat = await get().addDirectoryCategory(categoryName);
+          categoryId = newCat.id;
+        }
+
+        const id = uuidv4();
+        const payload = {
+          id,
+          categoryId,
+          name,
+          value,
+          description: notes || null,
+          location: `${type}:${linkedAssetId || ''}`,
+          isPublic: true
+        };
+
+        try {
+          await assetService.insertDirectoryEntry(payload);
+          get().addAuditLog('DIRECTORY_CONFIG_CREATED', `Config ${name} created in group ${categoryName}`);
+          await get().loadAllData();
+        } catch (e) {
+          console.error("Error creating directory config:", e);
+          throw e;
+        }
+      },
+
+      deleteDirectoryConfig: async (id: string) => {
+        try {
+          await assetService.deleteDirectoryEntry(id);
+          get().addAuditLog('DIRECTORY_CONFIG_DELETED', `Config ${id} deleted`);
+          await get().loadAllData();
+        } catch (e) {
+          console.error("Error deleting directory config:", e);
+          throw e;
+        }
+      },
+
+      requestDeleteDirectoryConfig: async (id: string) => {
+        const entry = get().directoryEntries.find(e => e.id === id);
+        if (!entry) return;
+        const [type, assetId] = entry.location ? entry.location.split(':') : ['SERVER_PHYSICAL', ''];
+        const cu = get().currentUser;
+        const newLocation = `${type}:${assetId || ''}:PENDING_DELETE:${cu?.id || 'unknown'}`;
+        
+        try {
+          const { error } = await supabase
+            .from('DirectoryEntry')
+            .update({ location: newLocation, updatedAt: new Date().toISOString() })
+            .eq('id', id);
+          if (error) throw error;
+          get().addAuditLog('DIRECTORY_CONFIG_DELETE_REQUESTED', `Config ${entry.name} delete requested`);
+          await get().loadAllData();
+        } catch (e) {
+          console.error("Error requesting directory config delete:", e);
+          throw e;
+        }
+      },
+
+      approveDeleteDirectoryConfig: async (id: string) => {
+        try {
+          const entry = get().directoryEntries.find(e => e.id === id);
+          await assetService.deleteDirectoryEntry(id);
+          get().addAuditLog('DIRECTORY_CONFIG_DELETED', `Config ${entry?.name || id} deletion approved`);
+          await get().loadAllData();
+        } catch (e) {
+          console.error("Error approving directory config delete:", e);
+          throw e;
+        }
+      },
+
+      rejectDeleteDirectoryConfig: async (id: string) => {
+        const entry = get().directoryEntries.find(e => e.id === id);
+        if (!entry) return;
+        const [type, assetId] = entry.location ? entry.location.split(':') : ['SERVER_PHYSICAL', ''];
+        const newLocation = `${type}:${assetId || ''}:ACTIVE`;
+
+        try {
+          const { error } = await supabase
+            .from('DirectoryEntry')
+            .update({ location: newLocation, updatedAt: new Date().toISOString() })
+            .eq('id', id);
+          if (error) throw error;
+          get().addAuditLog('DIRECTORY_CONFIG_DELETE_REJECTED', `Config ${entry.name} delete request rejected`);
+          await get().loadAllData();
+        } catch (e) {
+          console.error("Error rejecting directory config delete:", e);
+          throw e;
+        }
+      },
+
+      deleteDirectoryCategory: async (id: string) => {
+        try {
+          await assetService.deleteDirectoryCategory(id);
+          get().addAuditLog('DIRECTORY_CATEGORY_DELETED', `Directory category ${id} deleted`);
+          await get().loadAllData();
+        } catch (e) {
+          console.error("Error deleting directory category:", e);
+          throw e;
         }
       },
 

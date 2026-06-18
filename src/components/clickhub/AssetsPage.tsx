@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { cn } from '../../utils/cn';
-import { Plus, Search, X, Monitor, Laptop, Server, Printer, Wifi, Camera } from 'lucide-react';
-import type { AssetStatus, Asset } from '../../types';
+import { Plus, Search, X, Monitor, Laptop, Server, Printer, Wifi, Camera, Cpu, Box, Network, Layers, GitFork, Globe, Database, HardDrive, Webhook, MessageSquare, ShieldAlert, Key, FileCheck, Phone, PhoneCall, Package, ClipboardList, Truck, FolderGit, FileText } from 'lucide-react';
+import type { AssetStatus, Asset, ConfigType } from '../../types';
 import BarcodeScannerModal from './BarcodeScannerModal';
 import EquipmentCheckoutPage from './EquipmentCheckoutPage';
 import GoodsReceiptPage from './GoodsReceiptPage';
@@ -27,10 +27,12 @@ export default function AssetsPage() {
     assets, addAsset, updateAsset, deleteAsset, getUserById, hasRole,
     inventories, partRequests, stockRequests, addPartRequest, addStockRequest,
     approvePartRequest, approveStockRequest, users, equipmentCheckouts,
-    maintenanceSchedules, addMaintenanceSchedule, updateMaintenanceSchedule, deleteMaintenanceSchedule
+    maintenanceSchedules, addMaintenanceSchedule, updateMaintenanceSchedule, deleteMaintenanceSchedule,
+    directoryCategories, directoryEntries, addDirectoryConfig, deleteDirectoryConfig,
+    requestDeleteDirectoryConfig, approveDeleteDirectoryConfig, rejectDeleteDirectoryConfig, deleteDirectoryCategory
   } = useStore();
 
-  const [activeTab, setActiveTab] = useState<'assets' | 'inventory' | 'requests' | 'checkout' | 'receipt'>('assets');
+  const [activeTab, setActiveTab] = useState<'assets' | 'inventory' | 'requests' | 'checkout' | 'receipt' | 'configs'>('assets');
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
@@ -39,6 +41,121 @@ export default function AssetsPage() {
   const [form, setForm] = useState({ name: '', brand: '', type: 'Laptop', serialNumber: '', location: '', price: '', vendor: '', processor: '', ram: '', storage: '', os: '' });
   const [scanTarget, setScanTarget] = useState<'assets-search' | 'inventory-search' | 'form-sn' | null>(null);
   const [modalTab, setModalTab] = useState<'specs' | 'audit' | 'maintenance' | 'qr_label'>('specs');
+
+  // IT Configuration Directory & Configs integration with Supabase
+  const categories = directoryCategories.length > 0 
+    ? directoryCategories.map(c => c.name)
+    : ['Server / VM', 'Jaringan / IP', 'Telepon / Ekstensi', 'Kredensial / Akun'];
+
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
+
+  const configs = directoryEntries.map(e => {
+    const [typeStr, linkedAssetId] = e.location ? e.location.split(':') : ['SERVER_PHYSICAL', ''];
+    const categoryName = directoryCategories.find(cat => cat.id === e.categoryId)?.name || 'Other';
+    return {
+      id: e.id,
+      name: e.name,
+      type: (typeStr || 'SERVER_PHYSICAL') as ConfigType,
+      category: categoryName,
+      value: e.value,
+      linkedAssetId: linkedAssetId || '',
+      notes: e.description || ''
+    };
+  });
+
+  const [showCreateConfig, setShowCreateConfig] = useState(false);
+  const [newConfig, setNewConfig] = useState({ name: '', type: 'SERVER_PHYSICAL' as ConfigType, category: 'Server / VM', value: '', notes: '', linkedAssetId: '' });
+  const [customCategoryInput, setCustomCategoryInput] = useState('');
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
+
+  const handleCreateConfig = async () => {
+    if (!newConfig.name.trim() || !newConfig.value.trim()) return;
+    
+    let finalCategory = newConfig.category;
+    if (isCustomCategory && customCategoryInput.trim()) {
+      finalCategory = customCategoryInput.trim();
+    }
+
+    try {
+      await addDirectoryConfig(
+        newConfig.name.trim(),
+        newConfig.type,
+        finalCategory,
+        newConfig.value.trim(),
+        newConfig.notes.trim(),
+        newConfig.linkedAssetId
+      );
+      
+      // Reset form fields
+      setNewConfig({ name: '', type: 'SERVER_PHYSICAL', category: categories[0] || 'Server / VM', value: '', notes: '', linkedAssetId: '' });
+      setCustomCategoryInput('');
+      setIsCustomCategory(false);
+      setShowCreateConfig(false);
+    } catch (e) {
+      alert("Gagal menambahkan konfigurasi: " + (e as any).message);
+    }
+  };
+
+  const handleDeleteConfig = async (id: string) => {
+    const isAdmin = hasRole(['ROOT', 'SUPER_ADMIN', 'ADMIN', 'MANAGER']);
+    const confirmMsg = isAdmin 
+      ? 'Apakah Anda yakin ingin menghapus konfigurasi ini secara PERMANEN?' 
+      : 'Apakah Anda yakin ingin mengajukan PERMINTAAN PENGHAPUSAN untuk konfigurasi ini?';
+      
+    if (confirm(confirmMsg)) {
+      try {
+        if (isAdmin) {
+          await deleteDirectoryConfig(id);
+        } else {
+          await requestDeleteDirectoryConfig(id);
+          alert("Permintaan penghapusan telah dikirim ke Admin/Manager.");
+        }
+      } catch (e) {
+        alert("Gagal memproses penghapusan: " + (e as any).message);
+      }
+    }
+  };
+
+  const handleApproveDelete = async (id: string) => {
+    if (confirm('Setujui penghapusan data ini secara permanen?')) {
+      try {
+        await approveDeleteDirectoryConfig(id);
+      } catch (e) {
+        alert("Gagal menyetujui penghapusan: " + (e as any).message);
+      }
+    }
+  };
+
+  const handleRejectDelete = async (id: string) => {
+    try {
+      await rejectDeleteDirectoryConfig(id);
+    } catch (e) {
+      alert("Gagal menolak penghapusan: " + (e as any).message);
+    }
+  };
+
+  const handleDeleteCategory = async (catName: string) => {
+    const categoryObj = directoryCategories.find(c => c.name.toLowerCase() === catName.toLowerCase());
+    if (!categoryObj) return;
+
+    if (confirm(`Apakah Anda yakin ingin menghapus Golongan/Grup "${catName}" secara PERMANEN? Semua data konfigurasi di dalamnya juga akan terhapus!`)) {
+      try {
+        await deleteDirectoryCategory(categoryObj.id);
+      } catch (e) {
+        alert("Gagal menghapus golongan: " + (e as any).message);
+      }
+    }
+  };
+
+  const filteredConfigs = configs.filter(c => {
+    // Filter by category
+    if (selectedCategoryFilter !== 'all' && c.category !== selectedCategoryFilter) {
+      return false;
+    }
+    if (!search) return true;
+    const s = search.toLowerCase();
+    return c.name.toLowerCase().includes(s) || c.value.toLowerCase().includes(s) || (c.notes || '').toLowerCase().includes(s) || c.category.toLowerCase().includes(s);
+  });
 
   const [showAddSchedule, setShowAddSchedule] = useState(false);
   const [scheduleForm, setScheduleForm] = useState({ title: '', description: '', frequency: 'WEEKLY' as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY', scheduledDate: '' });
@@ -214,76 +331,127 @@ export default function AssetsPage() {
   return (
     <div className="h-full overflow-y-auto p-6">
       {/* Header */}
-      {activeTab !== 'checkout' && activeTab !== 'receipt' && (
-        <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-xl font-bold text-white">🖥️ IT Resources & Inventory</h1>
-            <p className="text-xs text-gray-500">Manage hardware assets, spare parts inventory, and procurement requests.</p>
-          </div>
+      <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold text-white flex items-center gap-2">
+            🖥️ IT Resources & Inventory
+          </h1>
+          <p className="text-xs text-gray-500">Manage hardware assets, spare parts inventory, and procurement requests.</p>
         </div>
-      )}
+      </div>
 
       {/* Tabs */}
-      <div className="mb-6 flex gap-4 border-b border-gray-800 pb-px">
+      <div className="mb-6 flex flex-wrap gap-2 border-b border-gray-850 pb-3">
         <button
           onClick={() => { setActiveTab('assets'); setSearch(''); }}
           className={cn(
-            "pb-3 text-xs font-semibold uppercase tracking-wider transition-colors border-b-2 px-1 -mb-px",
+            "flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-200 border",
             activeTab === 'assets'
-              ? "border-violet-500 text-violet-400 font-semibold"
-              : "border-transparent text-gray-400 hover:text-gray-200"
+              ? "bg-violet-500/10 border-violet-500/30 text-violet-400 shadow-sm shadow-violet-500/5 font-bold"
+              : "bg-gray-900/20 border-transparent text-gray-400 hover:bg-gray-800/40 hover:text-gray-200"
           )}
         >
-          🖥️ Hardware Assets ({assets.length})
+          <Laptop size={14} className={cn("transition-transform", activeTab === 'assets' && "scale-110")} />
+          <span>Hardware Assets</span>
+          <span className={cn(
+            "px-1.5 py-0.5 rounded-full text-[10px] font-bold border ml-0.5",
+            activeTab === 'assets'
+              ? "bg-violet-500/20 border-violet-500/30 text-violet-300"
+              : "bg-gray-800 border-gray-700 text-gray-500"
+          )}>
+            {assets.length}
+          </span>
         </button>
         <button
           onClick={() => { setActiveTab('inventory'); setSearch(''); }}
           className={cn(
-            "pb-3 text-xs font-semibold uppercase tracking-wider transition-colors border-b-2 px-1 -mb-px",
+            "flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-200 border",
             activeTab === 'inventory'
-              ? "border-violet-500 text-violet-400 font-semibold"
-              : "border-transparent text-gray-400 hover:text-gray-200"
+              ? "bg-violet-500/10 border-violet-500/30 text-violet-400 shadow-sm shadow-violet-500/5 font-bold"
+              : "bg-gray-900/20 border-transparent text-gray-400 hover:bg-gray-800/40 hover:text-gray-200"
           )}
         >
-          📦 Inventory / Spare Parts ({inventories.length})
+          <Package size={14} className={cn("transition-transform", activeTab === 'inventory' && "scale-110")} />
+          <span>Inventory / Spare Parts</span>
+          <span className={cn(
+            "px-1.5 py-0.5 rounded-full text-[10px] font-bold border ml-0.5",
+            activeTab === 'inventory'
+              ? "bg-violet-500/20 border-violet-500/30 text-violet-300"
+              : "bg-gray-800 border-gray-700 text-gray-500"
+          )}>
+            {inventories.length}
+          </span>
         </button>
-        <button
-          onClick={() => { setActiveTab('requests'); setSearch(''); }}
-          className={cn(
-            "pb-3 text-xs font-semibold uppercase tracking-wider transition-colors border-b-2 px-1 -mb-px flex items-center gap-1.5",
-            activeTab === 'requests'
-              ? "border-violet-500 text-violet-400 font-semibold"
-              : "border-transparent text-gray-400 hover:text-gray-200"
-          )}
-        >
-          📝 Requests ({partRequests.filter(r => r.status === 'PENDING').length + stockRequests.filter(r => r.status === 'PENDING').length})
-        </button>
+        {canManage && (
+          <button
+            onClick={() => { setActiveTab('configs'); setSearch(''); }}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-200 border",
+              activeTab === 'configs'
+                ? "bg-violet-500/10 border-violet-500/30 text-violet-400 shadow-sm shadow-violet-500/5 font-bold"
+                : "bg-gray-900/20 border-transparent text-gray-400 hover:bg-gray-800/40 hover:text-gray-200"
+            )}
+          >
+            <FolderGit size={14} className={cn("transition-transform", activeTab === 'configs' && "scale-110")} />
+            <span>IT Directory & Configs</span>
+            <span className={cn(
+              "px-1.5 py-0.5 rounded-full text-[10px] font-bold border ml-0.5",
+              activeTab === 'configs'
+                ? "bg-violet-500/20 border-violet-500/30 text-violet-300"
+                : "bg-gray-800 border-gray-700 text-gray-500"
+            )}>
+              {configs.length}
+            </span>
+          </button>
+        )}
         {canManage && (
           <button
             onClick={() => { setActiveTab('checkout'); setSearch(''); }}
             className={cn(
-              "pb-3 text-xs font-semibold uppercase tracking-wider transition-colors border-b-2 px-1 -mb-px flex items-center gap-1.5",
+              "flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-200 border",
               activeTab === 'checkout'
-                ? "border-violet-500 text-violet-400 font-semibold"
-                : "border-transparent text-gray-400 hover:text-gray-200"
+                ? "bg-violet-500/10 border-violet-500/30 text-violet-400 shadow-sm shadow-violet-500/5 font-bold"
+                : "bg-gray-900/20 border-transparent text-gray-400 hover:bg-gray-800/40 hover:text-gray-200"
             )}
           >
-            📋 Equipment Checkout
+            <ClipboardList size={14} className={cn("transition-transform", activeTab === 'checkout' && "scale-110")} />
+            <span>Equipment Checkout</span>
           </button>
         )}
         {canManage && (
           <button
             onClick={() => { setActiveTab('receipt'); setSearch(''); }}
             className={cn(
-              "pb-3 text-xs font-semibold uppercase tracking-wider transition-colors border-b-2 px-1 -mb-px flex items-center gap-1.5",
+              "flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-200 border",
               activeTab === 'receipt'
-                ? "border-violet-500 text-violet-400 font-semibold"
-                : "border-transparent text-gray-400 hover:text-gray-200"
+                ? "bg-violet-500/10 border-violet-500/30 text-violet-400 shadow-sm shadow-violet-500/5 font-bold"
+                : "bg-gray-900/20 border-transparent text-gray-400 hover:bg-gray-800/40 hover:text-gray-200"
             )}
           >
-            🚚 Goods Receipt
+            <Truck size={14} className={cn("transition-transform", activeTab === 'receipt' && "scale-110")} />
+            <span>Goods Receipt</span>
           </button>
         )}
+        <button
+          onClick={() => { setActiveTab('requests'); setSearch(''); }}
+          className={cn(
+            "flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-200 border",
+            activeTab === 'requests'
+              ? "bg-violet-500/10 border-violet-500/30 text-violet-400 shadow-sm shadow-violet-500/5 font-bold"
+              : "bg-gray-900/20 border-transparent text-gray-400 hover:bg-gray-800/40 hover:text-gray-200"
+          )}
+        >
+          <FileText size={14} className={cn("transition-transform", activeTab === 'requests' && "scale-110")} />
+          <span>Requests</span>
+          <span className={cn(
+            "px-1.5 py-0.5 rounded-full text-[10px] font-bold border ml-0.5",
+            activeTab === 'requests'
+              ? "bg-violet-500/20 border-violet-500/30 text-violet-300"
+              : "bg-gray-800 border-gray-700 text-gray-500"
+          )}>
+            {partRequests.filter(r => r.status === 'PENDING').length + stockRequests.filter(r => r.status === 'PENDING').length}
+          </span>
+        </button>
       </div>
 
       {/* Assets Tab View */}
@@ -1241,6 +1409,360 @@ export default function AssetsPage() {
                 <button onClick={handleStockRequest} className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500 transition-colors shadow">Submit Request</button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* IT Configurations Directory Tab View */}
+      {activeTab === 'configs' && (
+        <div className="rounded-xl border border-gray-800 bg-[#282c34] p-5 shadow-sm animate-fade-in text-left">
+          <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex gap-2 w-full justify-between items-center">
+              <div className="relative">
+                <Search size={12} className="absolute left-2.5 top-2 text-gray-500" />
+                <input 
+                  value={search} 
+                  onChange={e => setSearch(e.target.value)} 
+                  placeholder="Cari konfigurasi..."
+                  className="rounded-lg border border-gray-750 bg-gray-800 px-3 py-1.5 pl-8 text-xs text-white placeholder-gray-505 outline-none focus:border-violet-500 w-48" 
+                />
+              </div>
+              <button 
+                onClick={() => setShowCreateConfig(true)}
+                className="flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-500 transition shadow"
+              >
+                <Plus size={12} /> Tambah Data
+              </button>
+            </div>
+          </div>
+
+          {/* Category/Golongan Filters */}
+          <div className="mb-4 flex flex-wrap gap-2 border-b border-gray-800 pb-3">
+            <button 
+              onClick={() => setSelectedCategoryFilter('all')}
+              className={cn(
+                "rounded-lg px-3 py-1 text-xs font-medium border transition-colors",
+                selectedCategoryFilter === 'all'
+                  ? "bg-violet-600 border-violet-500 text-white"
+                  : "bg-gray-800/40 border-gray-700 text-gray-400 hover:text-white"
+              )}
+            >
+              📂 Semua Golongan
+            </button>
+            {categories.map(cat => {
+              const isAdmin = hasRole(['ROOT', 'SUPER_ADMIN', 'ADMIN', 'MANAGER']);
+              return (
+                <button 
+                  key={cat}
+                  onClick={() => setSelectedCategoryFilter(cat)}
+                  className={cn(
+                    "rounded-lg px-3 py-1 text-xs font-medium border transition-colors flex items-center gap-1.5",
+                    selectedCategoryFilter === cat
+                      ? "bg-violet-600 border-violet-500 text-white"
+                      : "bg-gray-800/40 border-gray-700 text-gray-400 hover:text-white"
+                  )}
+                >
+                  <span>{cat}</span>
+                  {isAdmin && (
+                    <span 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteCategory(cat);
+                      }}
+                      className="text-[10px] text-gray-400 hover:text-red-400 font-bold px-1 py-0.5 hover:bg-gray-800 rounded transition ml-1 cursor-pointer"
+                      title={`Hapus Golongan ${cat}`}
+                    >
+                      ×
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Form Create Config Popup */}
+          {showCreateConfig && (
+            <div className="mb-4 rounded-lg border border-gray-700 bg-gray-800/30 p-4 space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-violet-400">Tambah Konfigurasi Baru</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] text-gray-400">Nama Konfigurasi / Target</label>
+                  <input 
+                    type="text" 
+                    value={newConfig.name} 
+                    onChange={e => setNewConfig({ ...newConfig, name: e.target.value })}
+                    placeholder="Contoh: Proxmox Host ERP"
+                    className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-1.5 text-xs text-white outline-none focus:border-violet-500" 
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] text-gray-400">Tipe Konfigurasi</label>
+                  <select 
+                    value={newConfig.type} 
+                    onChange={e => setNewConfig({ ...newConfig, type: e.target.value as any })}
+                    className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-1.5 text-xs text-white outline-none focus:border-violet-500 cursor-pointer"
+                  >
+                    <optgroup label="🖥️ Compute & Virtualization" className="bg-gray-800 text-gray-400 font-semibold">
+                      <option value="SERVER_PHYSICAL" className="text-white">🖥️ Server Fisik / Host</option>
+                      <option value="SERVER_VM" className="text-white">⚡ Virtual Machine</option>
+                      <option value="CONTAINER_POD" className="text-white">📦 Container / Pod</option>
+                    </optgroup>
+                    <optgroup label="🌐 Networking & IP Management" className="bg-gray-800 text-gray-400 font-semibold">
+                      <option value="NET_DEVICE" className="text-white">🔌 Perangkat Jaringan (Switch/Router)</option>
+                      <option value="NET_SUBNET" className="text-white">🌐 IP Subnet / VLAN</option>
+                      <option value="NET_ROUTING" className="text-white">↗️ Routing & VPN Tunnel</option>
+                      <option value="NET_DNS_DOMAIN" className="text-white">📛 Domain & DNS Record</option>
+                    </optgroup>
+                    <optgroup label="🗄️ Data & Storage" className="bg-gray-800 text-gray-400 font-semibold">
+                      <option value="DATABASE_INSTANCE" className="text-white">🗄️ Basis Data / DB Instance</option>
+                      <option value="STORAGE_VOLUME" className="text-white">💾 NAS / SAN Storage</option>
+                    </optgroup>
+                    <optgroup label="🔗 Software & Services" className="bg-gray-800 text-gray-400 font-semibold">
+                      <option value="SERVICE_ENDPOINT" className="text-white">🔗 API / Web Service Endpoint</option>
+                      <option value="INTEGRATION_QUEUE" className="text-white">✉️ Message Queue</option>
+                    </optgroup>
+                    <optgroup label="🔒 Security & Credentials" className="bg-gray-800 text-gray-400 font-semibold">
+                      <option value="CRED_CERTIFICATE" className="text-white">🔒 Sertifikat SSL / TLS</option>
+                      <option value="CRED_ACCOUNT" className="text-white">🔑 Akun / API Key / Token</option>
+                      <option value="CRED_LICENSE" className="text-white">🎫 Lisensi Perangkat Lunak</option>
+                    </optgroup>
+                    <optgroup label="📞 Telephony & Operations" className="bg-gray-800 text-gray-400 font-semibold">
+                      <option value="TELEPHONY_SIP" className="text-white">📞 PABX / VoIP / SIP Trunk</option>
+                      <option value="OPERATIONS_CONTACT" className="text-white">🚨 Emergency Contact / Vendor PIC</option>
+                      <option value="OFFICE_ENDPOINT" className="text-white">🖨️ Office Shared Device (Printer/CCTV)</option>
+                    </optgroup>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] text-gray-400">Golongan (Group)</label>
+                  <select 
+                    value={isCustomCategory ? "CUSTOM" : newConfig.category} 
+                    onChange={e => {
+                      if (e.target.value === "CUSTOM") {
+                        setIsCustomCategory(true);
+                      } else {
+                        setIsCustomCategory(false);
+                        setNewConfig({ ...newConfig, category: e.target.value });
+                      }
+                    }}
+                    className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-1.5 text-xs text-white outline-none focus:border-violet-500 cursor-pointer"
+                  >
+                    {categories.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                    <option value="CUSTOM">➕ Buat Golongan Baru...</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] text-gray-400">Hubungkan Aset Fisik (Opsional)</label>
+                  <select 
+                    value={newConfig.linkedAssetId} 
+                    onChange={e => setNewConfig({ ...newConfig, linkedAssetId: e.target.value })}
+                    className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-1.5 text-xs text-white outline-none focus:border-violet-500 cursor-pointer"
+                  >
+                    <option value="">Tidak terhubung ke aset</option>
+                    {assets.map(a => (
+                      <option key={a.id} value={a.id}>{a.brand} {a.name} ({a.serialNumber})</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {isCustomCategory && (
+                <div className="flex flex-col gap-1 max-w-sm">
+                  <label className="text-[10px] text-violet-400 font-bold">Nama Golongan Baru</label>
+                  <input 
+                    type="text" 
+                    value={customCategoryInput} 
+                    onChange={e => setCustomCategoryInput(e.target.value)}
+                    placeholder="Contoh: Telepon Ekstensi"
+                    className="rounded-lg border border-violet-500/50 bg-gray-800 px-3 py-1.5 text-xs text-white outline-none focus:border-violet-500" 
+                  />
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] text-gray-400">Nilai Konfigurasi (Value)</label>
+                  <input 
+                    type="text" 
+                    value={newConfig.value} 
+                    onChange={e => setNewConfig({ ...newConfig, value: e.target.value })}
+                    placeholder="Contoh: IP: 192.168.10.15 | Port: 22 | User: root"
+                    className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-1.5 text-xs text-white outline-none focus:border-violet-500" 
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] text-gray-400">Catatan / Detail Tambahan</label>
+                  <input 
+                    type="text" 
+                    value={newConfig.notes} 
+                    onChange={e => setNewConfig({ ...newConfig, notes: e.target.value })}
+                    placeholder="Catatan tambahan di lapangan..."
+                    className="rounded-lg border border-gray-700 bg-gray-800 px-3 py-1.5 text-xs text-white outline-none focus:border-violet-500" 
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <button onClick={() => { setShowCreateConfig(false); setIsCustomCategory(false); }} className="rounded px-3 py-1.5 text-xs text-gray-400 hover:text-white">Batal</button>
+                <button onClick={handleCreateConfig} className="rounded bg-violet-600 hover:bg-violet-500 px-3 py-1.5 text-xs font-semibold text-white transition">Simpan Konfigurasi</button>
+              </div>
+            </div>
+          )}
+
+          <div className="overflow-x-auto rounded-lg border border-gray-700/50 bg-[#1e2028]">
+            <table className="w-full text-xs text-left">
+              <thead>
+                <tr className="border-b border-gray-700 bg-gray-800/60 uppercase tracking-wider text-gray-500 font-semibold text-[10px]">
+                  <th className="px-4 py-3">Nama Konfigurasi</th>
+                  <th className="px-4 py-3">Golongan / Grup</th>
+                  <th className="px-4 py-3">Tipe</th>
+                  <th className="px-4 py-3">Rincian / Value</th>
+                  <th className="px-4 py-3">Terkait Aset Fisik</th>
+                  <th className="px-4 py-3">Catatan</th>
+                  <th className="px-4 py-3 text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredConfigs.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-8 text-center text-gray-500 italic">Data konfigurasi tidak ditemukan.</td>
+                  </tr>
+                ) : (
+                   filteredConfigs.map(c => {
+                    const typeBadge: Record<ConfigType, string> = {
+                      SERVER_PHYSICAL: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+                      SERVER_VM: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+                      CONTAINER_POD: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+                      NET_DEVICE: 'bg-sky-500/10 text-sky-400 border-sky-500/20',
+                      NET_SUBNET: 'bg-sky-500/10 text-sky-400 border-sky-500/20',
+                      NET_ROUTING: 'bg-sky-500/10 text-sky-400 border-sky-500/20',
+                      NET_DNS_DOMAIN: 'bg-sky-500/10 text-sky-400 border-sky-500/20',
+                      DATABASE_INSTANCE: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+                      STORAGE_VOLUME: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+                      SERVICE_ENDPOINT: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+                      INTEGRATION_QUEUE: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+                      CRED_CERTIFICATE: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+                      CRED_ACCOUNT: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+                      CRED_LICENSE: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+                      TELEPHONY_SIP: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+                      OPERATIONS_CONTACT: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+                      OFFICE_ENDPOINT: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+                    };
+
+                    const typeLabel: Record<ConfigType, string> = {
+                      SERVER_PHYSICAL: 'Physical Server',
+                      SERVER_VM: 'Virtual Machine',
+                      CONTAINER_POD: 'Container / Pod',
+                      NET_DEVICE: 'Network Device',
+                      NET_SUBNET: 'Subnet / VLAN',
+                      NET_ROUTING: 'Routing & VPN',
+                      NET_DNS_DOMAIN: 'Domain / DNS',
+                      DATABASE_INSTANCE: 'Database Instance',
+                      STORAGE_VOLUME: 'NAS / SAN Storage',
+                      SERVICE_ENDPOINT: 'API / Web Service',
+                      INTEGRATION_QUEUE: 'Message Queue',
+                      CRED_CERTIFICATE: 'SSL Certificate',
+                      CRED_ACCOUNT: 'Account / Token',
+                      CRED_LICENSE: 'Software License',
+                      TELEPHONY_SIP: 'PABX / VoIP',
+                      OPERATIONS_CONTACT: 'Emergency Contact',
+                      OFFICE_ENDPOINT: 'Office Endpoint',
+                    };
+
+                    const typeIcon: Record<ConfigType, React.ReactNode> = {
+                      SERVER_PHYSICAL: <Server size={11} className="inline mr-1 text-indigo-400" />,
+                      SERVER_VM: <Cpu size={11} className="inline mr-1 text-indigo-400" />,
+                      CONTAINER_POD: <Box size={11} className="inline mr-1 text-indigo-400" />,
+                      NET_DEVICE: <Network size={11} className="inline mr-1 text-sky-400" />,
+                      NET_SUBNET: <Layers size={11} className="inline mr-1 text-sky-400" />,
+                      NET_ROUTING: <GitFork size={11} className="inline mr-1 text-sky-400" />,
+                      NET_DNS_DOMAIN: <Globe size={11} className="inline mr-1 text-sky-400" />,
+                      DATABASE_INSTANCE: <Database size={11} className="inline mr-1 text-blue-400" />,
+                      STORAGE_VOLUME: <HardDrive size={11} className="inline mr-1 text-blue-400" />,
+                      SERVICE_ENDPOINT: <Webhook size={11} className="inline mr-1 text-emerald-400" />,
+                      INTEGRATION_QUEUE: <MessageSquare size={11} className="inline mr-1 text-emerald-400" />,
+                      CRED_CERTIFICATE: <ShieldAlert size={11} className="inline mr-1 text-amber-400" />,
+                      CRED_ACCOUNT: <Key size={11} className="inline mr-1 text-amber-400" />,
+                      CRED_LICENSE: <FileCheck size={11} className="inline mr-1 text-amber-400" />,
+                      TELEPHONY_SIP: <Phone size={11} className="inline mr-1 text-rose-400" />,
+                      OPERATIONS_CONTACT: <PhoneCall size={11} className="inline mr-1 text-rose-400" />,
+                      OFFICE_ENDPOINT: <Printer size={11} className="inline mr-1 text-rose-400" />,
+                    };
+
+                    const linkedAsset = c.linkedAssetId ? assets.find(a => a.id === c.linkedAssetId) : null;
+                    return (
+                      <tr key={c.id} className={cn("border-b border-gray-800 hover:bg-gray-800/20", c.isDeleteRequested && "bg-yellow-950/10 border-yellow-950/30")}>
+                        <td className="px-4 py-3 font-semibold text-white">
+                          <div className="flex flex-col">
+                            <span>{c.name}</span>
+                            {c.isDeleteRequested && (
+                              <span className="text-[9px] text-yellow-500 font-medium animate-pulse mt-0.5">
+                                ⚠️ Tunggu Persetujuan Hapus
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="rounded bg-gray-800 px-2 py-0.5 text-[9px] font-semibold text-gray-300 border border-gray-700">
+                            {c.category}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={cn("rounded-full border px-2.5 py-0.5 text-[9px] font-semibold flex items-center w-fit gap-0.5", typeBadge[c.type])}>
+                            {typeIcon[c.type]}
+                            {typeLabel[c.type]}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 font-mono text-gray-300 select-all">{c.value}</td>
+                        <td className="px-4 py-3">
+                          {linkedAsset ? (
+                            <span className="text-violet-400 font-medium">{linkedAsset.brand} {linkedAsset.name} ({linkedAsset.serialNumber})</span>
+                          ) : (
+                            <span className="text-gray-600 italic">None</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-gray-400 italic">{c.notes || '-'}</td>
+                        <td className="px-4 py-3 text-right">
+                          {c.isDeleteRequested ? (
+                            hasRole(['ROOT', 'SUPER_ADMIN', 'ADMIN', 'MANAGER']) ? (
+                              <div className="flex justify-end gap-1.5">
+                                <button 
+                                  onClick={() => handleApproveDelete(c.id)}
+                                  className="rounded bg-green-950/40 px-2.5 py-1 text-green-400 hover:bg-green-900/40 hover:text-green-300 transition-colors text-[10px] font-bold border border-green-800/30 shadow-sm"
+                                  title="Setujui Hapus Permanen"
+                                >
+                                  ✓ Setujui
+                                </button>
+                                <button 
+                                  onClick={() => handleRejectDelete(c.id)}
+                                  className="rounded bg-gray-800 px-2.5 py-1 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors text-[10px] border border-gray-700 shadow-sm"
+                                  title="Batal / Tolak Hapus"
+                                >
+                                  × Batal
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-[9px] text-gray-500 font-semibold italic bg-gray-800/40 px-2 py-1 rounded border border-gray-700">
+                                Pending Approval
+                              </span>
+                            )
+                          ) : (
+                            <button 
+                              onClick={() => handleDeleteConfig(c.id)}
+                              className="rounded bg-red-950/20 p-1.5 text-red-400 hover:text-red-300 transition-colors"
+                              title="Hapus Konfigurasi"
+                            >
+                              🗑️
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

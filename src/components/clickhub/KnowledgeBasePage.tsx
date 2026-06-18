@@ -20,6 +20,7 @@ export default function KnowledgeBasePage() {
   const filtered = articles.filter(a => {
     if (search && !a.title.toLowerCase().includes(search.toLowerCase()) && !a.content.toLowerCase().includes(search.toLowerCase())) return false;
     if (activeCategory !== 'All' && a.category !== activeCategory) return false;
+    if (!canManage && !a.isPublic) return false; // Filter out private internal articles for Employees
     return true;
   });
 

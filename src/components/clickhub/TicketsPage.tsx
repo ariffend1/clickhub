@@ -250,21 +250,25 @@ export default function TicketsPage() {
                 className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-4 py-2.5 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500" />
               <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Description..." rows={3}
                 className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-4 py-2.5 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500" />
-              <div className="grid grid-cols-2 gap-3">
-                <select value={priority} onChange={e => setPriority(e.target.value as TicketPriority)}
-                  className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white outline-none">
-                  {Object.entries(priorityConfig).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              {currentUser?.role !== 'EMPLOYEE' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <select value={priority} onChange={e => setPriority(e.target.value as TicketPriority)}
+                    className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white outline-none">
+                    {Object.entries(priorityConfig).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                  </select>
+                  <select value={category} onChange={e => setCategory(e.target.value)}
+                    className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white outline-none">
+                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+              )}
+              {currentUser?.role !== 'EMPLOYEE' && (
+                <select value={assigneeId} onChange={e => setAssigneeId(e.target.value)}
+                  className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white outline-none">
+                  <option value="">Assign to...</option>
+                  {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                 </select>
-                <select value={category} onChange={e => setCategory(e.target.value)}
-                  className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white outline-none">
-                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-              <select value={assigneeId} onChange={e => setAssigneeId(e.target.value)}
-                className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white outline-none">
-                <option value="">Assign to...</option>
-                {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-              </select>
+              )}
 
               {/* Attachment input */}
               <div className="space-y-1">

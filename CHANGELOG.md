@@ -7,6 +7,13 @@ Format versi mengikuti prinsip: `vEDITION.MAJOR.MINOR`.
 
 ---
 
+## [v1.3.2] - 2026-06-17
+### Added
+- **Otorisasi Penghapusan Space & List**: Membatasi hak akses penghapusan Space dan List hanya untuk role `ROOT`, `SUPER_ADMIN`, `ADMIN`, dan `MANAGER` (Opsi A - menyembunyikan menu klik kanan untuk pengguna biasa).
+- **Dialog Konfirmasi Keamanan**: Menambahkan pop-up konfirmasi `window.confirm` sebelum menghapus Space atau List untuk mencegah tindakan tidak sengaja yang dapat merusak data.
+
+---
+
 ## [v1.3.1] - 2026-06-09
 ### Added
 - **Historical Data Boundary**: Pemuatan tugas selesai terbatas 15 hari, tiket selesai 30 hari, sesi chat selesai 7 hari.

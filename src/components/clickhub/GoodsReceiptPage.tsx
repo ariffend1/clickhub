@@ -87,20 +87,10 @@ export default function GoodsReceiptPage() {
   };
 
   return (
-    <div className="flex flex-col gap-6 p-4">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-800 pb-4">
-        <div>
-          <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <Truck className="text-violet-500" size={24} />
-            Goods Receipt Center
-          </h1>
-          <p className="text-xs text-gray-400 mt-1">
-            Log incoming hardware procurement and verified inventory shipments
-          </p>
-        </div>
-        
-        {!showForm && (
+    <div className="flex flex-col gap-6">
+      {/* Header Controls (Only actions remaining) */}
+      {!showForm && (
+        <div className="flex justify-end">
           <button
             onClick={handleOpenForm}
             className="flex items-center gap-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold px-3 py-1.5 transition-all shadow-md shadow-violet-950/20"
@@ -108,8 +98,8 @@ export default function GoodsReceiptPage() {
             <Plus size={14} />
             Record Incoming Goods
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Incoming Goods Receipt Form */}
       {showForm && (
@@ -393,19 +383,28 @@ export default function GoodsReceiptPage() {
             isOpen={!!scanTarget}
             onClose={() => setScanTarget(null)}
             onScan={(code) => {
+              let cleanCode = code.trim();
+              if (cleanCode.startsWith('CH:AST:')) {
+                cleanCode = cleanCode.replace('CH:AST:', '');
+              } else if (cleanCode.startsWith('CH:INV:')) {
+                cleanCode = cleanCode.replace('CH:INV:', '');
+              }
+
               if (scanTarget === 'receipt-inventory') {
                 const matched = inventories.find(
-                  i => i.sku?.toLowerCase() === code.toLowerCase() || i.name?.toLowerCase() === code.toLowerCase()
+                  i => i.sku?.toLowerCase() === cleanCode.toLowerCase() || 
+                       i.name?.toLowerCase() === cleanCode.toLowerCase() ||
+                       i.id?.toLowerCase() === cleanCode.toLowerCase()
                 );
                 if (matched) {
                   setInventoryId(matched.id);
                   toast.success(`Barang "${matched.name}" berhasil terpilih!`);
                 } else {
-                  toast.error(`Barang dengan SKU atau Nama "${code}" tidak ditemukan di database.`);
+                  toast.error(`Barang dengan SKU atau Nama "${cleanCode}" tidak ditemukan di database.`);
                 }
               } else if (scanTarget === 'receipt-asset-sn') {
-                setAssetSerialNumber(code);
-                toast.success(`Serial Number "${code}" berhasil disalin!`);
+                setAssetSerialNumber(cleanCode);
+                toast.success(`Serial Number "${cleanCode}" berhasil disalin!`);
               }
               setScanTarget(null);
             }}

@@ -139,5 +139,41 @@ export const assetService = {
   async deleteMaintenanceSchedule(id: string) {
     const { error } = await supabase.from('MaintenanceSchedule').delete().eq('id', id);
     if (error) throw error;
+  },
+
+  // --- IT DIRECTORY & CONFIGS ---
+  async getDirectoryCategories() {
+    const { data, error } = await supabase.from('DirectoryCategory').select('*').order('order', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  },
+
+  async insertDirectoryCategory(payload: any) {
+    const { data, error } = await supabase.from('DirectoryCategory').insert([payload]).select().single();
+    if (error) throw error;
+    return data;
+  },
+
+  async deleteDirectoryCategory(id: string) {
+    const { error } = await supabase.from('DirectoryCategory').delete().eq('id', id);
+    if (error) throw error;
+  },
+
+  async getDirectoryEntries() {
+    const { data, error } = await supabase.from('DirectoryEntry').select('*');
+    if (error) throw error;
+    return data || [];
+  },
+
+  async insertDirectoryEntry(payload: any) {
+    const { data, error } = await supabase.from('DirectoryEntry').insert([payload]).select().single();
+    if (error) throw error;
+    return data;
+  },
+
+  async deleteDirectoryEntry(id: string) {
+    const { error } = await supabase.from('DirectoryEntry').delete().eq('id', id);
+    if (error) throw error;
   }
 };
+

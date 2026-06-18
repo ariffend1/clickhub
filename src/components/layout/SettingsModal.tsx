@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '../../store/useStore';
 import { cn } from '../../utils/cn';
-import { X, User, Tag, Database, Plus, Trash2, LogOut, Bell, RefreshCw } from 'lucide-react';
+import { X, User, Tag, Database, Plus, Trash2, LogOut, Bell, RefreshCw, Image } from 'lucide-react';
 import { toast } from 'sonner';
 import { changelogData } from '../../utils/changelogData';
 import { getEncryptedItem, setEncryptedItem, STORAGE_KEYS } from '../../utils/crypto';
 
-type TabKey = 'profile' | 'tags' | 'notifications' | 'data' | 'changelog';
+type TabKey = 'profile' | 'tags' | 'notifications' | 'data' | 'changelog' | 'branding';
 
 const colorOptions = ['#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899', '#6B7280'];
 
@@ -15,7 +15,7 @@ export default function SettingsModal() {
     setShowSettingsModal, currentUser, tags, addTag, deleteTag,
     spaces, lists, tasks, comments, logout,
     failedSyncQueue, retryFailedSyncItem, discardFailedSyncItem, clearFailedSyncQueue,
-    settingsActiveTab
+    settingsActiveTab, systemCompanyName, systemLogoBase64, updateBrandingSettings
   } = useStore();
   
   const [activeTab, setActiveTab] = useState<TabKey>((settingsActiveTab || 'profile') as TabKey);
@@ -33,6 +33,17 @@ export default function SettingsModal() {
   const [telegramToken, setTelegramToken] = useState(getEncryptedItem(STORAGE_KEYS.TELEGRAM_BOT_TOKEN, 'TELEGRAM_BOT_TOKEN') || '');
   const [telegramChatId, setTelegramChatId] = useState(getEncryptedItem(STORAGE_KEYS.TELEGRAM_CHAT_ID, 'TELEGRAM_CHAT_ID') || '');
 
+  const [tempCompanyName, setTempCompanyName] = useState(systemCompanyName || 'CLICKHUB');
+  const [tempLogoBase64, setTempLogoBase64] = useState(systemLogoBase64 || '');
+
+  useEffect(() => {
+    if (systemCompanyName) setTempCompanyName(systemCompanyName);
+  }, [systemCompanyName]);
+
+  useEffect(() => {
+    if (systemLogoBase64) setTempLogoBase64(systemLogoBase64);
+  }, [systemLogoBase64]);
+
   if (!currentUser) return null;
 
   const isAdmin = ['ROOT', 'SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(currentUser.role);
@@ -40,10 +51,38 @@ export default function SettingsModal() {
   const tabItems: { key: TabKey; label: string; icon: React.ReactNode }[] = [
     { key: 'profile', label: 'Profile', icon: <User size={14} /> },
     { key: 'tags', label: 'Tags', icon: <Tag size={14} /> },
+    ...(isAdmin ? [{ key: 'branding' as TabKey, label: 'Branding & Labels', icon: <Image size={14} /> }] : []),
     ...(isAdmin ? [{ key: 'notifications' as TabKey, label: 'Notifications', icon: <Bell size={14} /> }] : []),
     { key: 'data', label: 'Data', icon: <Database size={14} /> },
     { key: 'changelog', label: 'Changelog', icon: <RefreshCw size={14} /> },
   ];
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 150 * 1024) {
+      toast.error('File logo terlalu besar! Maksimal ukuran logo adalah 150KB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        setTempLogoBase64(event.target.result as string);
+        toast.success('Logo berhasil diunggah secara lokal. Jangan lupa simpan!');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveBranding = async () => {
+    toast.info('Menyimpan pengaturan branding...');
+    try {
+      await updateBrandingSettings(tempCompanyName.trim(), tempLogoBase64);
+      toast.success('Pengaturan branding berhasil disimpan ke database!');
+    } catch (err: any) {
+      toast.error('Gagal menyimpan branding: ' + err.message);
+    }
+  };
 
   const handleSaveTelegram = () => {
     setEncryptedItem(STORAGE_KEYS.TELEGRAM_WEBHOOK_URL, telegramWebhook.trim());
@@ -283,6 +322,92 @@ export default function SettingsModal() {
                     <button onClick={() => { logout(); setShowSettingsModal(false); }}
                       className="flex items-center gap-1.5 rounded-lg bg-gray-700/50 px-3 py-1.5 text-xs text-gray-300 hover:text-white">
                       <LogOut size={12} /> Sign Out
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'branding' && (
+              <div>
+                <h3 className="mb-1 text-sm font-semibold text-white">System Branding & Labels</h3>
+                <p className="mb-4 text-xs text-gray-400">Sesuaikan logo dan nama pabrik/perusahaan yang akan dicetak di stiker thermal asset secara dinamis.</p>
+                <div className="space-y-4">
+                  <div>
+                    <label className="mb-1 block text-xs text-gray-500">Nama Perusahaan / Pabrik</label>
+                    <input 
+                      value={tempCompanyName} 
+                      onChange={e => setTempCompanyName(e.target.value)} 
+                      placeholder="Contoh: NEXCORP" 
+                      className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white outline-none focus:border-violet-500" 
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-gray-500">Logo Perusahaan (JPG/PNG)</label>
+                    <div className="flex items-center gap-3">
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={handleLogoUpload} 
+                        className="hidden" 
+                        id="branding-logo-upload" 
+                      />
+                      <label 
+                        htmlFor="branding-logo-upload" 
+                        className="flex items-center gap-1.5 cursor-pointer rounded-lg bg-gray-800 border border-gray-700 hover:bg-gray-700 px-3 py-2 text-xs text-white transition-colors"
+                      >
+                        <Image size={14} /> Pilih Logo
+                      </label>
+                      {tempLogoBase64 && (
+                        <button 
+                          onClick={() => setTempLogoBase64('')} 
+                          className="rounded-lg bg-rose-950/30 border border-rose-900/50 hover:bg-rose-900/30 px-3 py-2 text-xs text-rose-450 transition-colors"
+                        >
+                          <Trash2 size={12} className="inline mr-1" /> Hapus
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Preview Area */}
+                  <div className="border border-gray-800 rounded-xl bg-gray-900/50 p-4 flex flex-col items-center gap-3">
+                    <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">Pratinjau Label Stiker</p>
+                    <div className="w-56 h-32 border border-gray-400 bg-white rounded-md p-2 text-black flex flex-col justify-between select-none">
+                      <div className="text-[9px] font-black text-center border-b border-black pb-0.5 uppercase tracking-widest flex items-center justify-center gap-1">
+                        {tempLogoBase64 ? (
+                          <img src={tempLogoBase64} alt="Logo" className="h-3.5 object-contain" />
+                        ) : null}
+                        <span>{tempCompanyName || 'CLICKHUB'} IT ASSET</span>
+                      </div>
+                      <div className="flex flex-1 mt-1.5 gap-2 items-center">
+                        <div className="flex-1 flex flex-col justify-between h-full text-[8px] font-medium leading-tight">
+                          <div>
+                            <p className="font-bold text-[9px]">Dell Latitude 5540</p>
+                            <p className="text-gray-600 mt-0.5">Brand: Dell</p>
+                            <p className="text-gray-600">S/N: DL-5540-001</p>
+                          </div>
+                          <div>
+                            <p className="text-[7px] text-gray-500 font-bold bg-gray-200 px-1 py-0.5 rounded-sm inline-block">LAPTOP</p>
+                          </div>
+                        </div>
+                        <div className="w-16 h-16 border border-gray-300 flex items-center justify-center rounded-xs p-0.5 bg-gray-50">
+                          <div className="grid grid-cols-4 gap-0.5 w-full h-full opacity-80">
+                            {[...Array(16)].map((_, i) => (
+                              <div key={i} className={cn("rounded-xs", (i % 3 === 0 || i % 7 === 0 || i === 0 || i === 15) ? "bg-black" : "bg-transparent")} />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Save Button */}
+                  <div className="flex justify-end pt-2">
+                    <button 
+                      onClick={handleSaveBranding} 
+                      className="rounded-lg bg-violet-600 hover:bg-violet-500 px-4 py-2 text-xs font-semibold text-white transition-colors shadow"
+                    >
+                      Simpan Pengaturan
                     </button>
                   </div>
                 </div>

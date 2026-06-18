@@ -31,6 +31,7 @@ export default function Sidebar() {
   const openTickets = tickets.filter(t => t.assigneeId === currentUser.id && t.status !== 'CLOSED' && t.status !== 'RESOLVED').length;
   const isAdmin = hasRole(['ROOT', 'SUPER_ADMIN', 'ADMIN']);
   const isHandler = hasRole(['ROOT', 'SUPER_ADMIN', 'ADMIN', 'MANAGER', 'TECHNICIAN']);
+  const canDeleteSpaceList = hasRole(['ROOT', 'SUPER_ADMIN', 'ADMIN', 'MANAGER']);
   const openChats = chatSessions.filter(s => s.status === 'OPEN').length;
 
   const isEmployee = currentUser.role === 'EMPLOYEE';
@@ -54,6 +55,7 @@ export default function Sidebar() {
 
   const handleContextMenu = (e: React.MouseEvent, type: 'space' | 'list', id: string) => {
     e.preventDefault();
+    if (!canDeleteSpaceList) return; // Prevent opening context menu if user is not authorized
     setContextMenu({ type, id, x: e.clientX, y: e.clientY });
   };
 
@@ -250,7 +252,7 @@ export default function Sidebar() {
                 title="View Release Changelog"
                 className="text-[9px] text-gray-500 hover:text-violet-400 cursor-pointer font-mono tracking-wider shrink-0 ml-1 hover:underline transition-colors"
               >
-                v1.3.1
+                v1.3.2
               </span>
             </div>
           </div>
@@ -263,7 +265,17 @@ export default function Sidebar() {
         <>
           <div className="fixed inset-0 z-50" onClick={() => setContextMenu(null)} />
           <div className="fixed z-50 rounded-lg border border-gray-700 bg-[#282c34] py-1 shadow-lg" style={{ left: contextMenu.x, top: contextMenu.y }}>
-            <button onClick={() => { if (contextMenu.type === 'space') deleteSpace(contextMenu.id); else deleteList(contextMenu.id); setContextMenu(null); }}
+            <button onClick={() => {
+              if (contextMenu.type === 'space') {
+                const space = spaces.find(s => s.id === contextMenu.id);
+                const confirmed = window.confirm(`Apakah Anda yakin ingin menghapus Space "${space ? space.name : 'ini'}"? Menghapus Space akan menghapus semua list dan task di dalamnya secara permanen.`);
+                if (confirmed) deleteSpace(contextMenu.id);
+              } else {
+                const confirmed = window.confirm(`Apakah Anda yakin ingin menghapus List ini beserta seluruh task di dalamnya secara permanen?`);
+                if (confirmed) deleteList(contextMenu.id);
+              }
+              setContextMenu(null);
+            }}
               className="flex w-full items-center gap-2 px-4 py-1.5 text-xs text-red-400 hover:bg-gray-700/50">
               <Trash2 size={12} /> Delete {contextMenu.type}
             </button>

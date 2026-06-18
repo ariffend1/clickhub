@@ -8,7 +8,7 @@ ClickHub aims to be the **all-in-one IT Operations Management platform** combini
 
 ## 📊 Current Status
 
-**Version**: 1.3.1 (Stable)
+**Version**: 1.3.2 (Stable)
 **Release Date**: June 2026
 **Active Development**: Yes ✅
 
@@ -61,6 +61,11 @@ ClickHub aims to be the **all-in-one IT Operations Management platform** combini
   - Task custom fields
   - Ticket custom fields
   - Field visibility rules
+
+- [ ] **Custom Emoji & Icon Picker for Spaces (UI Personalization)**
+  - Dynamic emoji selection during Space creation and edit
+  - Lightweight local Unicode character storage (zero backend image asset overhead)
+  - Customizable color coding per Space icon
 
 ### Q4 2026 (October - December)
 

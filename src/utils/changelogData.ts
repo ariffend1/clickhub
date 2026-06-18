@@ -8,6 +8,14 @@ export interface ChangelogVersion {
 
 export const changelogData: ChangelogVersion[] = [
   {
+    version: 'v1.3.2',
+    date: '2026-06-17',
+    added: [
+      'Otorisasi Penghapusan Space & List: Membatasi hak akses penghapusan Space dan List hanya untuk role ROOT, SUPER_ADMIN, ADMIN, dan MANAGER (Opsi A - menyembunyikan menu klik kanan untuk pengguna biasa).',
+      'Dialog Konfirmasi Keamanan: Menambahkan pop-up konfirmasi window.confirm sebelum menghapus Space atau List untuk mencegah tindakan tidak sengaja yang dapat merusak data.'
+    ]
+  },
+  {
     version: 'v1.3.1',
     date: '2026-06-09',
     added: [

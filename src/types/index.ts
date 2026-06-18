@@ -301,3 +301,36 @@ export interface MaintenanceSchedule {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface DirectoryCategory {
+  id: string;
+  name: string;
+  icon?: string;
+  color?: string;
+  order?: number;
+  visibility?: 'PUBLIC' | 'INTERNAL';
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface DirectoryEntry {
+  id: string;
+  categoryId: string;
+  name: string;
+  value: string;
+  description?: string | null;
+  location?: string | null;
+  isPublic?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type ConfigType = 
+  | 'SERVER_PHYSICAL' | 'SERVER_VM' | 'CONTAINER_POD'
+  | 'NET_DEVICE' | 'NET_SUBNET' | 'NET_ROUTING' | 'NET_DNS_DOMAIN'
+  | 'DATABASE_INSTANCE' | 'STORAGE_VOLUME'
+  | 'SERVICE_ENDPOINT' | 'INTEGRATION_QUEUE'
+  | 'CRED_CERTIFICATE' | 'CRED_ACCOUNT' | 'CRED_LICENSE'
+  | 'TELEPHONY_SIP' | 'OPERATIONS_CONTACT' | 'OFFICE_ENDPOINT';
+
+
