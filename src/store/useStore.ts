@@ -558,7 +558,11 @@ export const useStore = create<AppState>()(
               order: 0,
               timeEstimate: 0,
               timeTracked: 0,
-              ticketId: t.ticketId || null
+              ticketId: t.ticketId || null,
+              isRecurring: !!t.isRecurring,
+              recurInterval: t.recurInterval || 1,
+              recurUnit: t.recurUnit || 'weeks',
+              recurBehavior: t.recurBehavior || 'create_new'
             };
           });
 
@@ -1292,7 +1296,11 @@ export const useStore = create<AppState>()(
           order: get().tasks.filter(t => t.status === (taskData.status || 'todo')).length,
           timeEstimate: taskData.timeEstimate || 0,
           timeTracked: taskData.timeTracked || 0,
-          ticketId: taskData.ticketId || null
+          ticketId: taskData.ticketId || null,
+          isRecurring: taskData.isRecurring || false,
+          recurInterval: taskData.recurInterval || 1,
+          recurUnit: taskData.recurUnit || 'weeks',
+          recurBehavior: taskData.recurBehavior || 'create_new'
         };
         set({
           tasks: [...get().tasks, task],
@@ -1310,7 +1318,11 @@ export const useStore = create<AppState>()(
           spaceId: task.spaceId || null,
           listId: task.listId || null,
           ticketId: task.ticketId || null,
-          updatedAt: new Date().toISOString()
+          updatedAt: new Date().toISOString(),
+          isRecurring: task.isRecurring,
+          recurInterval: task.recurInterval,
+          recurUnit: task.recurUnit,
+          recurBehavior: task.recurBehavior
         });
 
         // Trigger Telegram alert if assignee exists
@@ -1338,6 +1350,10 @@ export const useStore = create<AppState>()(
           dbUpdates.assigneeIds = updates.assigneeIds.map(id => sanitizeNullableDbId(id)).filter((id): id is string => id !== null);
         }
         if (updates.dueDate !== undefined) dbUpdates.dueDate = updates.dueDate;
+        if (updates.isRecurring !== undefined) dbUpdates.isRecurring = updates.isRecurring;
+        if (updates.recurInterval !== undefined) dbUpdates.recurInterval = updates.recurInterval;
+        if (updates.recurUnit !== undefined) dbUpdates.recurUnit = updates.recurUnit;
+        if (updates.recurBehavior !== undefined) dbUpdates.recurBehavior = updates.recurBehavior;
 
         if (Object.keys(dbUpdates).length > 0) {
           dbUpdates.updatedAt = new Date().toISOString();

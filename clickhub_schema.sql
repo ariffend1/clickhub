@@ -565,6 +565,10 @@ CREATE TABLE IF NOT EXISTS public."Task" (
   "listId" text,
   "spaceId" text,
   "ticketId" text,
+  "isRecurring" boolean DEFAULT false NOT NULL,
+  "recurInterval" integer DEFAULT 1,
+  "recurUnit" text DEFAULT 'weeks',
+  "recurBehavior" text DEFAULT 'create_new',
   PRIMARY KEY ("id")
 );
 

@@ -149,6 +149,45 @@ export default function TaskDetailModal() {
                   className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-1.5 text-xs text-white outline-none" />
               </div>
 
+              {/* Recurring Settings */}
+              <div className="mb-4">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold uppercase text-gray-500">
+                  <input type="checkbox" checked={!!task.isRecurring} onChange={e => updateTask(task.id, { isRecurring: e.target.checked })}
+                    className="rounded border-gray-700 bg-gray-800 text-violet-600 focus:ring-0" />
+                  Ulangi Task Ini
+                </label>
+                {task.isRecurring && (
+                  <div className="mt-2 grid grid-cols-3 gap-2 rounded-lg border border-gray-800 bg-gray-900/20 p-2">
+                    <div>
+                      <span className="block text-[8px] font-medium text-gray-500 uppercase">Setiap</span>
+                      <input type="number" min={1} value={task.recurInterval || 1}
+                        onChange={e => updateTask(task.id, { recurInterval: Math.max(1, parseInt(e.target.value) || 1) })}
+                        className="w-full rounded border border-gray-700 bg-gray-800/50 px-2 py-1 text-[11px] text-white outline-none" />
+                    </div>
+                    <div>
+                      <span className="block text-[8px] font-medium text-gray-500 uppercase">Satuan</span>
+                      <select value={task.recurUnit || 'weeks'}
+                        onChange={e => updateTask(task.id, { recurUnit: e.target.value as any })}
+                        className="w-full rounded border border-gray-700 bg-gray-800/50 px-1 py-1 text-[11px] text-white outline-none">
+                        <option value="days">Hari</option>
+                        <option value="weeks">Minggu</option>
+                        <option value="months">Bulan</option>
+                        <option value="years">Tahun</option>
+                      </select>
+                    </div>
+                    <div>
+                      <span className="block text-[8px] font-medium text-gray-500 uppercase">Perilaku</span>
+                      <select value={task.recurBehavior || 'create_new'}
+                        onChange={e => updateTask(task.id, { recurBehavior: e.target.value as any })}
+                        className="w-full rounded border border-gray-700 bg-gray-800/50 px-1 py-1 text-[11px] text-white outline-none">
+                        <option value="create_new">Baru</option>
+                        <option value="reset_status">Reset</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Subtasks */}
               <div className="mb-4">
                 <p className="mb-2 text-xs font-semibold uppercase text-gray-500">Subtasks ({task.subtasks.filter(s => s.completed).length}/{task.subtasks.length})</p>

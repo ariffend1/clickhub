@@ -62,6 +62,10 @@ export interface Task {
   timeEstimate: number;
   timeTracked: number;
   ticketId?: string | null;
+  isRecurring: boolean;
+  recurInterval?: number;
+  recurUnit?: 'days' | 'weeks' | 'months' | 'years';
+  recurBehavior?: 'create_new' | 'reset_status';
 }
 
 export interface TaskList {

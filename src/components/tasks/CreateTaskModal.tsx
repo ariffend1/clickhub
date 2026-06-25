@@ -14,12 +14,30 @@ export default function CreateTaskModal() {
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [selectedTags] = useState<string[]>([]);
   const [dueDate, setDueDate] = useState('');
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurInterval, setRecurInterval] = useState(1);
+  const [recurUnit, setRecurUnit] = useState<'days' | 'weeks' | 'months' | 'years'>('weeks');
+  const [recurBehavior, setRecurBehavior] = useState<'create_new' | 'reset_status'>('create_new');
 
   const spaceLists = lists.filter(l => l.spaceId === spaceId);
 
   const handleSubmit = () => {
     if (!title.trim()) return;
-    addTask({ title: title.trim(), description, status, priority, assigneeIds, tags: selectedTags, spaceId, listId, dueDate: dueDate || null });
+    addTask({
+      title: title.trim(),
+      description,
+      status,
+      priority,
+      assigneeIds,
+      tags: selectedTags,
+      spaceId,
+      listId,
+      dueDate: dueDate || null,
+      isRecurring,
+      recurInterval,
+      recurUnit,
+      recurBehavior
+    });
     setShowCreateTaskModal(false);
   };
 
@@ -98,6 +116,40 @@ export default function CreateTaskModal() {
                       {user?.name} <button onClick={() => setAssigneeIds(assigneeIds.filter(a => a !== id))} className="text-gray-500 hover:text-red-400"><X size={8} /></button>
                     </span>;
                   })}
+                </div>
+              )}
+            </div>
+            <div className="col-span-2 border-t border-gray-800 pt-3">
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-gray-400">
+                <input type="checkbox" checked={isRecurring} onChange={e => setIsRecurring(e.target.checked)}
+                  className="rounded border-gray-700 bg-gray-800 text-violet-600 focus:ring-0" />
+                Ulangi Task Ini (Recurring Task)
+              </label>
+              {isRecurring && (
+                <div className="mt-3 grid grid-cols-3 gap-3 rounded-lg border border-gray-800 bg-gray-950 p-3">
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-gray-500">Setiap (Interval)</label>
+                    <input type="number" min={1} value={recurInterval} onChange={e => setRecurInterval(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-1.5 text-xs text-white outline-none" />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-gray-500">Satuan Waktu</label>
+                    <select value={recurUnit} onChange={e => setRecurUnit(e.target.value as any)}
+                      className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-2 py-1.5 text-xs text-white outline-none">
+                      <option value="days">Hari</option>
+                      <option value="weeks">Minggu</option>
+                      <option value="months">Bulan</option>
+                      <option value="years">Tahun</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-medium text-gray-500">Perilaku</label>
+                    <select value={recurBehavior} onChange={e => setRecurBehavior(e.target.value as any)}
+                      className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-2 py-1.5 text-xs text-white outline-none">
+                      <option value="create_new">Buat Task Baru</option>
+                      <option value="reset_status">Reset Status Task</option>
+                    </select>
+                  </div>
                 </div>
               )}
             </div>

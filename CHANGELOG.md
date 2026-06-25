@@ -7,6 +7,14 @@ Format versi mengikuti prinsip: `vEDITION.MAJOR.MINOR`.
 
 ---
 
+## [v1.4.0] - 2026-06-25
+### Added
+- **Fitur Recurring/Renewal Tasks**: Mendukung perulangan tugas secara otomatis ketika task ditandai selesai (`done`).
+- **Database Trigger Automation**: Memindahkan logika perulangan dan perhitungan tanggal jatuh tempo ke tingkat database PostgreSQL menggunakan database trigger demi keamanan transaksi atomik, penanganan offline sync yang andal, dan pencegahan timezone shift.
+- **Konfigurasi UI Fleksibel**: Menambahkan opsi pengaturan perulangan (interval harian/mingguan/bulanan/tahunan, serta perilaku kloning task baru vs reset status) pada `CreateTaskModal` dan `TaskDetailModal`.
+
+---
+
 ## [v1.3.2] - 2026-06-17
 ### Added
 - **Otorisasi Penghapusan Space & List**: Membatasi hak akses penghapusan Space dan List hanya untuk role `ROOT`, `SUPER_ADMIN`, `ADMIN`, dan `MANAGER` (Opsi A - menyembunyikan menu klik kanan untuk pengguna biasa).
