@@ -3,10 +3,11 @@ import { useStore } from '../../store/useStore';
 import { cn } from '../../utils/cn';
 import {
   Search, X, Bell, LayoutGrid, List, Calendar,
-  Filter, Plus, Check, Cloud, CloudOff, CloudLightning, RefreshCw
+  Filter, Plus, Check, Cloud, CloudOff, CloudLightning, RefreshCw, HelpCircle, BookOpen, Sparkles
 } from 'lucide-react';
 import type { Priority, ViewMode } from '../../types';
 import { formatDistanceToNow } from 'date-fns';
+import PageHelp from './PageHelpModal';
 
 const viewModes: { mode: ViewMode; icon: React.ReactNode; label: string }[] = [
   { mode: 'board', icon: <LayoutGrid size={14} />, label: 'Board' },
@@ -70,7 +71,7 @@ export default function Header() {
     <div className="border-b border-[var(--c-border)] bg-[var(--bg-main)]">
       {/* Top bar */}
       <div className="flex items-center justify-between px-6 py-3">
-        <h1 className="text-lg font-bold text-white">
+        <h1 className="text-lg font-bold text-white flex items-center">
           {activePage === 'spaces' ? (
             <>
               {currentSpace && (
@@ -85,6 +86,9 @@ export default function Header() {
             </>
           ) : (
             pageTitle[activePage] || 'ClickHub'
+          )}
+          {['home', 'inbox', 'my_tasks', 'tickets', 'assets', 'knowledge', 'reports'].includes(activePage) && (
+            <PageHelp pageKey={activePage} />
           )}
         </h1>
 
@@ -133,7 +137,7 @@ export default function Header() {
 
           {/* Notifications */}
           <div className="relative">
-            <button onClick={() => setShowNotifications(!showNotifications)}
+            <button onClick={() => { setShowNotifications(!showNotifications); setShowHelpMenu(false); }}
               className="relative rounded-lg p-2 text-gray-400 hover:bg-gray-800 hover:text-white">
               <Bell size={18} />
               {unreadCount > 0 && (
@@ -178,6 +182,8 @@ export default function Header() {
               </div>
             )}
           </div>
+
+
         </div>
       </div>
 
@@ -251,6 +257,8 @@ export default function Header() {
           </div>
         </div>
       )}
+
+
     </div>
   );
 }

@@ -90,6 +90,8 @@ const priorityConfig: Record<TicketPriority, { label: string; color: string; dot
 const categories = ['General', 'Network', 'Hardware', 'Software', 'Server', 'Security', 'Policy'];
 const columns: TicketStatus[] = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
 
+import PageHelp from '../layout/PageHelpModal';
+
 export default function TicketsPage() {
   const { 
     tickets, getUserById, currentUser, addTicket, updateTicket, hasRole, users,
@@ -216,7 +218,10 @@ export default function TicketsPage() {
       {/* Toolbar */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white">🎫 Tickets</h1>
+          <h1 className="text-xl font-bold text-white flex items-center gap-1">
+            🎫 Tickets
+            <PageHelp pageKey="tickets" />
+          </h1>
           <p className="text-xs text-gray-500">{filtered.length} tickets</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">

@@ -6,6 +6,7 @@ import type { AssetStatus, Asset, ConfigType } from '../../types';
 import BarcodeScannerModal from './BarcodeScannerModal';
 import EquipmentCheckoutPage from './EquipmentCheckoutPage';
 import GoodsReceiptPage from './GoodsReceiptPage';
+import PageHelp from '../layout/PageHelpModal';
 
 const statusConfig: Record<AssetStatus, { label: string; color: string; bg: string }> = {
   AVAILABLE: { label: 'Available', color: 'text-green-400', bg: 'bg-green-500/20' },
@@ -334,8 +335,9 @@ export default function AssetsPage() {
       {/* Header */}
       <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-white flex items-center gap-2">
+          <h1 className="text-xl font-bold text-white flex items-center gap-1">
             🖥️ IT Resources & Inventory
+            <PageHelp pageKey="assets" />
           </h1>
           <p className="text-xs text-gray-500">Manage hardware assets, spare parts inventory, and procurement requests.</p>
         </div>

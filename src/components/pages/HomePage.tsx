@@ -2,6 +2,7 @@ import { useStore } from '../../store/useStore';
 import { cn } from '../../utils/cn';
 import { Clock, CheckCircle2, AlertTriangle, TrendingUp, ArrowRight } from 'lucide-react';
 import { format, formatDistanceToNow, isPast } from 'date-fns';
+import PageHelp from '../layout/PageHelpModal';
 
 export default function HomePage() {
   const { 
@@ -45,8 +46,9 @@ export default function HomePage() {
         {/* Welcome Hero Banner */}
         <div className="mb-6 sm:mb-8 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-700 p-6 shadow-lg relative overflow-hidden">
           <div className="relative z-10">
-            <h1 className="text-xl sm:text-3xl font-extrabold text-white">
+            <h1 className="text-xl sm:text-3xl font-extrabold text-white flex items-center">
               Hello, {currentUser.name.split(' ')[0]}! 👋
+              <PageHelp pageKey="home" className="hover:bg-white/10 text-white/80 hover:text-white" />
             </h1>
             <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-violet-100 max-w-md">
               Ada kendala teknis atau butuh bantuan peralatan IT hari ini? Tim Support kami siap membantu Anda.
@@ -204,8 +206,9 @@ export default function HomePage() {
   return (
     <div className="h-full overflow-y-auto p-8 bg-slate-900 text-white">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-white">
+        <h1 className="text-2xl font-bold text-white flex items-center">
           Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'}, {currentUser.name.split(' ')[0]}! 👋
+          <PageHelp pageKey="home" />
         </h1>
         <p className="mt-1 text-sm text-gray-400">Here's what's happening with your projects today.</p>
       </div>

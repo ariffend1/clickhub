@@ -1,6 +1,7 @@
 import { useStore } from '../../store/useStore';
 import { MessageSquare, CheckCircle2, Inbox } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import PageHelp from '../layout/PageHelpModal';
 
 export default function InboxPage() {
   const { getInboxItems, getUserById, selectTask } = useStore();
@@ -14,7 +15,10 @@ export default function InboxPage() {
             <Inbox size={20} />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white">Inbox</h1>
+            <h1 className="text-xl font-bold text-white flex items-center gap-1">
+              Inbox
+              <PageHelp pageKey="inbox" />
+            </h1>
             <p className="text-xs text-gray-500">Comments and updates on tasks assigned to you</p>
           </div>
         </div>

@@ -9,6 +9,7 @@ import {
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
+import PageHelp from '../layout/PageHelpModal';
 
 // Reusable Circular Gauge Chart Component for KPI ratios
 const KpiGauge = ({ 
@@ -592,9 +593,10 @@ export default function ReportsPage() {
       {/* Header Panel */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-800/80 pb-5 gap-4">
         <div>
-          <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
+          <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-1">
             <BarChart2 className="text-violet-500 animate-pulse" size={26} />
             Reports & Analytics Center
+            <PageHelp pageKey="reports" />
           </h1>
           <p className="text-xs text-gray-400 mt-1">
             Export secure operational data sheets with digital forensic watermarks and view live SLA compliance logs.

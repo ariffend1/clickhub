@@ -6,6 +6,8 @@ import type { Article } from '../../types';
 
 const categories = ['All', 'Network', 'Hardware', 'Software', 'Server', 'Security', 'Policy', 'General'];
 
+import PageHelp from '../layout/PageHelpModal';
+
 export default function KnowledgeBasePage() {
   const { articles, addArticle, updateArticle, deleteArticle, getUserById, hasRole } = useStore();
   const [search, setSearch] = useState('');
@@ -62,7 +64,10 @@ export default function KnowledgeBasePage() {
       {/* Sidebar */}
       <div className="w-80 border-r border-gray-800 bg-[#1a1d23] flex flex-col">
         <div className="p-4 border-b border-gray-800">
-          <h2 className="text-lg font-bold text-white mb-3">📖 Knowledge Base</h2>
+          <h2 className="text-lg font-bold text-white mb-3 flex items-center gap-1">
+            📖 Knowledge Base
+            <PageHelp pageKey="knowledge" />
+          </h2>
           <div className="relative mb-3">
             <Search size={14} className="absolute left-3 top-2 text-gray-500" />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search articles..."

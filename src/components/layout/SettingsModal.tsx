@@ -165,7 +165,21 @@ export default function SettingsModal() {
                     <input value={currentUser.email} readOnly className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white outline-none" />
                   </div>
                 </div>
-                <p className="mt-4 text-xs text-gray-600">Profile editing coming soon.</p>
+                <div className="mt-6 border-t border-gray-800 pt-5">
+                  <h4 className="text-xs font-extrabold text-violet-400 uppercase tracking-wider mb-2">Panduan Penggunaan</h4>
+                  <p className="text-xs text-gray-400 mb-3">Butuh bantuan mengenal tata letak fitur and fungsi ikon ClickHub?</p>
+                  <button 
+                    onClick={() => {
+                      setShowSettingsModal(false);
+                      setTimeout(() => {
+                        window.dispatchEvent(new CustomEvent('start-clickhub-tour'));
+                      }, 200);
+                    }}
+                    className="flex items-center gap-1.5 rounded-lg bg-violet-650 hover:bg-violet-600 px-3.5 py-2 text-xs font-bold text-white transition-all active:scale-95 shadow-md shadow-violet-600/20"
+                  >
+                    Mulai Tur Panduan Aplikasi
+                  </button>
+                </div>
               </div>
             )}
 

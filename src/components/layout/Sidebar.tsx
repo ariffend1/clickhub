@@ -5,7 +5,7 @@ import {
   Home, Inbox, CheckSquare, BarChart3, ChevronDown, ChevronRight,
   Plus, LogOut, TicketCheck, Monitor, BookOpen, Shield,
   Sun, Moon, PanelLeftClose, PanelLeftOpen, Trash2, List, Settings,
-  MessageSquare, FileText
+  MessageSquare, FileText, Sparkles, X
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -23,6 +23,8 @@ export default function Sidebar() {
   const [showNewList, setShowNewList] = useState<string | null>(null);
   const [newListName, setNewListName] = useState('');
   const [contextMenu, setContextMenu] = useState<{ type: 'space' | 'list'; id: string; x: number; y: number } | null>(null);
+  const [showHelpMenu, setShowHelpMenu] = useState(false);
+  const [showIconGlossary, setShowIconGlossary] = useState(false);
 
   if (!currentUser) return null;
 
@@ -64,17 +66,37 @@ export default function Sidebar() {
       <div className="flex h-full w-14 flex-col items-center border-r border-[var(--c-border)] bg-[var(--bg-sidebar)] py-3">
         <button onClick={toggleSidebar} className="mb-4 text-gray-500 hover:text-white"><PanelLeftOpen size={16} /></button>
         <div className="flex flex-col gap-1">
-          {[...navItems, ...itItems].map(item => (
-            <button key={item.key} onClick={() => setActivePage(item.key)}
-              className={cn("relative flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
-                activePage === item.key ? "bg-violet-600/20 text-violet-400" : "text-gray-500 hover:bg-gray-800 hover:text-white"
-              )}>
-              {item.icon}
-              {item.badge != null && item.badge > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-violet-600 text-[8px] text-white">{item.badge}</span>
-              )}
-            </button>
-          ))}
+          {[...navItems, ...itItems].map(item => {
+            const tooltipTexts: Record<string, { desc: string }> = {
+              home: { desc: 'Beranda dashboard utama' },
+              inbox: { desc: 'Kotak masuk notifikasi sistem' },
+              my_tasks: { desc: 'Daftar tugas & checklist inspeksi' },
+              dashboards: { desc: 'Statistik & performa grafik' },
+              tickets: { desc: 'Laporan gangguan & tiket IT' },
+              assets: { desc: 'Registri inventaris & jadwal PM' },
+              knowledge: { desc: 'Solusi teknis & SOP IT' },
+              chat_admin: { desc: 'IT live support chat' },
+              reports: { desc: 'Depresiasi, CAPEX, & Leaderboard' }
+            };
+            return (
+              <button key={item.key} onClick={() => setActivePage(item.key)} id={`tour-nav-${item.key}`}
+                className={cn("group relative flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
+                  activePage === item.key ? "bg-violet-600/20 text-violet-400" : "text-gray-500 hover:bg-gray-800 hover:text-white"
+                )}>
+                {item.icon}
+                {item.badge != null && item.badge > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-violet-600 text-[8px] text-white">{item.badge}</span>
+                )}
+                {/* CSS Tooltip */}
+                <div className="absolute left-12 z-50 ml-1 scale-95 opacity-0 invisible group-hover:scale-100 group-hover:opacity-100 group-hover:visible transition-all duration-150 rounded-xl border border-gray-800 bg-gray-950/95 px-3.5 py-2.5 shadow-2xl pointer-events-none whitespace-nowrap font-sans text-left">
+                  <p className="font-extrabold text-white text-[11px] mb-0.5">{item.label}</p>
+                  <p className="text-gray-500 font-medium text-[9px] max-w-[180px] break-words whitespace-normal leading-tight">
+                    {tooltipTexts[item.key]?.desc || ''}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
         </div>
         {!isEmployee && (
           <div className="mt-auto flex flex-col gap-1">
@@ -90,8 +112,56 @@ export default function Sidebar() {
         )}
         <div className="mt-2 flex flex-col gap-1">
           {isAdmin && <button onClick={() => setActivePage('admin')} className={cn("flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:text-white", activePage === 'admin' && "text-violet-400")}><Shield size={16} /></button>}
-          <button onClick={() => setShowSettingsModal(true)} className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:text-white" title="Settings"><Settings size={16} /></button>
-          <button onClick={toggleTheme} className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:text-white">{theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}</button>
+          <button onClick={() => setShowSettingsModal(true)} id="tour-nav-settings" className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:text-white" title="Settings"><Settings size={16} /></button>
+          <button onClick={toggleTheme} className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:text-white" title={theme === 'dark' ? 'Light Mode' : 'Dark Mode'}>{theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}</button>
+          
+          <div className="relative">
+            <button
+              onClick={() => setShowHelpMenu(!showHelpMenu)}
+              id="tour-help-btn-collapsed"
+              className={cn(
+                "flex h-9 w-9 items-center justify-center rounded-lg text-xs font-black transition-all active:scale-95 cursor-pointer",
+                showHelpMenu
+                  ? "bg-violet-650/20 text-violet-400 font-bold"
+                  : "text-gray-500 hover:bg-gray-800 hover:text-white"
+              )}
+              title="Pusat Bantuan & Panduan"
+            >
+              ?
+            </button>
+            
+            {showHelpMenu && (
+              <div className="absolute left-12 bottom-0 z-50 ml-1 w-60 rounded-xl border border-gray-850 bg-[#1e2028]/95 backdrop-blur-xl p-3.5 shadow-2xl animate-slide-up text-gray-200">
+                <div className="border-b border-gray-800 pb-2 mb-2">
+                  <p className="font-extrabold text-[10px] text-white uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles size={11} className="text-violet-400 animate-pulse" />
+                    Pusat Bantuan ClickHub
+                  </p>
+                  <p className="text-[9px] text-gray-500">Panduan & Kamus Ikon Menu</p>
+                </div>
+                <div className="space-y-1">
+                  <button
+                    onClick={() => {
+                      setShowHelpMenu(false);
+                      window.dispatchEvent(new CustomEvent('start-clickhub-tour'));
+                    }}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-semibold text-gray-300 hover:bg-gray-800 hover:text-white transition-all"
+                  >
+                    🚀 Mulai Tur Panduan Aplikasi
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowHelpMenu(false);
+                      setShowIconGlossary(true);
+                    }}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-semibold text-gray-300 hover:bg-gray-800 hover:text-white transition-all"
+                  >
+                    📖 Kamus Fitur & Ikon Menu
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -115,7 +185,7 @@ export default function Sidebar() {
         {/* Quick Links */}
         <div className="mb-4 space-y-0.5">
           {navItems.map(item => (
-            <button key={item.key} onClick={() => setActivePage(item.key)}
+            <button key={item.key} onClick={() => setActivePage(item.key)} id={`tour-nav-${item.key}`}
               className={cn("group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
                 activePage === item.key ? "bg-violet-600/15 text-violet-400" : "text-gray-400 hover:bg-gray-800/50 hover:text-white"
               )}>
@@ -132,7 +202,7 @@ export default function Sidebar() {
         <div className="mb-4 border-t border-[var(--c-border)] pt-3">
           <p className="mb-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600">IT Operations</p>
           {itItems.map(item => (
-            <button key={item.key} onClick={() => setActivePage(item.key)}
+            <button key={item.key} onClick={() => setActivePage(item.key)} id={`tour-nav-${item.key}`}
               className={cn("group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
                 activePage === item.key ? "bg-violet-600/15 text-violet-400" : "text-gray-400 hover:bg-gray-800/50 hover:text-white"
               )}>
@@ -144,7 +214,7 @@ export default function Sidebar() {
             </button>
           ))}
           {isAdmin && (
-            <button onClick={() => setActivePage('admin')}
+            <button onClick={() => setActivePage('admin')} id="tour-nav-admin"
               className={cn("group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
                 activePage === 'admin' ? "bg-violet-600/15 text-violet-400" : "text-gray-400 hover:bg-gray-800/50 hover:text-white"
               )}>
@@ -229,12 +299,60 @@ export default function Sidebar() {
         </button>
       </div>
 
-      {/* Theme Toggle */}
-      <div className="border-t border-[var(--c-border)] px-2.5 py-1.5">
-        <button onClick={toggleTheme} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-gray-400 hover:bg-gray-800/50 hover:text-white">
+      {/* Theme Toggle & Help */}
+      <div className="border-t border-[var(--c-border)] px-2.5 py-1.5 flex gap-1.5">
+        <button onClick={toggleTheme} className="flex-1 flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-gray-400 hover:bg-gray-800/50 hover:text-white transition duration-150">
           {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
           {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
         </button>
+        
+        <div className="relative">
+          <button
+            onClick={() => setShowHelpMenu(!showHelpMenu)}
+            id="tour-help-btn"
+            className={cn(
+              "flex h-9 w-9 items-center justify-center rounded-lg border text-xs font-black transition-all active:scale-95 cursor-pointer",
+              showHelpMenu
+                ? "border-violet-500 bg-violet-650/10 text-violet-400"
+                : "border-gray-850 bg-gray-900/30 text-gray-400 hover:bg-gray-800 hover:text-white hover:border-gray-750"
+            )}
+            title="Pusat Bantuan & Panduan"
+          >
+            ?
+          </button>
+          
+          {showHelpMenu && (
+            <div className="absolute left-full bottom-0 z-50 ml-2 w-60 rounded-xl border border-gray-850 bg-[#1e2028]/95 backdrop-blur-xl p-3.5 shadow-2xl animate-slide-up text-gray-200">
+              <div className="border-b border-gray-800 pb-2 mb-2">
+                <p className="font-extrabold text-[10px] text-white uppercase tracking-wider flex items-center gap-1.5">
+                  <Sparkles size={11} className="text-violet-400 animate-pulse" />
+                  Pusat Bantuan ClickHub
+                </p>
+                <p className="text-[9px] text-gray-500">Panduan & Kamus Ikon Menu</p>
+              </div>
+              <div className="space-y-1">
+                <button
+                  onClick={() => {
+                    setShowHelpMenu(false);
+                    window.dispatchEvent(new CustomEvent('start-clickhub-tour'));
+                  }}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-semibold text-gray-300 hover:bg-gray-800 hover:text-white transition-all"
+                >
+                  🚀 Mulai Tur Panduan Aplikasi
+                </button>
+                <button
+                  onClick={() => {
+                    setShowHelpMenu(false);
+                    setShowIconGlossary(true);
+                  }}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-semibold text-gray-300 hover:bg-gray-800 hover:text-white transition-all"
+                >
+                  📖 Kamus Fitur & Ikon Menu
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* User */}
@@ -252,7 +370,7 @@ export default function Sidebar() {
                 title="View Release Changelog"
                 className="text-[9px] text-gray-500 hover:text-violet-400 cursor-pointer font-mono tracking-wider shrink-0 ml-1 hover:underline transition-colors"
               >
-                v1.3.2
+                v1.4.2
               </span>
             </div>
           </div>
@@ -281,6 +399,55 @@ export default function Sidebar() {
             </button>
           </div>
         </>
+      )}
+
+      {/* Icon Glossary Modal */}
+      {showIconGlossary && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/70 p-4" onClick={() => setShowIconGlossary(false)}>
+          <div className="w-full max-w-xl rounded-2xl border border-gray-800 bg-[#1e2028] p-6 shadow-2xl animate-scale-up" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-gray-800 pb-4 mb-4">
+              <h3 className="text-base font-black text-white flex items-center gap-2">
+                <BookOpen className="text-violet-500" size={18} />
+                Kamus Fitur & Ikon Menu ClickHub
+              </h3>
+              <button onClick={() => setShowIconGlossary(false)} className="text-gray-500 hover:text-white rounded-lg p-1 hover:bg-gray-800 transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+            
+            <div className="max-h-[350px] overflow-y-auto pr-1 space-y-2.5 no-scrollbar">
+              {[
+                { icon: '🏠', name: 'Home', desc: 'Dashboard utama untuk memantau aktivitas sistem, tren SLA, status inventaris, and log aktivitas IT.' },
+                { icon: '📥', name: 'Inbox', desc: 'Pusat notifikasi untuk melihat update terkini dari tiket, tugas baru, atau komentar obrolan tim.' },
+                { icon: '✅', name: 'My Tasks', desc: 'Daftar tugas personal Anda, termasuk tugas Preventative Maintenance (PM) dan pengisian checklist harian.' },
+                { icon: '🎫', name: 'Tickets', desc: 'Sistem helpdesk IT untuk melihat laporan tiket kerusakan, melakukan klaim perbaikan, and mencatat spare parts.' },
+                { icon: '🖥️', name: 'Assets', desc: 'Registri lengkap seluruh perangkat keras hardware, jadwal perawatan berkala, and pencetakan label QR.' },
+                { icon: '📖', name: 'Knowledge', desc: 'Dokumentasi solusi masalah IT (KB) dan SOP kerja untuk mempercepat penyelesaian insiden berulang.' },
+                { icon: '💬', name: 'Chat Admin', desc: 'Platform bantuan obrolan langsung (live support chat) bagi karyawan untuk bertanya langsung ke tim IT.' },
+                { icon: '📊', name: 'Reports', desc: 'Analytics center untuk memantau biaya CAPEX, depresiasi linear aset, kepatuhan SLA, and point kinerja teknisi.' }
+              ].map(item => (
+                <div key={item.name} className="flex gap-4 rounded-xl border border-gray-850 bg-gray-900/20 p-3 hover:border-gray-750 hover:bg-gray-900/40 transition-all duration-200">
+                  <span className="text-2xl select-none shrink-0 flex items-center justify-center w-10 h-10 rounded-xl bg-violet-600/10 text-violet-400 border border-violet-500/10">
+                    {item.icon}
+                  </span>
+                  <div>
+                    <h4 className="text-xs font-extrabold text-white">{item.name}</h4>
+                    <p className="text-[10px] text-gray-400 mt-0.5 leading-relaxed">{item.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="border-t border-gray-800 pt-4 mt-5 flex justify-end">
+              <button 
+                onClick={() => setShowIconGlossary(false)} 
+                className="rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 text-xs font-bold px-4 py-2 transition-all active:scale-95"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

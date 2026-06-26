@@ -10,6 +10,7 @@ import HomePage from './components/pages/HomePage';
 import InboxPage from './components/pages/InboxPage';
 import DashboardsPage from './components/pages/DashboardsPage';
 import SettingsModal from './components/layout/SettingsModal';
+import TourGuide from './components/layout/TourGuide';
 import LoginPage from './components/auth/LoginPage';
 import TicketsPage from './components/clickhub/TicketsPage';
 import AssetsPage from './components/clickhub/AssetsPage';
@@ -171,6 +172,7 @@ export default function App() {
       {showCreateTaskModal && <CreateTaskModal />}
       {showSettingsModal && <SettingsModal />}
       <ChatWidget />
+      <TourGuide />
       <Toaster richColors position="top-right" />
     </div>
   );
