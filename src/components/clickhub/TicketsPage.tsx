@@ -218,11 +218,7 @@ export default function TicketsPage() {
       {/* Toolbar */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white flex items-center gap-1">
-            🎫 Tickets
-            <PageHelp pageKey="tickets" />
-          </h1>
-          <p className="text-xs text-gray-500">{filtered.length} tickets</p>
+          <p className="text-xs font-semibold text-gray-500">{filtered.length} tickets</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex gap-1">

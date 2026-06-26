@@ -591,14 +591,9 @@ export default function ReportsPage() {
   return (
     <div className="h-full overflow-y-auto flex flex-col gap-6 p-6 bg-slate-955/20 text-gray-100">
       {/* Header Panel */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-800/80 pb-5 gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-800/80 pb-3 gap-4">
         <div>
-          <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-1">
-            <BarChart2 className="text-violet-500 animate-pulse" size={26} />
-            Reports & Analytics Center
-            <PageHelp pageKey="reports" />
-          </h1>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs text-gray-400">
             Export secure operational data sheets with digital forensic watermarks and view live SLA compliance logs.
           </p>
         </div>

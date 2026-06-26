@@ -10,17 +10,8 @@ export default function InboxPage() {
   return (
     <div className="h-full overflow-y-auto p-8">
       <div className="mx-auto max-w-3xl">
-        <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10 text-violet-400">
-            <Inbox size={20} />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-white flex items-center gap-1">
-              Inbox
-              <PageHelp pageKey="inbox" />
-            </h1>
-            <p className="text-xs text-gray-500">Comments and updates on tasks assigned to you</p>
-          </div>
+        <div className="mb-4">
+          <p className="text-xs text-gray-500">Comments and updates on tasks assigned to you</p>
         </div>
 
         {inboxItems.length === 0 ? (

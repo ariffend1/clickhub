@@ -333,14 +333,8 @@ export default function AssetsPage() {
   return (
     <div className="h-full overflow-y-auto p-6">
       {/* Header */}
-      <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-white flex items-center gap-1">
-            🖥️ IT Resources & Inventory
-            <PageHelp pageKey="assets" />
-          </h1>
-          <p className="text-xs text-gray-500">Manage hardware assets, spare parts inventory, and procurement requests.</p>
-        </div>
+      <div className="mb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <p className="text-xs text-gray-500 font-medium">Manage hardware assets, spare parts inventory, and procurement requests.</p>
       </div>
 
       {/* Tabs */}
