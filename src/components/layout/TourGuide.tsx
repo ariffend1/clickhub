@@ -69,9 +69,11 @@ export default function TourGuide() {
 
   // Listen to custom event to start tour
   useEffect(() => {
-    const handleStartTour = () => {
+    const handleStartTour = (e: Event) => {
+      const customEvt = e as CustomEvent;
+      const stepIndex = customEvt.detail?.step ?? 0;
       setIsOpen(true);
-      setCurrentStep(0);
+      setCurrentStep(stepIndex);
       localStorage.removeItem('clickhub-tour-completed');
     };
 

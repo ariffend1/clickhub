@@ -417,20 +417,24 @@ export default function Sidebar() {
             
             <div className="max-h-[350px] overflow-y-auto pr-1 space-y-2.5 no-scrollbar">
               {[
-                { key: 'home', icon: '🏠', name: 'Home', desc: 'Dashboard utama untuk memantau aktivitas sistem, tren SLA, status inventaris, and log aktivitas IT.' },
-                { key: 'inbox', icon: '📥', name: 'Inbox', desc: 'Pusat notifikasi untuk melihat update terkini dari tiket, tugas baru, atau komentar obrolan tim.' },
-                { key: 'my_tasks', icon: '✅', name: 'My Tasks', desc: 'Daftar tugas personal Anda, termasuk tugas Preventative Maintenance (PM) dan pengisian checklist harian.' },
-                { key: 'tickets', icon: '🎫', name: 'Tickets', desc: 'Sistem helpdesk IT untuk melihat laporan tiket kerusakan, melakukan klaim perbaikan, and mencatat spare parts.' },
-                { key: 'assets', icon: '🖥️', name: 'Assets', desc: 'Registri lengkap seluruh perangkat keras hardware, jadwal perawatan berkala, and pencetakan label QR.' },
-                { key: 'knowledge', icon: '📖', name: 'Knowledge', desc: 'Dokumentasi solusi masalah IT (KB) dan SOP kerja untuk mempercepat penyelesaian insiden berulang.' },
-                { key: 'chat_admin', icon: '💬', name: 'Chat Admin', desc: 'Platform bantuan obrolan langsung (live support chat) bagi karyawan untuk bertanya langsung ke tim IT.' },
-                { key: 'reports', icon: '📊', name: 'Reports', desc: 'Analytics center untuk memantau biaya CAPEX, depresiasi linear aset, kepatuhan SLA, and point kinerja teknisi.' }
+                { key: 'home', stepIndex: 0, icon: '🏠', name: 'Home', desc: 'Dashboard utama untuk memantau aktivitas sistem, tren SLA, status inventaris, and log aktivitas IT.' },
+                { key: 'inbox', stepIndex: 1, icon: '📥', name: 'Inbox', desc: 'Pusat notifikasi untuk melihat update terkini dari tiket, tugas baru, atau komentar obrolan tim.' },
+                { key: 'my_tasks', stepIndex: 2, icon: '✅', name: 'My Tasks', desc: 'Daftar tugas personal Anda, termasuk tugas Preventative Maintenance (PM) dan pengisian checklist harian.' },
+                { key: 'tickets', stepIndex: 3, icon: '🎫', name: 'Tickets', desc: 'Sistem helpdesk IT untuk melihat laporan tiket kerusakan, melakukan klaim perbaikan, and mencatat spare parts.' },
+                { key: 'assets', stepIndex: 4, icon: '🖥️', name: 'Assets', desc: 'Registri lengkap seluruh perangkat keras hardware, jadwal perawatan berkala, and pencetakan label QR.' },
+                { key: 'knowledge', stepIndex: 5, icon: '📖', name: 'Knowledge', desc: 'Dokumentasi solusi masalah IT (KB) dan SOP kerja untuk mempercepat penyelesaian insiden berulang.' },
+                { key: 'chat_admin', stepIndex: null, icon: '💬', name: 'Chat Admin', desc: 'Platform bantuan obrolan langsung (live support chat) bagi karyawan untuk bertanya langsung ke tim IT.' },
+                { key: 'reports', stepIndex: 6, icon: '📊', name: 'Reports', desc: 'Analytics center untuk memantau biaya CAPEX, depresiasi linear aset, kepatuhan SLA, and point kinerja teknisi.' }
               ].map(item => (
                 <button 
                   key={item.name} 
                   onClick={() => {
-                    setActivePage(item.key);
                     setShowIconGlossary(false);
+                    if (item.stepIndex !== null) {
+                      window.dispatchEvent(new CustomEvent('start-clickhub-tour', { detail: { step: item.stepIndex } }));
+                    } else {
+                      setActivePage(item.key);
+                    }
                   }}
                   className="flex w-full text-left gap-4 rounded-xl border border-gray-850 bg-gray-900/20 p-3 hover:border-violet-500 hover:bg-violet-600/5 transition-all duration-200 cursor-pointer"
                 >
