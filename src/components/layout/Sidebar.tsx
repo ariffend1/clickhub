@@ -78,12 +78,18 @@ export default function Sidebar() {
               chat_admin: { desc: 'IT live support chat' },
               reports: { desc: 'Depresiasi, CAPEX, & Leaderboard' }
             };
+            const isActive = activePage === item.key;
             return (
               <button key={item.key} onClick={() => setActivePage(item.key)} id={`tour-nav-${item.key}`}
-                className={cn("group relative flex h-9 w-9 items-center justify-center rounded-lg transition-colors",
-                  activePage === item.key ? "bg-violet-600/20 text-violet-400" : "text-gray-500 hover:bg-gray-800 hover:text-white"
+                className={cn("group relative flex h-9 w-9 items-center justify-center rounded-lg transition-all duration-200 active:scale-95",
+                  isActive ? "bg-violet-600/15 text-violet-450 font-bold" : "text-gray-500 hover:bg-gray-800/40 hover:text-white"
                 )}>
-                {item.icon}
+                {isActive && (
+                  <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r bg-violet-500 animate-pulse" />
+                )}
+                <span className="transition-transform duration-200 group-hover:scale-105 group-hover:translate-x-0.5">
+                  {item.icon}
+                </span>
                 {item.badge != null && item.badge > 0 && (
                   <span className="absolute -right-0.5 -top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-violet-600 text-[8px] text-white">{item.badge}</span>
                 )}
@@ -131,8 +137,8 @@ export default function Sidebar() {
             </button>
             
             {showHelpMenu && (
-              <div className="absolute left-12 bottom-0 z-50 ml-1 w-60 rounded-xl border border-gray-850 bg-[#1e2028]/95 backdrop-blur-xl p-3.5 shadow-2xl animate-slide-up text-gray-200">
-                <div className="border-b border-gray-800 pb-2 mb-2">
+              <div className="absolute left-12 bottom-0 z-50 ml-1 w-60 rounded-xl border border-gray-800/40 bg-gray-900/80 dark:bg-gray-950/80 backdrop-blur-xl p-3.5 shadow-2xl animate-slide-up text-gray-200">
+                <div className="border-b border-gray-800/60 pb-2 mb-2">
                   <p className="font-extrabold text-[10px] text-white uppercase tracking-wider flex items-center gap-1.5">
                     <Sparkles size={11} className="text-violet-400 animate-pulse" />
                     Pusat Bantuan ClickHub
@@ -184,41 +190,63 @@ export default function Sidebar() {
       <div className="flex-1 overflow-y-auto px-2 py-3">
         {/* Quick Links */}
         <div className="mb-4 space-y-0.5">
-          {navItems.map(item => (
-            <button key={item.key} onClick={() => setActivePage(item.key)} id={`tour-nav-${item.key}`}
-              className={cn("group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
-                activePage === item.key ? "bg-violet-600/15 text-violet-400" : "text-gray-400 hover:bg-gray-800/50 hover:text-white"
-              )}>
-              {item.icon}
-              <span className="flex-1">{item.label}</span>
-              {item.badge != null && item.badge > 0 && (
-                <span className="rounded-full bg-gray-700/60 px-1.5 py-0.5 text-[10px]">{item.badge}</span>
-              )}
-            </button>
-          ))}
+          {navItems.map(item => {
+            const isActive = activePage === item.key;
+            return (
+              <button key={item.key} onClick={() => setActivePage(item.key)} id={`tour-nav-${item.key}`}
+                className={cn("group relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-all duration-200 active:scale-98",
+                  isActive ? "bg-violet-650/10 text-violet-450 font-semibold" : "text-gray-400 hover:bg-gray-850/30 hover:text-white"
+                )}>
+                {isActive && (
+                  <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-r bg-violet-500" />
+                )}
+                <span className="transition-transform duration-200 group-hover:translate-x-0.5">
+                  {item.icon}
+                </span>
+                <span className="flex-1 transition-transform duration-200 group-hover:translate-x-0.5">{item.label}</span>
+                {item.badge != null && item.badge > 0 && (
+                  <span className="rounded-full bg-gray-750/50 px-1.5 py-0.5 text-[10px]">{item.badge}</span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
         {/* IT Operations */}
         <div className="mb-4 border-t border-[var(--c-border)] pt-3">
           <p className="mb-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600">IT Operations</p>
-          {itItems.map(item => (
-            <button key={item.key} onClick={() => setActivePage(item.key)} id={`tour-nav-${item.key}`}
-              className={cn("group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
-                activePage === item.key ? "bg-violet-600/15 text-violet-400" : "text-gray-400 hover:bg-gray-800/50 hover:text-white"
-              )}>
-              {item.icon}
-              <span className="flex-1">{item.label}</span>
-              {item.badge != null && item.badge > 0 && (
-                <span className="rounded-full bg-gray-700/60 px-1.5 py-0.5 text-[10px]">{item.badge}</span>
-              )}
-            </button>
-          ))}
+          {itItems.map(item => {
+            const isActive = activePage === item.key;
+            return (
+              <button key={item.key} onClick={() => setActivePage(item.key)} id={`tour-nav-${item.key}`}
+                className={cn("group relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-all duration-200 active:scale-98",
+                  isActive ? "bg-violet-650/10 text-violet-450 font-semibold" : "text-gray-400 hover:bg-gray-850/30 hover:text-white"
+                )}>
+                {isActive && (
+                  <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-r bg-violet-500" />
+                )}
+                <span className="transition-transform duration-200 group-hover:translate-x-0.5">
+                  {item.icon}
+                </span>
+                <span className="flex-1 transition-transform duration-200 group-hover:translate-x-0.5">{item.label}</span>
+                {item.badge != null && item.badge > 0 && (
+                  <span className="rounded-full bg-gray-750/50 px-1.5 py-0.5 text-[10px]">{item.badge}</span>
+                )}
+              </button>
+            );
+          })}
           {isAdmin && (
             <button onClick={() => setActivePage('admin')} id="tour-nav-admin"
-              className={cn("group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
-                activePage === 'admin' ? "bg-violet-600/15 text-violet-400" : "text-gray-400 hover:bg-gray-800/50 hover:text-white"
+              className={cn("group relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-all duration-200 active:scale-98",
+                activePage === 'admin' ? "bg-violet-650/10 text-violet-400 font-semibold" : "text-gray-400 hover:bg-gray-850/30 hover:text-white"
               )}>
-              <Shield size={16} /><span className="flex-1">Admin</span>
+              {activePage === 'admin' && (
+                <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-r bg-violet-500" />
+              )}
+              <span className="transition-transform duration-200 group-hover:translate-x-0.5">
+                <Shield size={16} />
+              </span>
+              <span className="flex-1 transition-transform duration-200 group-hover:translate-x-0.5">Admin</span>
             </button>
           )}
         </div>
@@ -322,8 +350,8 @@ export default function Sidebar() {
           </button>
           
           {showHelpMenu && (
-            <div className="absolute left-full bottom-0 z-50 ml-2 w-60 rounded-xl border border-gray-850 bg-[#1e2028]/95 backdrop-blur-xl p-3.5 shadow-2xl animate-slide-up text-gray-200">
-              <div className="border-b border-gray-800 pb-2 mb-2">
+            <div className="absolute left-full bottom-0 z-50 ml-2 w-60 rounded-xl border border-gray-800/40 bg-gray-900/80 dark:bg-gray-950/80 backdrop-blur-xl p-3.5 shadow-2xl animate-slide-up text-gray-200">
+              <div className="border-b border-gray-800/60 pb-2 mb-2">
                 <p className="font-extrabold text-[10px] text-white uppercase tracking-wider flex items-center gap-1.5">
                   <Sparkles size={11} className="text-violet-400 animate-pulse" />
                   Pusat Bantuan ClickHub
@@ -370,7 +398,7 @@ export default function Sidebar() {
                 title="View Release Changelog"
                 className="text-[9px] text-gray-500 hover:text-violet-400 cursor-pointer font-mono tracking-wider shrink-0 ml-1 hover:underline transition-colors"
               >
-                v1.4.2
+                v1.4.3
               </span>
             </div>
           </div>
@@ -403,9 +431,9 @@ export default function Sidebar() {
 
       {/* Icon Glossary Modal */}
       {showIconGlossary && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/70 p-4" onClick={() => setShowIconGlossary(false)}>
-          <div className="w-full max-w-xl rounded-2xl border border-gray-800 bg-[#1e2028] p-6 shadow-2xl animate-scale-up" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-gray-800 pb-4 mb-4">
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setShowIconGlossary(false)}>
+          <div className="w-full max-w-xl rounded-2xl border border-gray-800/50 bg-gray-900/80 dark:bg-[#121318]/80 backdrop-blur-xl p-6 shadow-2xl shadow-violet-500/5 animate-scale-up" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-gray-800/60 pb-4 mb-4">
               <h3 className="text-base font-black text-white flex items-center gap-2">
                 <BookOpen className="text-violet-500" size={18} />
                 Kamus Fitur & Ikon Menu ClickHub
@@ -430,10 +458,11 @@ export default function Sidebar() {
                   key={item.name} 
                   onClick={() => {
                     setShowIconGlossary(false);
+                    setActivePage(item.key);
                     if (item.stepIndex !== null) {
-                      window.dispatchEvent(new CustomEvent('start-clickhub-tour', { detail: { step: item.stepIndex } }));
-                    } else {
-                      setActivePage(item.key);
+                      setTimeout(() => {
+                        window.dispatchEvent(new CustomEvent('start-clickhub-tour', { detail: { step: item.stepIndex } }));
+                      }, 50);
                     }
                   }}
                   className="flex w-full text-left gap-4 rounded-xl border border-gray-850 bg-gray-900/20 p-3 hover:border-violet-500 hover:bg-violet-600/5 transition-all duration-200 cursor-pointer"

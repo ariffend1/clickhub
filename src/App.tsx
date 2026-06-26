@@ -165,7 +165,9 @@ export default function App() {
       <div className="flex flex-1 flex-col overflow-hidden bg-[var(--bg-main)]">
         <Header />
         <main className="flex-1 overflow-hidden">
-          {renderMainContent()}
+          <div key={activePage} className="h-full w-full overflow-hidden animate-page-entry">
+            {renderMainContent()}
+          </div>
         </main>
       </div>
       {showTaskModal && <TaskDetailModal />}

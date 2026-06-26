@@ -104,8 +104,13 @@ select option { background-color: var(--bg-panel, #282c34); color: var(--c-text,
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes pageEntry { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes pulseGlow { 0%, 100% { box-shadow: 0 0 10px rgba(139,92,246,0.3); border-color: rgba(139,92,246,0.5); } 50% { box-shadow: 0 0 22px rgba(139,92,246,0.8); border-color: rgba(167,139,250,0.9); } }
+
 .animate-fade-in { animation: fadeIn 0.2s ease-out; }
 .animate-slide-up { animation: slideUp 0.3s ease-out; }
 .animate-slide-in { animation: slideIn 0.2s ease-out; }
+.animate-page-entry { animation: pageEntry 0.38s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.animate-pulse-glow { animation: pulseGlow 1.8s infinite ease-in-out; }
 
 input, textarea, select, button { transition-duration: 150ms; }

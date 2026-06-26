@@ -72,6 +72,7 @@ export default function TourGuide() {
     const handleStartTour = (e: Event) => {
       const customEvt = e as CustomEvent;
       const stepIndex = customEvt.detail?.step ?? 0;
+      console.log(`[TourGuide] handleStartTour triggered with stepIndex: ${stepIndex}`);
       setIsOpen(true);
       setCurrentStep(stepIndex);
       localStorage.removeItem('clickhub-tour-completed');
@@ -82,7 +83,7 @@ export default function TourGuide() {
     // Auto-start for first time users
     const completed = localStorage.getItem('clickhub-tour-completed');
     if (!completed) {
-      // Delay slightly to ensure UI is fully loaded
+      console.log("[TourGuide] Auto-start tour for first-time user");
       const timer = setTimeout(() => {
         setIsOpen(true);
       }, 2000);
@@ -90,12 +91,14 @@ export default function TourGuide() {
     }
 
     return () => {
+      console.log("[TourGuide] Removing start-clickhub-tour event listener");
       window.removeEventListener('start-clickhub-tour', handleStartTour);
     };
   }, []);
 
   // Track the coordinates of the target element
   useEffect(() => {
+    console.log(`[TourGuide] coordinates effect run. isOpen: ${isOpen}, currentStep: ${currentStep}, activePage: ${activePage}`);
     if (!isOpen) {
       setCoords(null);
       if (checkInterval.current) clearInterval(checkInterval.current);
@@ -104,17 +107,35 @@ export default function TourGuide() {
 
     const updateCoords = () => {
       const step = steps[currentStep];
-      if (!step) return;
+      if (!step) {
+        console.log(`[TourGuide] step at index ${currentStep} not found`);
+        return;
+      }
+
+      console.log(`[TourGuide] target step element: ${step.target}`);
 
       // Automatically change pages in background to make target element visible if needed
       if (step.target === '#tour-nav-reports' && activePage !== 'reports') {
+        console.log("[TourGuide] Redirecting page to reports");
         setActivePage('reports');
       } else if (step.target === '#tour-nav-assets' && activePage !== 'assets') {
+        console.log("[TourGuide] Redirecting page to assets");
         setActivePage('assets');
       } else if (step.target === '#tour-nav-tickets' && activePage !== 'tickets') {
+        console.log("[TourGuide] Redirecting page to tickets");
         setActivePage('tickets');
       } else if (step.target === '#tour-nav-home' && activePage !== 'home') {
+        console.log("[TourGuide] Redirecting page to home");
         setActivePage('home');
+      } else if (step.target === '#tour-nav-inbox' && activePage !== 'inbox') {
+        console.log("[TourGuide] Redirecting page to inbox");
+        setActivePage('inbox');
+      } else if (step.target === '#tour-nav-my_tasks' && activePage !== 'my_tasks') {
+        console.log("[TourGuide] Redirecting page to my_tasks");
+        setActivePage('my_tasks');
+      } else if (step.target === '#tour-nav-knowledge' && activePage !== 'knowledge') {
+        console.log("[TourGuide] Redirecting page to knowledge");
+        setActivePage('knowledge');
       }
 
       const el = document.querySelector(step.target);
@@ -213,7 +234,7 @@ export default function TourGuide() {
       {/* Target Highlight Border */}
       {coords && (
         <div 
-          className="absolute border-2 border-violet-500 rounded-xl pointer-events-none animate-pulse z-[9995] shadow-[0_0_15px_rgba(139,92,246,0.5)] transition-all duration-300"
+          className="absolute border-2 border-violet-500 rounded-xl pointer-events-none animate-pulse-glow z-[9995] transition-all duration-300"
           style={{
             top: coords.top - 4,
             left: coords.left - 4,
@@ -226,8 +247,15 @@ export default function TourGuide() {
       {/* Popover Card Card */}
       <div 
         style={popoverStyle}
-        className="w-[320px] rounded-2xl border border-gray-800 bg-gray-950/95 backdrop-blur-xl p-5 shadow-2xl shadow-black/80 pointer-events-auto transition-all duration-300 animate-fade-in text-gray-150"
+        className="w-[320px] overflow-hidden rounded-2xl border border-gray-800/60 bg-gray-950/90 backdrop-blur-xl p-5 shadow-2xl shadow-black/80 pointer-events-auto transition-all duration-300 animate-fade-in text-gray-150 relative"
       >
+        {/* Horizontal Progress Bar */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gray-900/50">
+          <div 
+            className="h-full bg-gradient-to-r from-violet-600 to-fuchsia-500 transition-all duration-300"
+            style={{ width: `${((currentStep + 1) / steps.length) * 100}%` }}
+          />
+        </div>
         <div className="flex justify-between items-start">
           <div className="flex items-center gap-1.5 text-violet-400 font-extrabold text-[10px] uppercase tracking-wider">
             <Sparkles size={12} className="animate-spin-slow" />
