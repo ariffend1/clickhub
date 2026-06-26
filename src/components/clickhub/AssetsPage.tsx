@@ -29,7 +29,8 @@ export default function AssetsPage() {
     approvePartRequest, approveStockRequest, users, equipmentCheckouts,
     maintenanceSchedules, addMaintenanceSchedule, updateMaintenanceSchedule, deleteMaintenanceSchedule,
     directoryCategories, directoryEntries, addDirectoryConfig, deleteDirectoryConfig,
-    requestDeleteDirectoryConfig, approveDeleteDirectoryConfig, rejectDeleteDirectoryConfig, deleteDirectoryCategory
+    requestDeleteDirectoryConfig, approveDeleteDirectoryConfig, rejectDeleteDirectoryConfig, deleteDirectoryCategory,
+    checklistTemplates
   } = useStore();
 
   const [activeTab, setActiveTab] = useState<'assets' | 'inventory' | 'requests' | 'checkout' | 'receipt' | 'configs'>('assets');
@@ -158,7 +159,7 @@ export default function AssetsPage() {
   });
 
   const [showAddSchedule, setShowAddSchedule] = useState(false);
-  const [scheduleForm, setScheduleForm] = useState({ title: '', description: '', frequency: 'WEEKLY' as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY', scheduledDate: '' });
+  const [scheduleForm, setScheduleForm] = useState({ title: '', description: '', frequency: 'WEEKLY' as 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY', scheduledDate: '', checklistTemplateId: '' });
 
   // Direct Bon & Stock Request states
   const [showDirectBon, setShowDirectBon] = useState(false);
@@ -924,7 +925,7 @@ export default function AssetsPage() {
                     <button
                       onClick={() => {
                         setShowAddSchedule(!showAddSchedule);
-                        setScheduleForm({ title: '', description: '', frequency: 'WEEKLY', scheduledDate: new Date().toISOString().split('T')[0] });
+                        setScheduleForm({ title: '', description: '', frequency: 'WEEKLY', scheduledDate: new Date().toISOString().split('T')[0], checklistTemplateId: '' });
                       }}
                       className="flex items-center gap-1 rounded bg-violet-600/30 px-2 py-1 text-[11px] font-medium text-violet-300 hover:bg-violet-600/40 transition-colors"
                       id="add-pm-schedule-btn"
@@ -954,6 +955,19 @@ export default function AssetsPage() {
                         onChange={e => setScheduleForm({ ...scheduleForm, description: e.target.value })}
                         className="w-full rounded border border-gray-800 bg-gray-900 px-2.5 py-1.5 text-xs text-white outline-none focus:border-violet-500 font-medium"
                       />
+                      <div>
+                        <label className="block text-[10px] text-gray-500 font-medium mb-1">Checklist Inspeksi (Terintegrasi)</label>
+                        <select
+                          value={scheduleForm.checklistTemplateId}
+                          onChange={e => setScheduleForm({ ...scheduleForm, checklistTemplateId: e.target.value })}
+                          className="w-full rounded border border-gray-800 bg-gray-900 px-2.5 py-1.5 text-xs text-white outline-none focus:border-violet-500 font-medium"
+                        >
+                          <option value="">-- Tanpa Checklist Inspeksi --</option>
+                          {checklistTemplates.map(tpl => (
+                            <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
+                          ))}
+                        </select>
+                      </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
                           <label className="block text-[10px] text-gray-500 font-medium mb-1">Frekuensi</label>
@@ -992,7 +1006,8 @@ export default function AssetsPage() {
                             frequency: scheduleForm.frequency,
                             scheduledDate: new Date(scheduleForm.scheduledDate).toISOString(),
                             isActive: true,
-                            notifyDaysBefore: 7
+                            notifyDaysBefore: 7,
+                            checklistTemplateId: scheduleForm.checklistTemplateId || null
                           });
                           setShowAddSchedule(false);
                         }}

@@ -46,13 +46,14 @@ export default function SettingsModal() {
 
   if (!currentUser) return null;
 
-  const isAdmin = ['ROOT', 'SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(currentUser.role);
+  const isFullAdmin = ['ROOT', 'SUPER_ADMIN', 'ADMIN'].includes(currentUser.role);
+  const isManagerOrAdmin = ['ROOT', 'SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(currentUser.role);
 
   const tabItems: { key: TabKey; label: string; icon: React.ReactNode }[] = [
     { key: 'profile', label: 'Profile', icon: <User size={14} /> },
-    { key: 'tags', label: 'Tags', icon: <Tag size={14} /> },
-    ...(isAdmin ? [{ key: 'branding' as TabKey, label: 'Branding & Labels', icon: <Image size={14} /> }] : []),
-    ...(isAdmin ? [{ key: 'notifications' as TabKey, label: 'Notifications', icon: <Bell size={14} /> }] : []),
+    ...(isManagerOrAdmin ? [{ key: 'tags' as TabKey, label: 'Tags', icon: <Tag size={14} /> }] : []),
+    ...(isFullAdmin ? [{ key: 'branding' as TabKey, label: 'Branding & Labels', icon: <Image size={14} /> }] : []),
+    ...(isFullAdmin ? [{ key: 'notifications' as TabKey, label: 'Notifications', icon: <Bell size={14} /> }] : []),
     { key: 'data', label: 'Data', icon: <Database size={14} /> },
     { key: 'changelog', label: 'Changelog', icon: <RefreshCw size={14} /> },
   ];

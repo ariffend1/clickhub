@@ -66,6 +66,7 @@ export interface Task {
   recurInterval?: number;
   recurUnit?: 'days' | 'weeks' | 'months' | 'years';
   recurBehavior?: 'create_new' | 'reset_status';
+  checklistTemplateId?: string | null;
 }
 
 export interface TaskList {
@@ -129,6 +130,7 @@ export interface Ticket {
   priority: TicketPriority;
   reporterId: string;
   assigneeId: string | null;
+  helperAssigneeIds?: string[];
   category: string;
   assetId?: string | null;
   slaDeadline?: string | null;
@@ -304,6 +306,7 @@ export interface MaintenanceSchedule {
   notifyDaysBefore: number;
   createdAt: string;
   updatedAt: string;
+  checklistTemplateId?: string | null;
 }
 
 export interface DirectoryCategory {
@@ -336,5 +339,40 @@ export type ConfigType =
   | 'SERVICE_ENDPOINT' | 'INTEGRATION_QUEUE'
   | 'CRED_CERTIFICATE' | 'CRED_ACCOUNT' | 'CRED_LICENSE'
   | 'TELEPHONY_SIP' | 'OPERATIONS_CONTACT' | 'OFFICE_ENDPOINT';
+
+export interface ChecklistTemplate {
+  id: string;
+  name: string;
+  description?: string | null;
+  createdAt?: string;
+  items?: ChecklistTemplateItem[];
+}
+
+export interface ChecklistTemplateItem {
+  id: string;
+  templateId: string;
+  question: string;
+  priorityOnFailure: TicketPriority;
+  category: string;
+  order: number;
+}
+
+export interface ChecklistSubmission {
+  id: string;
+  taskId: string;
+  templateId: string;
+  submittedById: string;
+  submittedAt: string;
+  values?: ChecklistSubmissionValue[];
+}
+
+export interface ChecklistSubmissionValue {
+  id: string;
+  submissionId: string;
+  itemId: string;
+  value: 'OK' | 'FAIL';
+  notes?: string | null;
+  createdTicketId?: string | null;
+}
 
 

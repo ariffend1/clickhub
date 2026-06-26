@@ -14,7 +14,8 @@ import type {
   TaskStatus, Priority, ViewMode, ActivePage, Notification,
   AuthUser, UserRole, Ticket, TicketStatus, TicketPriority, Asset, AssetStatus, Article, Attachment,
   ChatMessage, ChatSession, AuditLog, EquipmentCheckout, CheckoutItem, GoodsReceipt, Holiday, Inventory, MaintenanceSchedule,
-  DirectoryCategory, DirectoryEntry, ConfigType
+  DirectoryCategory, DirectoryEntry, ConfigType,
+  ChecklistTemplate, ChecklistTemplateItem, ChecklistSubmission, ChecklistSubmissionValue
 } from '../types';
 import { getEncryptedItem, STORAGE_KEYS } from '../utils/crypto';
 import { compressImage } from '../utils/imageCompressor';
@@ -222,6 +223,13 @@ interface AppState {
   systemLogoBase64: string;
   loadBrandingSettings: () => Promise<void>;
   updateBrandingSettings: (companyName: string, logoBase64: string) => Promise<void>;
+  checklistTemplates: ChecklistTemplate[];
+  checklistSubmissions: ChecklistSubmission[];
+  addChecklistTemplate: (name: string, description: string, items: { question: string; priorityOnFailure: TicketPriority; category: string; order: number }[]) => Promise<void>;
+  updateChecklistTemplate: (id: string, updates: Partial<ChecklistTemplate> & { items?: Omit<ChecklistTemplateItem, 'templateId'>[] }) => Promise<void>;
+  deleteChecklistTemplate: (id: string) => Promise<void>;
+  submitChecklist: (taskId: string, templateId: string, values: { itemId: string; value: 'OK' | 'FAIL'; notes?: string }[]) => Promise<void>;
+  addTicketHelper: (ticketId: string, helperId: string) => Promise<void>;
 }
 
 const defaultUsers: User[] = [
@@ -230,6 +238,9 @@ const defaultUsers: User[] = [
   { id: 'user-3', name: 'Bob Wilson', email: 'bob@clickhub.com', avatar: '', color: '#F59E0B', role: 'MANAGER', department: 'Engineering', phone: '+62813', isActive: true },
   { id: 'user-4', name: 'Alice Brown', email: 'alice@clickhub.com', avatar: '', color: '#10B981', role: 'TECHNICIAN', department: 'IT Support', phone: '+62814', isActive: true },
   { id: 'user-5', name: 'Charlie Davis', email: 'charlie@clickhub.com', avatar: '', color: '#3B82F6', role: 'EMPLOYEE', department: 'Marketing', phone: '+62815', isActive: true },
+  { id: '09364ded-3fd0-48ac-9bf2-19b807c20748', name: 'Test Employee', email: 'employee-test@ithub.com', avatar: '', color: '#3B82F6', role: 'EMPLOYEE', department: 'Marketing', phone: '08123456789', isActive: true },
+  { id: 'f810e5a9-0397-40b8-98dd-b11580d27fd9', name: 'Teknisi Test', email: 'tech@ithub.com', avatar: '', color: '#10B981', role: 'TECHNICIAN', department: 'IT Support', phone: '08123456780', isActive: true },
+  { id: 'afc2a734-006a-4191-af89-3aee6c5f3dc1', name: 'Manager Test', email: 'manager@ithub.com', avatar: '', color: '#F59E0B', role: 'MANAGER', department: 'IT Management', phone: '08123456781', isActive: true },
 ];
 
 const defaultRegisteredUsers: AuthUser[] = [
@@ -238,6 +249,9 @@ const defaultRegisteredUsers: AuthUser[] = [
   { id: 'user-3', name: 'Bob Wilson', email: 'bob@clickhub.com', avatar: '', color: '#F59E0B', password: 'password123', role: 'MANAGER', department: 'Engineering', isActive: true },
   { id: 'user-4', name: 'Alice Brown', email: 'alice@clickhub.com', avatar: '', color: '#10B981', password: 'password123', role: 'TECHNICIAN', department: 'IT Support', isActive: true },
   { id: 'user-5', name: 'Charlie Davis', email: 'charlie@clickhub.com', avatar: '', color: '#3B82F6', password: 'password123', role: 'EMPLOYEE', department: 'Marketing', isActive: true },
+  { id: '09364ded-3fd0-48ac-9bf2-19b807c20748', name: 'Test Employee', email: 'employee-test@ithub.com', avatar: '', color: '#3B82F6', password: 'password123', role: 'EMPLOYEE', department: 'Marketing', isActive: true },
+  { id: 'f810e5a9-0397-40b8-98dd-b11580d27fd9', name: 'Teknisi Test', email: 'tech@ithub.com', avatar: '', color: '#10B981', password: 'password123', role: 'TECHNICIAN', department: 'IT Support', isActive: true },
+  { id: 'afc2a734-006a-4191-af89-3aee6c5f3dc1', name: 'Manager Test', email: 'manager@ithub.com', avatar: '', color: '#F59E0B', password: 'password123', role: 'MANAGER', department: 'IT Management', isActive: true },
 ];
 
 const defaultTags: Tag[] = [
@@ -440,6 +454,8 @@ export const useStore = create<AppState>()(
       showChatWidget: false,
       systemCompanyName: 'CLICKHUB',
       systemLogoBase64: '',
+      checklistTemplates: [],
+      checklistSubmissions: [],
 
       // SUPABASE LOAD DATA
       loadAllData: async () => {
@@ -502,9 +518,20 @@ export const useStore = create<AppState>()(
           const taskIds = (dbTasks || []).map(t => t.id);
           const sessionIds = (dbChatSessions_data || []).map(s => s.id);
 
-          const [dbChecklists, dbChatMessages_data] = await Promise.all([
+          const [
+            dbChecklists, 
+            dbChatMessages_data,
+            dbTemplates,
+            dbTemplateItems,
+            dbSubmissions,
+            dbSubmissionValues
+          ] = await Promise.all([
             taskService.getChecklists(taskIds).catch(e => { console.error("Error loading checklists:", e); return []; }),
-            chatService.getChatMessages(sessionIds).catch(e => { console.error("Error loading chat messages:", e); return []; })
+            chatService.getChatMessages(sessionIds).catch(e => { console.error("Error loading chat messages:", e); return []; }),
+            Promise.resolve(supabase.from('ChecklistTemplate').select('*')).catch(e => { console.error("Error loading templates:", e); return { data: [] as any }; }),
+            Promise.resolve(supabase.from('ChecklistTemplateItem').select('*').order('order', { ascending: true })).catch(e => { console.error("Error loading template items:", e); return { data: [] as any }; }),
+            Promise.resolve(supabase.from('ChecklistSubmission').select('*')).catch(e => { console.error("Error loading submissions:", e); return { data: [] as any }; }),
+            Promise.resolve(supabase.from('ChecklistSubmissionValue').select('*')).catch(e => { console.error("Error loading submission values:", e); return { data: [] as any }; })
           ]);
 
           const mappedUsers = (dbUsers || []).map(u => ({
@@ -562,7 +589,8 @@ export const useStore = create<AppState>()(
               isRecurring: !!t.isRecurring,
               recurInterval: t.recurInterval || 1,
               recurUnit: t.recurUnit || 'weeks',
-              recurBehavior: t.recurBehavior || 'create_new'
+              recurBehavior: t.recurBehavior || 'create_new',
+              checklistTemplateId: t.checklistTemplateId || null
             };
           });
 
@@ -588,6 +616,7 @@ export const useStore = create<AppState>()(
               priority: t.priority as TicketPriority,
               reporterId: t.reporterId,
               assigneeId: t.assigneeId,
+              helperAssigneeIds: t.helperAssigneeIds || [],
               category: t.category || 'General',
               assetId: t.assetId || null,
               slaDeadline: t.slaDeadline || null,
@@ -672,6 +701,37 @@ export const useStore = create<AppState>()(
             }));
           }
 
+          const mappedTemplates: ChecklistTemplate[] = (dbTemplates?.data || []).map((t: any) => ({
+            id: t.id,
+            name: t.name,
+            description: t.description,
+            createdAt: t.createdAt,
+            items: (dbTemplateItems?.data || []).filter((item: any) => item.templateId === t.id).map((item: any) => ({
+              id: item.id,
+              templateId: item.templateId,
+              question: item.question,
+              priorityOnFailure: item.priorityOnFailure as TicketPriority,
+              category: item.category,
+              order: item.order
+            }))
+          }));
+
+          const mappedSubmissions: ChecklistSubmission[] = (dbSubmissions?.data || []).map((s: any) => ({
+            id: s.id,
+            taskId: s.taskId,
+            templateId: s.templateId,
+            submittedById: s.submittedById,
+            submittedAt: s.submittedAt,
+            values: (dbSubmissionValues?.data || []).filter((v: any) => v.submissionId === s.id).map((v: any) => ({
+              id: v.id,
+              submissionId: v.submissionId,
+              itemId: v.itemId,
+              value: v.value as 'OK' | 'FAIL',
+              notes: v.notes,
+              createdTicketId: v.createdTicketId
+            }))
+          }));
+
           set({
             users: mappedUsers,
             spaces: mappedSpaces,
@@ -685,6 +745,8 @@ export const useStore = create<AppState>()(
             stockRequests: dbStockRequests || [],
             chatSessions: dbChatSessions || [],
             chatMessages: dbChatMessages || [],
+            checklistTemplates: mappedTemplates,
+            checklistSubmissions: mappedSubmissions,
             holidays: (dbHolidays || []).map(h => ({
               id: h.id,
               name: h.name,
@@ -772,6 +834,190 @@ export const useStore = create<AppState>()(
           }
         } catch (err) {
           console.error("Failed to upsert branding to MasterData:", err);
+        }
+      },
+
+      addChecklistTemplate: async (name: string, description: string, items: { question: string; priorityOnFailure: TicketPriority; category: string; order: number }[]) => {
+        try {
+          const templateId = uuidv4();
+          const { error: tErr } = await supabase.from('ChecklistTemplate').insert({
+            id: templateId,
+            name,
+            description,
+            createdAt: new Date().toISOString()
+          });
+          if (tErr) throw tErr;
+
+          if (items.length > 0) {
+            const dbItems = items.map((item, idx) => ({
+              id: uuidv4(),
+              templateId,
+              question: item.question,
+              priorityOnFailure: item.priorityOnFailure,
+              category: item.category || 'General',
+              order: item.order ?? idx
+            }));
+            const { error: iErr } = await supabase.from('ChecklistTemplateItem').insert(dbItems);
+            if (iErr) throw iErr;
+          }
+
+          await get().loadAllData();
+        } catch (err) {
+          console.error("Failed to add checklist template:", err);
+        }
+      },
+
+      updateChecklistTemplate: async (id: string, updates: Partial<ChecklistTemplate> & { items?: Omit<ChecklistTemplateItem, 'templateId'>[] }) => {
+        try {
+          if (updates.name || updates.description !== undefined) {
+            const { error: tErr } = await supabase.from('ChecklistTemplate').update({
+              name: updates.name,
+              description: updates.description
+            }).eq('id', id);
+            if (tErr) throw tErr;
+          }
+
+          if (updates.items) {
+            const { error: dErr } = await supabase.from('ChecklistTemplateItem').delete().eq('templateId', id);
+            if (dErr) throw dErr;
+
+            if (updates.items.length > 0) {
+              const dbItems = updates.items.map((item, idx) => ({
+                id: item.id || uuidv4(),
+                templateId: id,
+                question: item.question,
+                priorityOnFailure: item.priorityOnFailure,
+                category: item.category || 'General',
+                order: item.order ?? idx
+              }));
+              const { error: iErr } = await supabase.from('ChecklistTemplateItem').insert(dbItems);
+              if (iErr) throw iErr;
+            }
+          }
+
+          await get().loadAllData();
+        } catch (err) {
+          console.error("Failed to update checklist template:", err);
+        }
+      },
+
+      deleteChecklistTemplate: async (id: string) => {
+        try {
+          const { error } = await supabase.from('ChecklistTemplate').delete().eq('id', id);
+          if (error) throw error;
+          await get().loadAllData();
+        } catch (err) {
+          console.error("Failed to delete checklist template:", err);
+        }
+      },
+
+      submitChecklist: async (taskId: string, templateId: string, values: { itemId: string; value: 'OK' | 'FAIL'; notes?: string }[]) => {
+        try {
+          const currentUser = get().currentUser;
+          if (!currentUser) throw new Error("No authenticated user");
+
+          const task = get().tasks.find(t => t.id === taskId);
+          const template = get().checklistTemplates.find(t => t.id === templateId);
+          const templateName = template ? template.name : 'Unknown Template';
+
+          const submissionId = uuidv4();
+          
+          const { error: sErr } = await supabase.from('ChecklistSubmission').insert({
+            id: submissionId,
+            taskId,
+            templateId,
+            submittedById: currentUser.id,
+            submittedAt: new Date().toISOString()
+          });
+          if (sErr) throw sErr;
+
+          const submissionValues = [];
+          for (const val of values) {
+            const valId = uuidv4();
+            let ticketId = null;
+
+            if (val.value === 'FAIL') {
+              const item = template?.items?.find(i => i.id === val.itemId);
+              const question = item ? item.question : 'Unknown Question';
+              const priority = item ? item.priorityOnFailure : 'MEDIUM';
+              const category = item ? item.category : 'General';
+              
+              const newTicketId = uuidv4();
+              ticketId = newTicketId;
+
+              const { error: tErr } = await supabase.from('Ticket').insert({
+                id: newTicketId,
+                title: `Inspection Failure: ${templateName} - ${question}`,
+                description: `Inspection item failed during task "${task ? task.title : taskId}" by ${currentUser.name}. Notes: ${val.notes || 'None'}`,
+                status: 'OPEN',
+                priority,
+                reporterId: currentUser.id,
+                assigneeId: currentUser.id,
+                category,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+              });
+              if (tErr) console.error("Auto ticket generation error:", tErr);
+            }
+
+            submissionValues.push({
+              id: valId,
+              submissionId,
+              itemId: val.itemId,
+              value: val.value,
+              notes: val.notes || null,
+              createdTicketId: ticketId
+            });
+          }
+
+          if (submissionValues.length > 0) {
+            const { error: vErr } = await supabase.from('ChecklistSubmissionValue').insert(submissionValues);
+            if (vErr) throw vErr;
+          }
+
+          if (task) {
+            const { error: taskErr } = await supabase.from('Task').update({ status: 'DONE' }).eq('id', taskId);
+            if (taskErr) throw taskErr;
+          }
+
+          await get().loadAllData();
+        } catch (err) {
+          console.error("Failed to submit checklist:", err);
+        }
+      },
+
+      addTicketHelper: async (ticketId: string, helperId: string) => {
+        try {
+          const ticket = get().tickets.find(t => t.id === ticketId);
+          if (!ticket) throw new Error("Ticket not found");
+
+          const helpers = ticket.helperAssigneeIds ? [...ticket.helperAssigneeIds] : [];
+          if (!helpers.includes(helperId)) {
+            helpers.push(helperId);
+          }
+
+          const { error } = await supabase
+            .from('Ticket')
+            .update({ helperAssigneeIds: helpers })
+            .eq('id', ticketId);
+
+          if (error) throw error;
+
+          // Send in-app notification to the helper
+          const notif = {
+            id: uuidv4(),
+            userId: helperId,
+            title: 'Kolaborasi Tiket (Helper)',
+            message: `Mas Bos, Anda ditambahkan sebagai helper untuk membantu penyelesaian tiket: "${ticket.title}"`,
+            type: 'TICKET_ASSIGNED',
+            isRead: false,
+            createdAt: new Date().toISOString()
+          };
+          await userService.insertNotifications([notif]).catch(e => console.error("Helper notification error:", e));
+
+          await get().loadAllData();
+        } catch (err) {
+          console.error("Failed to add ticket helper:", err);
         }
       },
 
@@ -3294,7 +3540,8 @@ export const useStore = create<AppState>()(
           isActive: schedule.isActive !== undefined ? schedule.isActive : true,
           notifyDaysBefore: schedule.notifyDaysBefore || 7,
           createdAt: now,
-          updatedAt: now
+          updatedAt: now,
+          checklistTemplateId: schedule.checklistTemplateId || null
         };
         set({ maintenanceSchedules: [newSchedule, ...get().maintenanceSchedules] });
         await get().enqueueWrite('MaintenanceSchedule', 'insert', newSchedule);
@@ -3364,7 +3611,8 @@ export const useStore = create<AppState>()(
               listId: defListId,
               order: 0,
               timeEstimate: 0,
-              timeTracked: 0
+              timeTracked: 0,
+              checklistTemplateId: schedule.checklistTemplateId || null
             };
 
             // Save Task to Supabase Staging and state
@@ -3379,7 +3627,8 @@ export const useStore = create<AppState>()(
               listId: newTask.listId,
               dueDate: newTask.dueDate,
               createdAt: newTask.createdAt,
-              updatedAt: newTask.updatedAt
+              updatedAt: newTask.updatedAt,
+              checklistTemplateId: newTask.checklistTemplateId
             });
 
             // 3. Calculate next scheduledDate

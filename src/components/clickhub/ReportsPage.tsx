@@ -94,10 +94,11 @@ export default function ReportsPage() {
     chatSessions,
     currentUser,
     addAuditLog,
-    getUserById
+    getUserById,
+    checklistSubmissions
   } = useStore();
 
-  const [activeTab, setActiveTab] = useState<'kpi' | 'capex' | 'assets' | 'tickets' | 'inventory'>('kpi');
+  const [activeTab, setActiveTab] = useState<'kpi' | 'capex' | 'assets' | 'tickets' | 'inventory' | 'workload'>('kpi');
   
   // Date filter state
   const [startDate, setStartDate] = useState('');
@@ -135,6 +136,51 @@ export default function ReportsPage() {
       setStartDate('');
       setEndDate('');
     }
+  };
+
+  const getWorkloadData = (useFilters: boolean) => {
+    const targetTasks = useFilters ? filteredTasks : tasks;
+    const targetTickets = useFilters ? filteredTickets : tickets;
+    const targetSubmissions = useFilters 
+      ? (checklistSubmissions || []).filter(s => {
+          if (!startDate && !endDate) return true;
+          const date = new Date(s.submittedAt);
+          if (startDate && date < new Date(startDate)) return false;
+          if (endDate && date > new Date(endDate + 'T23:59:59')) return false;
+          return true;
+        })
+      : (checklistSubmissions || []);
+
+    const techs = users.filter(u => u.role === 'TECHNICIAN' || u.role === 'ROOT' || u.role === 'SUPER_ADMIN' || u.role === 'ADMIN');
+
+    return techs.map(t => {
+      const assignedTasks = targetTasks.filter(tsk => tsk.assigneeIds.includes(t.id));
+      const completedTasks = assignedTasks.filter(tsk => tsk.status === 'done');
+      
+      const mainTickets = targetTickets.filter(tk => tk.assigneeId === t.id);
+      const helperTickets = targetTickets.filter(tk => tk.helperAssigneeIds && tk.helperAssigneeIds.includes(t.id));
+      const resolvedTickets = [...mainTickets, ...helperTickets].filter(tk => tk.status === 'RESOLVED' || tk.status === 'CLOSED');
+      
+      const submissions = targetSubmissions.filter(s => s.submittedById === t.id);
+
+      const taskCompletionRate = assignedTasks.length > 0
+        ? Math.round((completedTasks.length / assignedTasks.length) * 100)
+        : 0;
+
+      return {
+        id: t.id,
+        name: t.name,
+        role: t.role,
+        department: t.department || 'IT Support',
+        tasksAssigned: assignedTasks.length,
+        tasksCompleted: completedTasks.length,
+        taskCompletionRate,
+        ticketsMain: mainTickets.length,
+        ticketsHelper: helperTickets.length,
+        ticketsResolved: resolvedTickets.length,
+        checklistsSubmitted: submissions.length
+      };
+    });
   };
 
   // Date filtering logic
@@ -652,7 +698,8 @@ export default function ReportsPage() {
           { id: 'capex', label: 'Depreciation & CAPEX' },
           { id: 'assets', label: `Asset Registry (${filteredAssets.length})` },
           { id: 'tickets', label: `Tickets Log (${filteredTickets.length})` },
-          { id: 'inventory', label: `Spare Parts Inventory (${filteredInventories.length})` }
+          { id: 'inventory', label: `Spare Parts Inventory (${filteredInventories.length})` },
+          { id: 'workload', label: 'Technician Workload' }
         ].map((t) => (
           <button
             key={t.id}
@@ -1371,7 +1418,7 @@ export default function ReportsPage() {
                     exportToExcel(getInventoryData(), 'Inventory', 'spare_parts_inventory_report');
                     addAuditLog('REPORT_EXPORTED', `Exported Inventory report to Excel`);
                   }}
-                  className="flex items-center gap-1.5 rounded-xl bg-gray-900 hover:bg-gray-850 text-white text-xs font-bold px-3.5 py-2 transition-all border border-gray-800 active:scale-95 shadow-md shadow-black/10"
+                  className="flex items-center gap-1.5 rounded-xl bg-gray-900 hover:bg-gray-855 text-white text-xs font-bold px-3.5 py-2 transition-all border border-gray-800 active:scale-95 shadow-md shadow-black/10"
                 >
                   <Download size={13} />
                   Excel
@@ -1427,6 +1474,299 @@ export default function ReportsPage() {
             </div>
           </div>
         )}
+
+        {activeTab === 'workload' && (() => {
+          const workloadData = getWorkloadData(true);
+          const globalWorkloadData = getWorkloadData(false);
+
+          // Calculate leaderboard rankings (points system)
+          const leaderboard = workloadData.map(tech => {
+            const score = (tech.tasksCompleted * 10) + (tech.ticketsResolved * 15) + (tech.ticketsHelper * 5) + (tech.checklistsSubmitted * 5);
+            return { ...tech, score };
+          }).sort((a, b) => b.score - a.score);
+
+          // Calculate failed inspections list
+          const failedInspections = (checklistSubmissions || []).flatMap(sub => {
+            const tpl = checklistTemplates.find(t => t.id === sub.templateId);
+            const task = tasks.find(tsk => tsk.id === sub.taskId);
+            return (sub.values || [])
+              .filter(v => v.value === 'FAIL')
+              .map(v => {
+                const item = tpl?.items?.find(i => i.id === v.itemId);
+                return {
+                  id: v.id,
+                  submissionId: sub.id,
+                  taskId: sub.taskId,
+                  taskTitle: task ? task.title : 'Tugas Terhapus',
+                  templateName: tpl ? tpl.name : 'Template Terhapus',
+                  question: item ? item.question : 'Pertanyaan Terhapus',
+                  reportedBy: getUserById(sub.submittedById)?.name || 'Teknisi',
+                  date: sub.submittedAt,
+                  notes: v.notes,
+                  createdTicketId: v.createdTicketId
+                };
+              });
+          }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+          return (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-800/40 pb-4 gap-4">
+                <div>
+                  <h2 className="text-sm font-black text-white uppercase tracking-wider">Technician Workload & Performance</h2>
+                  <p className="text-xs text-gray-400 font-medium">Tracking task completion, helper support collaboration, and inspection checklist submissions.</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      const headers = ['Name', 'Role', 'Department', 'Tasks Assigned', 'Tasks Completed', 'Completion Rate %', 'Tickets Main', 'Tickets Helper', 'Checklists Submitted', 'Leaderboard Score'];
+                      const rows = globalWorkloadData.map(tech => {
+                        const score = (tech.tasksCompleted * 10) + (tech.ticketsResolved * 15) + (tech.ticketsHelper * 5) + (tech.checklistsSubmitted * 5);
+                        return [
+                          tech.name,
+                          tech.role,
+                          tech.department,
+                          String(tech.tasksAssigned),
+                          String(tech.tasksCompleted),
+                          `${tech.taskCompletionRate}%`,
+                          String(tech.ticketsMain),
+                          String(tech.ticketsHelper),
+                          String(tech.checklistsSubmitted),
+                          String(score)
+                        ];
+                      });
+                      exportToPDF(headers, rows, 'Monthly Workload Performance Report (Global)', 'monthly_workload_performance_report_global');
+                      addAuditLog('REPORT_EXPORTED', `Exported Monthly Workload Report (Global) to PDF`);
+                    }}
+                    className="flex items-center gap-1.5 rounded-xl bg-gray-900 hover:bg-gray-855 text-white text-xs font-bold px-3.5 py-2 transition-all border border-gray-800 active:scale-95 shadow-md shadow-black/10"
+                  >
+                    <Download size={13} />
+                    Monthly Report (PDF)
+                  </button>
+                  <button
+                    onClick={() => {
+                      const headers = ['Name', 'Role', 'Department', 'Tasks Assigned', 'Tasks Completed', 'Completion Rate %', 'Tickets Main', 'Tickets Helper', 'Checklists Submitted', 'Leaderboard Score'];
+                      const rows = workloadData.map(tech => {
+                        const score = (tech.tasksCompleted * 10) + (tech.ticketsResolved * 15) + (tech.ticketsHelper * 5) + (tech.checklistsSubmitted * 5);
+                        return [
+                          tech.name,
+                          tech.role,
+                          tech.department,
+                          String(tech.tasksAssigned),
+                          String(tech.tasksCompleted),
+                          `${tech.taskCompletionRate}%`,
+                          String(tech.ticketsMain),
+                          String(tech.ticketsHelper),
+                          String(tech.checklistsSubmitted),
+                          String(score)
+                        ];
+                      });
+                      const title = `Workload Performance Report (Filtered: ${startDate || 'Start'} to ${endDate || 'End'})`;
+                      exportToPDF(headers, rows, title, 'workload_performance_report_filtered');
+                      addAuditLog('REPORT_EXPORTED', `Exported Filtered Workload Report to PDF`);
+                    }}
+                    className="flex items-center gap-1.5 rounded-xl bg-violet-650 hover:bg-violet-600 text-white text-xs font-bold px-3.5 py-2 transition-all border border-violet-500/30 active:scale-95 shadow-md shadow-violet-600/10"
+                  >
+                    <Download size={13} />
+                    Filtered Report (PDF)
+                  </button>
+                </div>
+              </div>
+
+              {/* Technician Leaderboard Widget (Top 3 Podiums) */}
+              <div className="rounded-2xl border border-gray-800 bg-[#282c34]/50 p-5 space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-xs font-bold text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Award size={15} className="text-yellow-400" />
+                    Technician Leaderboard (Bulan Ini)
+                  </h3>
+                  <span className="text-[10px] text-gray-500 font-semibold">Tugas (10pt) | Tiket (15pt) | Helper (5pt) | Checklist (5pt)</span>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+                  {leaderboard.slice(0, 3).map((tech, idx) => {
+                    const medals = ['🥇 Juara 1', '🥈 Juara 2', '🥉 Juara 3'];
+                    const colors = [
+                      'from-yellow-500/15 to-yellow-600/5 border-yellow-500/30 text-yellow-400',
+                      'from-slate-400/15 to-slate-500/5 border-slate-400/30 text-slate-350',
+                      'from-amber-600/15 to-amber-700/5 border-amber-600/30 text-amber-500'
+                    ];
+                    return (
+                      <div key={tech.id} className={cn("rounded-xl border bg-gradient-to-br p-4 flex flex-col justify-between items-center text-center shadow-md", colors[idx])}>
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-black uppercase tracking-wider block">{medals[idx]}</span>
+                          <h4 className="text-sm font-black text-white">{tech.name}</h4>
+                          <p className="text-[11px] text-gray-500 font-medium">{tech.department}</p>
+                        </div>
+                        <div className="mt-4">
+                          <span className="text-lg font-black">{tech.score}</span>
+                          <span className="text-[10px] text-gray-500 font-semibold block">Total Points</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {leaderboard.length === 0 && (
+                    <p className="col-span-3 text-xs text-gray-500 italic text-center py-2">Belum ada aktivitas performa teknisi terekam.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Graphical Workload Bar Chart Visualizations (CSS bars) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="rounded-2xl border border-gray-800 bg-[#282c34]/50 p-5 space-y-4">
+                  <h3 className="text-xs font-bold text-gray-300 uppercase tracking-wider flex items-center gap-1">
+                    <Briefcase size={14} className="text-violet-400" />
+                    Task Workload (Completed vs Assigned)
+                  </h3>
+                  <div className="space-y-3.5">
+                    {workloadData.map(tech => {
+                      const maxVal = Math.max(...workloadData.map(w => w.tasksAssigned), 1);
+                      const pct = Math.min((tech.tasksAssigned / maxVal) * 100, 100);
+                      const compPct = tech.tasksAssigned > 0 ? (tech.tasksCompleted / tech.tasksAssigned) * 100 : 0;
+                      return (
+                        <div key={tech.id} className="space-y-1">
+                          <div className="flex justify-between text-xs">
+                            <span className="font-semibold text-white">{tech.name}</span>
+                            <span className="text-gray-400">{tech.tasksCompleted} / {tech.tasksAssigned} Tasks Completed ({tech.taskCompletionRate}%)</span>
+                          </div>
+                          <div className="relative h-3 w-full rounded-full bg-gray-800 overflow-hidden">
+                            <div className="absolute top-0 left-0 h-full bg-gray-750/60 transition-all duration-500" style={{ width: `${pct}%` }} />
+                            <div className="absolute top-0 left-0 h-full bg-gradient-to-r from-violet-650 to-violet-500 transition-all duration-500" style={{ width: `${pct * (compPct / 100)}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-gray-800 bg-[#282c34]/50 p-5 space-y-4">
+                  <h3 className="text-xs font-bold text-gray-300 uppercase tracking-wider flex items-center gap-1">
+                    <Layers size={14} className="text-blue-400" />
+                    Tickets Resolved & Collaboration (Main vs Helper)
+                  </h3>
+                  <div className="space-y-3.5">
+                    {workloadData.map(tech => {
+                      const total = tech.ticketsMain + tech.ticketsHelper;
+                      const maxVal = Math.max(...workloadData.map(w => w.ticketsMain + w.ticketsHelper), 1);
+                      const mainPct = total > 0 ? (tech.ticketsMain / total) * 100 : 0;
+                      const helpPct = total > 0 ? (tech.ticketsHelper / total) * 100 : 0;
+                      const widthPct = Math.min((total / maxVal) * 100, 100);
+                      return (
+                        <div key={tech.id} className="space-y-1">
+                          <div className="flex justify-between text-xs">
+                            <span className="font-semibold text-white">{tech.name}</span>
+                            <span className="text-gray-400">Main: {tech.ticketsMain} | Helper: {tech.ticketsHelper} ({tech.ticketsResolved} Resolved)</span>
+                          </div>
+                          <div className="relative h-3 w-full rounded-full bg-gray-800 overflow-hidden">
+                            <div className="h-full flex rounded-full" style={{ width: `${widthPct}%` }}>
+                              <div className="bg-blue-500 transition-all duration-500 h-full" style={{ width: `${mainPct}%` }} />
+                              <div className="bg-indigo-400 transition-all duration-500 h-full" style={{ width: `${helpPct}%` }} />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Failed Inspections Dashboard */}
+              <div className="rounded-2xl border border-gray-800 bg-[#282c34]/50 p-5 space-y-4">
+                <h3 className="text-xs font-bold text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <AlertTriangle size={15} className="text-red-400" />
+                  Dashboard Temuan Kerusakan / Inspeksi Gagal (FAIL Log)
+                </h3>
+                <div className="overflow-x-auto rounded-xl border border-gray-855/80 bg-gray-955/10 max-h-64 overflow-y-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-gray-855 text-gray-400 font-bold uppercase tracking-wider text-[10px] bg-gray-955/60">
+                        <th className="py-2.5 px-3">Tanggal</th>
+                        <th className="py-2.5 px-3">Teknisi</th>
+                        <th className="py-2.5 px-3">Tugas / Template</th>
+                        <th className="py-2.5 px-3">Pertanyaan</th>
+                        <th className="py-2.5 px-3">Catatan Kerusakan</th>
+                        <th className="py-2.5 px-3 text-center">Tiket Kerusakan</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-855/50 text-gray-300">
+                      {failedInspections.map(fi => (
+                        <tr key={fi.id} className="hover:bg-red-500/5">
+                          <td className="py-3 px-3 text-gray-500 whitespace-nowrap">{new Date(fi.date).toLocaleDateString()}</td>
+                          <td className="py-3 px-3 font-semibold text-white">{fi.reportedBy}</td>
+                          <td className="py-3 px-3">
+                            <p className="font-medium text-gray-350">{fi.taskTitle}</p>
+                            <p className="text-[10px] text-gray-500">{fi.templateName}</p>
+                          </td>
+                          <td className="py-3 px-3 text-gray-400">{fi.question}</td>
+                          <td className="py-3 px-3 text-red-300 italic">{fi.notes || 'Tanpa catatan tambahan'}</td>
+                          <td className="py-3 px-3 text-center">
+                            {fi.createdTicketId ? (
+                              <span className="rounded bg-red-950/30 text-red-400 border border-red-900/30 px-2 py-0.5 text-[9px] font-bold">
+                                🛠️ TKT-{fi.createdTicketId.substring(0,6).toUpperCase()}
+                              </span>
+                            ) : (
+                              <span className="text-gray-550 italic">-</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                      {failedInspections.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="py-6 text-center text-xs text-gray-500 italic">Selamat! Tidak ada temuan kerusakan dari hasil inspeksi terbaru.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Data Table */}
+              <div className="overflow-x-auto rounded-2xl border border-gray-855 bg-gray-900/5">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-855 text-gray-400 font-bold uppercase tracking-wider text-[10px] bg-gray-955/40">
+                      <th className="py-3 px-4">Technician Name</th>
+                      <th className="py-3 px-4">Department</th>
+                      <th className="py-3 px-4 text-center">Tasks Assigned</th>
+                      <th className="py-3 px-4 text-center">Tasks Completed</th>
+                      <th className="py-3 px-4 text-center">Completion Rate</th>
+                      <th className="py-3 px-4 text-center">Main Tickets</th>
+                      <th className="py-3 px-4 text-center">Helper Collaboration</th>
+                      <th className="py-3 px-4 text-center">Tickets Resolved</th>
+                      <th className="py-3 px-4 text-center">Checklists Submitted</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-855/50 text-gray-300">
+                    {workloadData.map(tech => (
+                      <tr key={tech.id} className="hover:bg-violet-500/5 border-l-2 border-l-transparent hover:border-l-violet-500 transition-all duration-200">
+                        <td className="py-3.5 px-4 font-bold text-white flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-violet-400 shrink-0" />
+                          {tech.name}
+                        </td>
+                        <td className="py-3.5 px-4 text-gray-450">{tech.department}</td>
+                        <td className="py-3.5 px-4 text-center text-gray-400 font-medium">{tech.tasksAssigned}</td>
+                        <td className="py-3.5 px-4 text-center text-emerald-400 font-bold">{tech.tasksCompleted}</td>
+                        <td className="py-3.5 px-4 text-center font-bold text-white">
+                          <span className={cn(
+                            "px-2.5 py-0.5 rounded-lg text-[10px] font-bold border",
+                            tech.taskCompletionRate >= 80 ? "bg-emerald-600/10 text-emerald-400 border border-emerald-500/20" :
+                            tech.taskCompletionRate >= 50 ? "bg-amber-600/10 text-amber-400 border border-amber-500/20" :
+                            tech.tasksAssigned > 0 ? "bg-red-650/10 text-red-400 border border-red-500/20" : "bg-gray-850 text-gray-400"
+                          )}>
+                            {tech.taskCompletionRate}%
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-center text-gray-400 font-medium">{tech.ticketsMain}</td>
+                        <td className="py-3.5 px-4 text-center text-indigo-400 font-bold">{tech.ticketsHelper}</td>
+                        <td className="py-3.5 px-4 text-center text-blue-400 font-semibold">{tech.ticketsResolved}</td>
+                        <td className="py-3.5 px-4 text-center text-gray-400 font-medium">{tech.checklistsSubmitted}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

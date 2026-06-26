@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { cn } from '../../utils/cn';
-import { BarChart3, Users, FileText, AlertTriangle, Server, TicketCheck, Plus, X, CheckSquare } from 'lucide-react';
+import { BarChart3, Users, FileText, AlertTriangle, Server, TicketCheck, Plus, X, CheckSquare, ClipboardList } from 'lucide-react';
 import type { UserRole } from '../../types';
 import { isPast } from 'date-fns';
 import { toast } from 'sonner';
+import AdminChecklistTab from './AdminChecklistTab';
 
-type Tab = 'overview' | 'users' | 'approvals' | 'logs';
+type Tab = 'overview' | 'users' | 'approvals' | 'logs' | 'checklists';
 
 const roleLabels: Record<UserRole, { label: string; color: string }> = {
   ROOT: { label: 'Root', color: 'bg-red-500/20 text-red-400' },
@@ -53,6 +54,7 @@ export default function AdminPage() {
     { key: 'overview', label: 'Overview', icon: <BarChart3 size={14} /> },
     { key: 'users', label: 'Users', icon: <Users size={14} /> },
     { key: 'approvals', label: 'Approvals', icon: <CheckSquare size={14} /> },
+    { key: 'checklists', label: 'Checklist Templates', icon: <ClipboardList size={14} /> },
     { key: 'logs', label: 'Audit Logs', icon: <FileText size={14} /> },
   ];
 
@@ -481,6 +483,10 @@ export default function AdminPage() {
               </tbody>
             </table>
           </div>
+        )}
+
+        {tab === 'checklists' && (
+          <AdminChecklistTab />
         )}
       </div>
 

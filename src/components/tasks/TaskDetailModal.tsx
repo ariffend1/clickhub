@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { cn } from '../../utils/cn';
-import { X, Trash2, Plus } from 'lucide-react';
+import { X, Trash2, Plus, ClipboardList, AlertTriangle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { TaskStatus, Priority } from '../../types';
 
@@ -24,7 +24,8 @@ export default function TaskDetailModal() {
     selectedTaskId, tasks, setShowTaskModal, updateTask, deleteTask,
     getTaskComments, addComment, getUserById,
     toggleSubtask, addSubtask, deleteSubtask, users, activities,
-    currentUser, partRequests, inventories, addPartRequest
+    currentUser, partRequests, inventories, addPartRequest,
+    checklistTemplates, checklistSubmissions, submitChecklist
   } = useStore();
 
   const task = tasks.find(t => t.id === selectedTaskId);
@@ -38,7 +39,14 @@ export default function TaskDetailModal() {
   const [showAddPart, setShowAddPart] = useState(false);
   const [partForm, setPartForm] = useState({ inventoryId: '', quantity: 1, notes: '' });
 
+  // Inspection Checklist Form State
+  const [checklistAnswers, setChecklistAnswers] = useState<Record<string, { value: 'OK' | 'FAIL'; notes: string }>>({});
+
   if (!task) return null;
+
+  const hasTemplate = !!task.checklistTemplateId;
+  const template = checklistTemplates.find(t => t.id === task.checklistTemplateId);
+  const submission = checklistSubmissions.find(s => s.taskId === task.id);
 
   const taskPartRequests = (partRequests || []).filter(pr => pr.taskId === task.id);
 
@@ -72,7 +80,14 @@ export default function TaskDetailModal() {
           <div className="flex items-center gap-3">
             <select value={task.status} onChange={e => updateTask(task.id, { status: e.target.value as TaskStatus })}
               className="rounded-lg border border-gray-700 bg-gray-800/50 px-2.5 py-1 text-xs text-white outline-none">
-              {statusOptions.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+              {statusOptions.map(s => {
+                const isDisabled = s.value === 'done' && hasTemplate && !submission;
+                return (
+                  <option key={s.value} value={s.value} disabled={isDisabled}>
+                    {s.label} {isDisabled ? '(Locked)' : ''}
+                  </option>
+                );
+              })}
             </select>
             <select value={task.priority} onChange={e => updateTask(task.id, { priority: e.target.value as Priority })}
               className="rounded-lg border border-gray-700 bg-gray-800/50 px-2.5 py-1 text-xs text-white outline-none">
@@ -148,6 +163,23 @@ export default function TaskDetailModal() {
                 <input type="date" value={task.dueDate || ''} onChange={e => updateTask(task.id, { dueDate: e.target.value || null })}
                   className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-1.5 text-xs text-white outline-none" />
               </div>
+
+              {/* Checklist Template Select (Admin/Manager only) */}
+              {currentUser && ['ROOT', 'SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(currentUser.role) && (
+                <div className="mb-4">
+                  <p className="mb-2 text-xs font-semibold uppercase text-gray-500">Inspection Checklist</p>
+                  <select
+                    value={task.checklistTemplateId || ''}
+                    onChange={e => updateTask(task.id, { checklistTemplateId: e.target.value || null })}
+                    className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-1.5 text-xs text-white outline-none focus:border-violet-500"
+                  >
+                    <option value="">-- No Inspection --</option>
+                    {checklistTemplates.map(tpl => (
+                      <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Recurring Settings */}
               <div className="mb-4">
@@ -356,6 +388,153 @@ export default function TaskDetailModal() {
               </div>
             </div>
           </div>
+
+          {/* Inspection Checklist Form or Submission Results */}
+          {hasTemplate && template && (
+            <div className="mt-6 border-t border-gray-800 pt-6">
+              <h3 className="mb-3 text-sm font-bold text-white flex items-center gap-1.5">
+                <ClipboardList className="text-violet-400" size={16} />
+                Laporan Inspeksi: {template.name}
+              </h3>
+              
+              {submission ? (
+                // IF SUBMITTED: Render Results
+                <div className="rounded-xl border border-gray-800 bg-[#282c34]/30 p-4 space-y-3">
+                  <div className="flex justify-between items-center text-xs text-gray-500 border-b border-gray-800 pb-2">
+                    <span>Diserahkan oleh: <strong className="text-gray-300">{getUserById(submission.submittedById)?.name || 'Unknown'}</strong></span>
+                    <span>Pada: <strong>{new Date(submission.submittedAt).toLocaleString()}</strong></span>
+                  </div>
+                  <div className="space-y-2">
+                    {template.items?.map((item, idx) => {
+                      const ans = submission.values?.find(v => v.itemId === item.id);
+                      return (
+                        <div key={item.id} className="flex flex-col gap-1 p-2 rounded-lg bg-gray-900/40 border border-gray-900/60">
+                          <div className="flex justify-between items-start gap-4">
+                            <span className="text-xs text-gray-300 font-medium">{idx + 1}. {item.question}</span>
+                            <span className={cn(
+                              "rounded px-2 py-0.5 text-[10px] font-bold shrink-0",
+                              ans?.value === 'OK' ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"
+                            )}>
+                              {ans?.value || 'OK'}
+                            </span>
+                          </div>
+                          {ans?.notes && (
+                            <p className="text-[11px] text-gray-500 mt-0.5">Catatan: {ans.notes}</p>
+                          )}
+                          {ans?.createdTicketId && (
+                            <p className="text-[10px] text-yellow-500/85 mt-0.5 font-medium flex items-center gap-1">
+                              <AlertTriangle size={10} /> Tiket Kerusakan Otomatis Dibuat (ID: {ans.createdTicketId.substring(0,8)})
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                // IF NOT SUBMITTED: Render Input Form
+                <div className="rounded-xl border border-yellow-600/20 bg-yellow-600/5 p-4 space-y-4">
+                  <p className="text-xs text-yellow-500 font-semibold flex items-center gap-1">
+                    <AlertTriangle size={14} /> Status 'Done' dikunci sampai semua item checklist inspeksi dilaporkan.
+                  </p>
+                  
+                  <div className="space-y-3">
+                    {template.items?.map((item, idx) => {
+                      const currentAns = checklistAnswers[item.id];
+                      return (
+                        <div key={item.id} className="p-3 rounded-lg bg-gray-900/50 border border-gray-800 space-y-2.5">
+                          <div className="flex justify-between items-start gap-4">
+                            <span className="text-xs text-white font-medium">{idx + 1}. {item.question}</span>
+                            <div className="flex gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => setChecklistAnswers({
+                                  ...checklistAnswers,
+                                  [item.id]: { value: 'OK', notes: currentAns?.notes || '' }
+                                })}
+                                className={cn(
+                                  "rounded px-2.5 py-1 text-[10px] font-bold border transition",
+                                  currentAns?.value === 'OK'
+                                    ? "bg-green-500/15 text-green-400 border-green-500/40"
+                                    : "bg-gray-800 text-gray-400 border-gray-700 hover:text-white"
+                                )}
+                              >
+                                OK
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setChecklistAnswers({
+                                  ...checklistAnswers,
+                                  [item.id]: { value: 'FAIL', notes: currentAns?.notes || '' }
+                                })}
+                                className={cn(
+                                  "rounded px-2.5 py-1 text-[10px] font-bold border transition",
+                                  currentAns?.value === 'FAIL'
+                                    ? "bg-red-500/15 text-red-400 border-red-500/40"
+                                    : "bg-gray-800 text-gray-400 border-gray-700 hover:text-white"
+                                )}
+                              >
+                                FAIL
+                              </button>
+                            </div>
+                          </div>
+                          
+                          {currentAns?.value === 'FAIL' && (
+                            <input
+                              type="text"
+                              required
+                              placeholder="Deskripsikan kerusakannya/kendala..."
+                              value={currentAns.notes}
+                              onChange={e => setChecklistAnswers({
+                                ...checklistAnswers,
+                                [item.id]: { ...currentAns, notes: e.target.value }
+                              })}
+                              className="w-full rounded border border-gray-700 bg-gray-900 px-2.5 py-1.5 text-xs text-white placeholder-gray-500 outline-none focus:border-red-500"
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex justify-end pt-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!template.items) return;
+                        const unanswered = template.items.some(item => !checklistAnswers[item.id]);
+                        if (unanswered) {
+                          toast.error('Harap jawab semua item inspeksi terlebih dahulu.');
+                          return;
+                        }
+                        const failWithoutNotes = template.items.some(item => {
+                          const ans = checklistAnswers[item.id];
+                          return ans.value === 'FAIL' && !ans.notes.trim();
+                        });
+                        if (failWithoutNotes) {
+                          toast.error('Harap isi catatan kerusakan untuk item yang berstatus FAIL.');
+                          return;
+                        }
+
+                        const payload = template.items.map(item => ({
+                          itemId: item.id,
+                          value: checklistAnswers[item.id].value,
+                          notes: checklistAnswers[item.id].notes
+                        }));
+
+                        toast.info('Mengirim laporan inspeksi...');
+                        await submitChecklist(task.id, template.id, payload);
+                        toast.success('Laporan inspeksi dikirim! Status tugas diubah ke DONE.');
+                      }}
+                      className="rounded-lg bg-violet-600 hover:bg-violet-500 px-4 py-2 text-xs font-semibold text-white transition shadow-lg shadow-violet-500/20"
+                    >
+                      Kirim Laporan & Selesaikan Tugas
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

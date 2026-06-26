@@ -7,6 +7,16 @@ Format versi mengikuti prinsip: `vEDITION.MAJOR.MINOR`.
 
 ---
 
+## [v1.4.1] - 2026-06-25
+### Added
+- **Inspeksi Harian Dinamis (Checklist Templates)**: Desain template checklist harian yang dinamis, dapat dibuat dan diatur oleh Admin secara kustom per kategori/divisi kerja.
+- **Auto-Ticketing Terintegrasi**: Pemicu pembuatan tiket otomatis (`Ticket`) secara dinamis dengan kategori dan prioritas terpilih apabila ada item pemeriksaan yang ditandai bermasalah (FAIL).
+- **Kolaborasi Eskalasi Tiket**: Tombol "Minta Bantuan" di panel tiket untuk menugaskan teknisi bantuan tambahan dan merekam log kerja sama tim.
+- **Dashboard & Cetak Laporan PDF Beban Kerja**: Grafik komparatif beban kerja teknisi dan tabel metrik detail pada Reports Page, lengkap dengan tombol ekspor PDF format Global Bulanan dan Filter Kustom.
+- **Koreksi Hak Akses Pengaturan**: Membatasi tab *Branding & Labels* serta *Notifications* di Settings Modal hanya untuk role `ROOT`, `SUPER_ADMIN`, dan `ADMIN`. Role `MANAGER` kini dibatasi.
+
+---
+
 ## [v1.4.0] - 2026-06-25
 ### Added
 - **Fitur Recurring/Renewal Tasks**: Mendukung perulangan tugas secara otomatis ketika task ditandai selesai (`done`).

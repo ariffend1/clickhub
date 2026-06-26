@@ -95,7 +95,8 @@ export default function TicketsPage() {
     tickets, getUserById, currentUser, addTicket, updateTicket, hasRole, users,
     tasks, addTask, selectTask, assets, deleteTicket, approveDeleteTicket, rejectDeleteTicket,
     articles, submitTicketFeedback, addArticle, archivedTicketsLoaded, loadAllArchivedTickets,
-    uploadAttachment, deleteAttachment, requestDeleteAttachment, rejectDeleteAttachment
+    uploadAttachment, deleteAttachment, requestDeleteAttachment, rejectDeleteAttachment,
+    addTicketHelper
   } = useStore();
   const [showCreate, setShowCreate] = useState(false);
   const [filterPriority, setFilterPriority] = useState<string>('all');
@@ -418,6 +419,14 @@ export default function TicketsPage() {
               <div><span className="text-gray-500">Reporter:</span> <span className="text-gray-300">{getUserById(selectedTicket.reporterId)?.name}</span></div>
               <div><span className="text-gray-500">Assignee:</span> <span className="text-gray-300">{selectedTicket.assigneeId ? getUserById(selectedTicket.assigneeId)?.name : 'Unassigned'}</span></div>
               <div><span className="text-gray-500">Created:</span> <span className="text-gray-300">{formatDistanceToNow(new Date(selectedTicket.createdAt), { addSuffix: true })}</span></div>
+              <div className="col-span-2">
+                <span className="text-gray-500">Helpers:</span>{' '}
+                <span className="text-gray-300 font-semibold">
+                  {selectedTicket.helperAssigneeIds && selectedTicket.helperAssigneeIds.length > 0
+                    ? selectedTicket.helperAssigneeIds.map(id => getUserById(id)?.name).filter(Boolean).join(', ')
+                    : 'None'}
+                </span>
+              </div>
               <div className="col-span-2 flex items-center gap-2 mt-1">
                 <span className="text-gray-500">SLA Status:</span>
                 <SlaBadge ticket={selectedTicket} />
@@ -435,7 +444,7 @@ export default function TicketsPage() {
             </div>
             {canManage && (
               <div className="space-y-3 border-t border-gray-800 pt-4 mb-4">
-                <p className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Update Ticket Attributes</p>
+                <p className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Update Ticket Attributes & Collaboration</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1">
                     <label className="text-[10px] text-gray-400">Status</label>
@@ -450,6 +459,33 @@ export default function TicketsPage() {
                       className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-1.5 text-xs text-white outline-none w-full cursor-pointer">
                       <option value="">Unassigned</option>
                       {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1 col-span-2">
+                    <label className="text-[10px] text-gray-400">Minta Bantuan (Tambah Helper)</label>
+                    <select
+                      value=""
+                      onChange={async e => {
+                        if (e.target.value) {
+                          toast.info('Menambahkan helper...');
+                          await addTicketHelper(selectedTicket.id, e.target.value);
+                          const updatedHelpers = selectedTicket.helperAssigneeIds ? [...selectedTicket.helperAssigneeIds] : [];
+                          if (!updatedHelpers.includes(e.target.value)) {
+                            updatedHelpers.push(e.target.value);
+                          }
+                          setSelectedTicket({ ...selectedTicket, helperAssigneeIds: updatedHelpers });
+                          toast.success('Helper berhasil ditambahkan!');
+                        }
+                      }}
+                      className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-1.5 text-xs text-violet-400 outline-none w-full cursor-pointer"
+                    >
+                      <option value="">+ Pilih Teknisi Helper (Minta Bantuan)</option>
+                      {users
+                        .filter(u => u.id !== selectedTicket.assigneeId && !(selectedTicket.helperAssigneeIds || []).includes(u.id))
+                        .map(u => (
+                          <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
+                        ))
+                      }
                     </select>
                   </div>
                   <div className="flex flex-col gap-1">
