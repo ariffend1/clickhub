@@ -5,6 +5,7 @@ import { X, User, Tag, Database, Plus, Trash2, LogOut, Bell, RefreshCw, Image } 
 import { toast } from 'sonner';
 import { changelogData } from '../../utils/changelogData';
 import { getEncryptedItem, setEncryptedItem, STORAGE_KEYS } from '../../utils/crypto';
+import { supabase } from '../../lib/supabase';
 
 type TabKey = 'profile' | 'tags' | 'notifications' | 'data' | 'changelog' | 'branding';
 
@@ -28,6 +29,40 @@ export default function SettingsModal() {
   const [showNewTag, setShowNewTag] = useState(false);
   const [newTagName, setNewTagName] = useState('');
   const [newTagColor, setNewTagColor] = useState('#3B82F6');
+
+  // Change password states
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPassword.trim()) {
+      toast.error('Masukkan password baru Anda!');
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error('Password minimal harus 6 karakter!');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('Konfirmasi password tidak cocok!');
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      toast.success('Password berhasil diperbarui!');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      toast.error('Gagal memperbarui password: ' + err.message);
+    } finally {
+      setChangingPassword(false);
+    }
+  };
 
   const [telegramWebhook, setTelegramWebhook] = useState(getEncryptedItem(STORAGE_KEYS.TELEGRAM_WEBHOOK_URL, 'TELEGRAM_WEBHOOK_URL') || '');
   const [telegramToken, setTelegramToken] = useState(getEncryptedItem(STORAGE_KEYS.TELEGRAM_BOT_TOKEN, 'TELEGRAM_BOT_TOKEN') || '');
@@ -165,10 +200,44 @@ export default function SettingsModal() {
                     <input value={currentUser.email} readOnly className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white outline-none" />
                   </div>
                 </div>
-                <div className="mt-6 border-t border-gray-800 pt-5">
+                <form onSubmit={handleChangePassword} className="mt-5 border-t border-gray-800 pt-4 space-y-3">
+                  <h4 className="text-xs font-extrabold text-violet-400 uppercase tracking-wider mb-2">Ganti Password</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-[10px] text-gray-500 font-bold uppercase">Password Baru</label>
+                      <input 
+                        type="password"
+                        value={newPassword} 
+                        onChange={e => setNewPassword(e.target.value)}
+                        placeholder="Min 6 karakter..." 
+                        className="w-full rounded-lg border border-gray-700 bg-gray-800/40 px-3 py-2 text-sm text-white outline-none focus:border-violet-500 transition duration-200" 
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[10px] text-gray-500 font-bold uppercase">Konfirmasi Password</label>
+                      <input 
+                        type="password"
+                        value={confirmPassword} 
+                        onChange={e => setConfirmPassword(e.target.value)}
+                        placeholder="Ulangi password..." 
+                        className="w-full rounded-lg border border-gray-700 bg-gray-800/40 px-3 py-2 text-sm text-white outline-none focus:border-violet-500 transition duration-200" 
+                      />
+                    </div>
+                  </div>
+                  <button 
+                    type="submit"
+                    disabled={changingPassword}
+                    className="w-full rounded-lg bg-violet-650 hover:bg-violet-600 disabled:bg-violet-850 disabled:text-gray-500 py-2 text-xs font-bold text-white transition active:scale-98 cursor-pointer"
+                  >
+                    {changingPassword ? 'Memperbarui...' : 'Simpan Password Baru'}
+                  </button>
+                </form>
+
+                <div className="mt-5 border-t border-gray-800 pt-4">
                   <h4 className="text-xs font-extrabold text-violet-400 uppercase tracking-wider mb-2">Panduan Penggunaan</h4>
                   <p className="text-xs text-gray-400 mb-3">Butuh bantuan mengenal tata letak fitur and fungsi ikon ClickHub?</p>
                   <button 
+                    type="button"
                     onClick={() => {
                       setShowSettingsModal(false);
                       setTimeout(() => {
