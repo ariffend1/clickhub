@@ -8,24 +8,26 @@ export default function HomePage() {
   const { 
     tasks, currentUser, activities, spaces, getUserById, selectTask, 
     setActivePage, selectSpace, tickets, assets, showChatWidget, setShowChatWidget,
-    setShowCreateTicketModal
+    setShowCreateTicketModal, inventories, equipmentCheckouts, auditLogs
   } = useStore();
 
   if (!currentUser) return null;
 
+  const isManagement = ['ROOT', 'SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(currentUser.role);
   const isEmployee = currentUser.role === 'EMPLOYEE';
 
-  // IT Admin / Manager view data
-  const myTasks = tasks.filter(t => t.assigneeIds.includes(currentUser.id));
-  const myInProgress = myTasks.filter(t => t.status === 'in_progress');
-  const myOverdue = myTasks.filter(t => t.dueDate && isPast(new Date(t.dueDate)) && t.status !== 'done');
-  const myCompleted = myTasks.filter(t => t.status === 'done');
-  const myUpcoming = myTasks
+  // Determine tasks based on user role (Global for Admin/Manager, Personal for others)
+  const displayTasks = isManagement ? tasks : tasks.filter(t => t.assigneeIds.includes(currentUser.id));
+  const displayInProgress = displayTasks.filter(t => t.status === 'in_progress');
+  const displayOverdue = displayTasks.filter(t => t.dueDate && isPast(new Date(t.dueDate)) && t.status !== 'done');
+  const displayCompleted = displayTasks.filter(t => t.status === 'done');
+
+  const myUpcoming = displayTasks
     .filter(t => t.dueDate && !isPast(new Date(t.dueDate)) && t.status !== 'done')
     .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime())
     .slice(0, 5);
 
-  const recentActivities = activities
+  const recentActivities = (isManagement ? (auditLogs || []) : activities)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 8);
 
@@ -202,30 +204,55 @@ export default function HomePage() {
     );
   }
 
-  // Admin / Manager / Technician Dashboard View (Existing original code)
+  // Root, Admin, and Manager vs Technician/Employee Dashboards
+  const stats = [
+    { label: isManagement ? 'In Progress (Global)' : 'In Progress', value: displayInProgress.length, icon: '⏱️', color: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+    { label: isManagement ? 'Overdue (Global)' : 'Overdue', value: displayOverdue.length, icon: '⚠️', color: 'bg-red-500/10 text-red-400 border-red-500/20' },
+    { label: isManagement ? 'Completed (Global)' : 'Completed', value: displayCompleted.length, icon: '✅', color: 'bg-green-500/10 text-green-400 border-green-500/20' },
+    { label: isManagement ? 'Completion (Global)' : 'Completion Rate', value: `${displayTasks.length > 0 ? Math.round((displayCompleted.length / displayTasks.length) * 100) : 0}%`, icon: '📈', color: 'bg-violet-500/10 text-violet-400 border-violet-500/20' },
+  ];
+
   return (
-    <div className="h-full overflow-y-auto p-8 bg-slate-900 text-white">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-white flex items-center">
+    <div className="h-full overflow-y-auto p-8 bg-[#13151a] text-white">
+      <div className="mb-8 relative">
+        <h1 className="text-2xl font-bold text-white flex items-center gap-2 tracking-tight">
           Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'}, {currentUser.name.split(' ')[0]}! 👋
           <PageHelp pageKey="home" />
         </h1>
-        <p className="mt-1 text-sm text-gray-400">Here's what's happening with your projects today.</p>
+        <p className="mt-1 text-sm text-gray-400 max-w-2xl leading-relaxed">
+          {isManagement 
+            ? 'Berikut adalah ringkasan operasional dan kesehatan layanan IT perusahaan hari ini.'
+            : 'Berikut adalah ringkasan tugas dan tanggung jawab Anda hari ini.'
+          }
+        </p>
+        <div className="glow-line mt-4 mb-2" />
       </div>
 
-      <div className="mb-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'In Progress', value: myInProgress.length, icon: <Clock size={20} />, color: 'bg-blue-500/10 text-blue-400' },
-          { label: 'Overdue', value: myOverdue.length, icon: <AlertTriangle size={20} />, color: 'bg-red-500/10 text-red-400' },
-          { label: 'Completed', value: myCompleted.length, icon: <CheckCircle2 size={20} />, color: 'bg-green-500/10 text-green-400' },
-          { label: 'Completion', value: `${myTasks.length > 0 ? Math.round((myCompleted.length / myTasks.length) * 100) : 0}%`, icon: <TrendingUp size={20} />, color: 'bg-violet-500/10 text-violet-400' },
-        ].map((stat, i) => (
-          <div key={i} className="rounded-xl border border-gray-800 bg-[#282c34] p-5">
-            <div className="flex items-center gap-3">
-              <div className={cn("flex h-10 w-10 items-center justify-center rounded-xl", stat.color)}>{stat.icon}</div>
-              <div>
-                <p className="text-2xl font-bold text-white">{stat.value}</p>
-                <p className="text-xs text-gray-500">{stat.label}</p>
+      <div className="mb-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {stats.map((stat, i) => (
+          <div 
+            key={i} 
+            className="premium-card rounded-xl p-5 relative overflow-hidden group shadow-sm"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{stat.label}</span>
+              <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg text-base shadow-inner", stat.color)}>
+                {stat.icon}
+              </div>
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-white tracking-tight">{stat.value}</p>
+            </div>
+            
+            {/* Sparkline flat progress bar */}
+            <div className="mt-3">
+              <div className="h-1 w-full rounded-full bg-gray-800 overflow-hidden">
+                <div className={cn("h-full rounded-full transition-all duration-500", 
+                  stat.label.includes('SLA') || stat.label.includes('Overdue') ? 'bg-red-500' :
+                  stat.label.includes('Stok') ? 'bg-yellow-500' :
+                  stat.label.includes('Peminjaman') || stat.label.includes('Progress') ? 'bg-blue-500' :
+                  'bg-violet-600'
+                )} style={{ width: stat.value ? `${Math.min(100, Math.max(15, Number(stat.value) * 8))}%` : '8%' }} />
               </div>
             </div>
           </div>
@@ -233,49 +260,54 @@ export default function HomePage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="rounded-xl border border-gray-800 bg-[#282c34] p-5">
+        <div className="premium-card rounded-xl p-5 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-white">Upcoming Deadlines</h3>
-            <button onClick={() => setActivePage('my_tasks')} className="flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300">
+            <h3 className="text-sm font-bold text-gray-300 uppercase tracking-wider">
+              {isManagement ? 'Upcoming Task Deadlines' : 'My Upcoming Deadlines'}
+            </h3>
+            <button onClick={() => setActivePage('my_tasks')} className="flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300 font-semibold transition">
               View All <ArrowRight size={12} />
             </button>
           </div>
           {myUpcoming.length === 0 ? (
-            <p className="py-4 text-center text-sm text-gray-500">No upcoming deadlines 🎉</p>
+            <p className="py-8 text-center text-sm text-gray-500 italic">No upcoming deadlines 🎉</p>
           ) : (
             <div className="space-y-2">
               {myUpcoming.map(task => (
                 <button key={task.id} onClick={() => selectTask(task.id)}
-                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-gray-700/30">
-                  <div className={cn("h-2 w-2 rounded-full shrink-0",
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left hover:bg-gray-800/40 border border-transparent hover:border-gray-800 transition duration-200">
+                  <div className={cn("h-2.5 w-2.5 rounded-full shrink-0",
                     task.priority === 'urgent' ? 'bg-red-400' : task.priority === 'high' ? 'bg-orange-400' : task.priority === 'normal' ? 'bg-blue-400' : 'bg-gray-400'
                   )} />
-                  <span className="flex-1 truncate text-sm text-gray-300">{task.title}</span>
-                  <span className="shrink-0 text-xs text-gray-500">{format(new Date(task.dueDate!), 'MMM d')}</span>
+                  <span className="flex-1 truncate text-sm text-gray-200 font-medium">{task.title}</span>
+                  <span className="shrink-0 text-xs text-gray-500 font-mono">{format(new Date(task.dueDate!), 'MMM d')}</span>
                 </button>
               ))}
             </div>
           )}
         </div>
 
-        <div className="rounded-xl border border-gray-800 bg-[#282c34] p-5">
-          <h3 className="mb-4 text-sm font-semibold text-white">Recent Activity</h3>
+        <div className="premium-card rounded-2xl p-6 shadow-lg">
+          <h3 className="mb-4 text-sm font-bold text-gray-300 uppercase tracking-wider">
+            {isManagement ? 'Recent Activity (System Audit)' : 'Recent Activity'}
+          </h3>
           {recentActivities.length === 0 ? (
-            <p className="py-4 text-center text-sm text-gray-500">No recent activity</p>
+            <p className="py-8 text-center text-sm text-gray-500 italic">No recent activity</p>
           ) : (
             <div className="space-y-3">
               {recentActivities.map(act => {
                 const user = getUserById(act.userId);
+                const displayDesc = act.description || `${act.action.replace(/_/g, ' ')}: ${act.details}`;
                 return (
-                  <div key={act.id} className="flex items-start gap-3">
-                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold text-white" style={{ backgroundColor: user?.color || '#666' }}>
-                      {user?.name.charAt(0) || '?'}
+                  <div key={act.id} className="flex items-start gap-3 hover:bg-gray-800/20 p-1.5 rounded-lg transition duration-200">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-black text-white shadow-inner uppercase" style={{ backgroundColor: user?.color || '#5b21b6' }}>
+                      {user?.name.charAt(0) || 'S'}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs text-gray-400 truncate">
-                        <span className="font-medium text-gray-300">{user?.name}</span> {act.description}
+                      <p className="text-xs text-gray-300 leading-snug">
+                        <span className="font-bold text-violet-300">{user?.name || 'System'}</span> {displayDesc}
                       </p>
-                      <p className="mt-0.5 text-[10px] text-gray-600">{formatDistanceToNow(new Date(act.createdAt), { addSuffix: true })}</p>
+                      <p className="mt-1 text-[9px] text-gray-500 font-mono">{formatDistanceToNow(new Date(act.createdAt), { addSuffix: true })}</p>
                     </div>
                   </div>
                 );
@@ -285,8 +317,8 @@ export default function HomePage() {
         </div>
 
         {currentUser.role !== 'EMPLOYEE' && (
-          <div className="lg:col-span-2 rounded-xl border border-gray-800 bg-[#282c34] p-5">
-            <h3 className="mb-4 text-sm font-semibold text-white">Spaces Overview</h3>
+          <div className="lg:col-span-2 premium-card rounded-2xl p-6 shadow-lg">
+            <h3 className="mb-4 text-sm font-bold text-gray-300 uppercase tracking-wider">Spaces Overview</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {spaces.map(space => {
                 const spaceTasks = tasks.filter(t => t.spaceId === space.id);
@@ -294,17 +326,17 @@ export default function HomePage() {
                 const pct = spaceTasks.length > 0 ? Math.round((done / spaceTasks.length) * 100) : 0;
                 return (
                   <button key={space.id} onClick={() => selectSpace(space.id)}
-                    className="rounded-lg border border-gray-700/50 p-4 text-left hover:bg-gray-700/20 transition-colors">
+                    className="rounded-xl border border-gray-800/40 bg-[#13151a]/40 p-4 text-left hover:border-violet-500/50 hover:bg-violet-950/5 transition duration-300 shadow-sm group">
                     <div className="flex items-center gap-2 mb-3">
-                      <span className="text-lg">{space.icon}</span>
-                      <span className="text-sm font-medium text-white">{space.name}</span>
+                      <span className="text-xl group-hover:scale-110 transition duration-300">{space.icon}</span>
+                      <span className="text-sm font-bold text-white group-hover:text-violet-300 transition duration-300">{space.name}</span>
                     </div>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs text-gray-500">{spaceTasks.length} tasks</span>
-                      <span className="text-xs text-gray-400">{pct}%</span>
+                      <span className="text-xs font-bold text-violet-400">{pct}%</span>
                     </div>
-                    <div className="h-1.5 rounded-full bg-gray-700">
-                      <div className="h-1.5 rounded-full bg-violet-500 transition-all" style={{ width: `${pct}%` }} />
+                    <div className="h-2 rounded-full bg-gray-800 overflow-hidden">
+                      <div className="h-2 rounded-full bg-gradient-to-r from-violet-600 to-indigo-500 transition-all duration-500" style={{ width: `${pct}%` }} />
                     </div>
                   </button>
                 );

@@ -230,6 +230,7 @@ interface AppState {
   deleteChecklistTemplate: (id: string) => Promise<void>;
   submitChecklist: (taskId: string, templateId: string, values: { itemId: string; value: 'OK' | 'FAIL'; notes?: string }[]) => Promise<void>;
   addTicketHelper: (ticketId: string, helperId: string) => Promise<void>;
+  requestAssigneeChange: (ticketId: string, reason: string) => Promise<void>;
 }
 
 const defaultUsers: User[] = [
@@ -1018,6 +1019,37 @@ export const useStore = create<AppState>()(
           await get().loadAllData();
         } catch (err) {
           console.error("Failed to add ticket helper:", err);
+        }
+      },
+
+      requestAssigneeChange: async (ticketId: string, reason: string) => {
+        try {
+          const ticket = get().tickets.find(t => t.id === ticketId);
+          if (!ticket) throw new Error("Ticket not found");
+
+          const ticketNumber = ticket.ticketNumber || ticket.id.slice(0, 8).toUpperCase();
+          const requesterName = get().currentUser?.name || 'Teknisi';
+
+          // Get all managers, admins, super admins, and root users
+          const managers = get().users.filter(u => ['ROOT', 'SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(u.role));
+
+          const notifications = managers.map(m => ({
+            id: uuidv4(),
+            userId: m.id,
+            title: 'Pengajuan Pergantian Assignee',
+            message: `${requesterName} mengajukan pergantian assignee untuk tiket #${ticketNumber}. Alasan: "${reason}"`,
+            type: 'TICKET_ASSIGNED' as const,
+            isRead: false,
+            createdAt: new Date().toISOString()
+          }));
+
+          if (notifications.length > 0) {
+            await userService.insertNotifications(notifications);
+          }
+          await get().loadAllData();
+        } catch (err) {
+          console.error("Failed to submit assignee change request:", err);
+          throw err;
         }
       },
 
@@ -3676,11 +3708,12 @@ export const useStore = create<AppState>()(
       getFilteredTasks: () => {
         const { tasks, selectedSpaceId, selectedListId, searchQuery, filterPriority, filterAssignee, activePage, currentUser } = get();
         return tasks.filter(task => {
-          if (activePage === 'my_tasks' && currentUser) {
+          if (currentUser) {
             const isAdmin = ['ROOT', 'SUPER_ADMIN', 'ADMIN'].includes(currentUser.role);
             if (!isAdmin) {
               const isAssignedToMe = task.assigneeIds.includes(currentUser.id);
               const isUnassigned = task.assigneeIds.length === 0;
+              // User cannot see other people's tasks (only their own or unassigned)
               if (!isAssignedToMe && !isUnassigned) return false;
             }
           }

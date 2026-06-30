@@ -98,7 +98,7 @@ export default function TicketsPage() {
     tasks, addTask, selectTask, assets, deleteTicket, approveDeleteTicket, rejectDeleteTicket,
     articles, submitTicketFeedback, addArticle, archivedTicketsLoaded, loadAllArchivedTickets,
     uploadAttachment, deleteAttachment, requestDeleteAttachment, rejectDeleteAttachment,
-    addTicketHelper
+    addTicketHelper, requestAssigneeChange
   } = useStore();
   const [showCreate, setShowCreate] = useState(false);
   const [filterPriority, setFilterPriority] = useState<string>('all');
@@ -135,10 +135,31 @@ export default function TicketsPage() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; fileName: string; isDoc: boolean } | null>(null);
   const [deleteReasonInput, setDeleteReasonInput] = useState('');
 
+  // Local state for ticket edits (manual save)
+  const [tempStatus, setTempStatus] = useState<TicketStatus | ''>('');
+  const [tempAssigneeId, setTempAssigneeId] = useState<string | null>(null);
+  const [tempCategory, setTempCategory] = useState<string>('');
+  const [tempPriority, setTempPriority] = useState<TicketPriority | ''>('');
+  const [tempAssetId, setTempAssetId] = useState<string | null>(null);
+  const [tempResolution, setTempResolution] = useState<string>('');
+
   useEffect(() => {
     if (selectedTicket) {
       setCsatRating(selectedTicket.csatRating || 5);
       setCsatComment(selectedTicket.csatFeedback || '');
+      setTempStatus(selectedTicket.status);
+      setTempAssigneeId(selectedTicket.assigneeId);
+      setTempCategory(selectedTicket.category || 'General');
+      setTempPriority(selectedTicket.priority);
+      setTempAssetId(selectedTicket.assetId || null);
+      setTempResolution(selectedTicket.resolution || '');
+    } else {
+      setTempStatus('');
+      setTempAssigneeId(null);
+      setTempCategory('');
+      setTempPriority('');
+      setTempAssetId(null);
+      setTempResolution('');
     }
   }, [selectedTicket]);
 
@@ -359,9 +380,14 @@ export default function TicketsPage() {
       {selectedTicket && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setSelectedTicket(null)}>
           <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-700 bg-[#1e2028] p-6 shadow-2xl animate-slide-up" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-white">{selectedTicket.title}</h2>
-              <button onClick={() => setSelectedTicket(null)} className="text-gray-500 hover:text-white"><X size={18} /></button>
+            <div className="text-left mb-3">
+              <span className="text-[11px] font-semibold text-violet-400 block tracking-wide mb-1">
+                #{selectedTicket.id.slice(0, 8).toUpperCase()} {selectedTicket.ticketNumber ? `(${selectedTicket.ticketNumber})` : ''}
+              </span>
+              <div className="flex items-start justify-between">
+                <h2 className="text-lg font-bold text-white leading-tight">{selectedTicket.title}</h2>
+                <button onClick={() => setSelectedTicket(null)} className="text-gray-500 hover:text-white ml-2 mt-1"><X size={18} /></button>
+              </div>
             </div>
 
             {/* Delete Request Banners */}
@@ -449,21 +475,64 @@ export default function TicketsPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1">
                     <label className="text-[10px] text-gray-400">Status</label>
-                    <select value={selectedTicket.status} onChange={e => { updateTicket(selectedTicket.id, { status: e.target.value as TicketStatus }); setSelectedTicket({ ...selectedTicket, status: e.target.value as TicketStatus }); }}
-                      className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-1.5 text-xs text-white outline-none w-full cursor-pointer">
-                      {columns.map(s => <option key={s} value={s}>{statusConfig[s].label}</option>)}
+                    <select 
+                      value={tempStatus} 
+                      onChange={e => setTempStatus(e.target.value as TicketStatus)}
+                      className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-1.5 text-xs text-white outline-none w-full cursor-pointer"
+                    >
+                      {columns.map(s => {
+                        const isDisabled = s === 'OPEN' && selectedTicket.status !== 'OPEN';
+                        return (
+                          <option key={s} value={s} disabled={isDisabled}>
+                            {statusConfig[s].label} {isDisabled ? '(Locked)' : ''}
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
                   <div className="flex flex-col gap-1">
                     <label className="text-[10px] text-gray-400">Assignee</label>
-                    <select value={selectedTicket.assigneeId || ''} onChange={e => { updateTicket(selectedTicket.id, { assigneeId: e.target.value || null }); setSelectedTicket({ ...selectedTicket, assigneeId: e.target.value || null }); }}
-                      className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-1.5 text-xs text-white outline-none w-full cursor-pointer">
-                      <option value="">Unassigned</option>
-                      {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                    </select>
+                    {(selectedTicket.status !== 'OPEN' && !isAdminManager) ? (
+                      <div className="flex flex-col">
+                        <select 
+                          value={tempAssigneeId || ''} 
+                          disabled={true}
+                          className="rounded-lg border border-gray-700 bg-gray-800/30 px-3 py-1.5 text-xs text-gray-500 outline-none w-full cursor-not-allowed"
+                        >
+                          <option value="">{tempAssigneeId ? getUserById(tempAssigneeId)?.name : 'Unassigned'}</option>
+                        </select>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const reason = window.prompt("Masukkan alasan pengajuan pergantian teknisi:");
+                            if (reason && reason.trim()) {
+                              try {
+                                toast.loading('Mengirimkan pengajuan...', { id: 'req-assignee-toast' });
+                                await requestAssigneeChange(selectedTicket.id, reason.trim());
+                                toast.success("Pengajuan pergantian teknisi berhasil dikirim ke Manajer & Admin!", { id: 'req-assignee-toast' });
+                              } catch (err: any) {
+                                toast.error(`Gagal mengirim pengajuan: ${err.message}`, { id: 'req-assignee-toast' });
+                              }
+                            }
+                          }}
+                          className="mt-1 text-[10px] text-violet-400 hover:text-violet-300 font-semibold underline text-left cursor-pointer"
+                        >
+                          Ajukan Pergantian (Request Change)
+                        </button>
+                      </div>
+                    ) : (
+                      <select 
+                        value={tempAssigneeId || ''} 
+                        onChange={e => setTempAssigneeId(e.target.value || null)}
+                        className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-1.5 text-xs text-white outline-none w-full cursor-pointer"
+                      >
+                        <option value="">Unassigned</option>
+                        {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                      </select>
+                    )}
                   </div>
                   <div className="flex flex-col gap-1 col-span-2">
-                    <label className="text-[10px] text-gray-400">Minta Bantuan (Tambah Helper)</label>
+                    <label className="text-[10px] text-gray-400 font-semibold text-gray-400">Minta Bantuan (Tambah Helper)</label>
                     <select
                       value=""
                       onChange={async e => {
@@ -488,44 +557,132 @@ export default function TicketsPage() {
                         ))
                       }
                     </select>
+                    {/* Helper List with Cancel Buttons */}
+                    {selectedTicket.helperAssigneeIds && selectedTicket.helperAssigneeIds.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2 bg-gray-900/30 p-2 rounded-lg border border-gray-800/50">
+                        {selectedTicket.helperAssigneeIds.map(helperId => {
+                          const helperName = getUserById(helperId)?.name || 'Unknown';
+                          const helperTasks = tasks.filter(t => t.ticketId === selectedTicket.id && (t.assigneeId === helperId || (t.assigneeIds && t.assigneeIds.includes(helperId))));
+                          const isAccepted = helperTasks.some(t => t.status !== 'todo');
+                          return (
+                            <span key={helperId} className="flex items-center gap-1.5 bg-violet-900/30 border border-violet-800/50 rounded-full px-2.5 py-1 text-xs text-violet-300">
+                              {helperName}
+                              {!isAccepted ? (
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    toast.info('Menghapus helper...');
+                                    const updatedHelpers = selectedTicket.helperAssigneeIds ? selectedTicket.helperAssigneeIds.filter(id => id !== helperId) : [];
+                                    await updateTicket(selectedTicket.id, { helperAssigneeIds: updatedHelpers });
+                                    setSelectedTicket({ ...selectedTicket, helperAssigneeIds: updatedHelpers });
+                                    toast.success('Helper berhasil dihapus!');
+                                  }}
+                                  className="text-violet-400 hover:text-red-400 font-bold ml-1 cursor-pointer transition-colors"
+                                  title="Batalkan Helper"
+                                >
+                                  ✕
+                                </button>
+                              ) : (
+                                <span className="text-[10px] text-emerald-400 ml-1 cursor-help" title="Sudah Menerima / Mengerjakan Tugas">✓</span>
+                              )}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                   <div className="flex flex-col gap-1">
                     <label className="text-[10px] text-gray-400">Category</label>
-                    <select value={selectedTicket.category} onChange={e => { updateTicket(selectedTicket.id, { category: e.target.value }); setSelectedTicket({ ...selectedTicket, category: e.target.value }); }}
+                    <select value={tempCategory} onChange={e => setTempCategory(e.target.value)}
                       className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-1.5 text-xs text-white outline-none w-full cursor-pointer">
                       {categories.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
                   <div className="flex flex-col gap-1">
                     <label className="text-[10px] text-gray-400">Priority</label>
-                    <select value={selectedTicket.priority} onChange={e => { updateTicket(selectedTicket.id, { priority: e.target.value as TicketPriority }); setSelectedTicket({ ...selectedTicket, priority: e.target.value as TicketPriority }); }}
+                    <select value={tempPriority} onChange={e => setTempPriority(e.target.value as TicketPriority)}
                       className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-1.5 text-xs text-white outline-none w-full cursor-pointer">
                       {Object.entries(priorityConfig).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                     </select>
                   </div>
                   <div className="col-span-2 flex flex-col gap-1">
                     <label className="text-[10px] text-gray-400">Link Asset (Hardware Device)</label>
-                    <select value={selectedTicket.assetId || ''} onChange={e => { updateTicket(selectedTicket.id, { assetId: e.target.value || null }); setSelectedTicket({ ...selectedTicket, assetId: e.target.value || null }); }}
+                    <select value={tempAssetId || ''} onChange={e => setTempAssetId(e.target.value || null)}
                       className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-1.5 text-xs text-white outline-none w-full cursor-pointer">
                       <option value="">No linked asset</option>
                       {assets.map(a => <option key={a.id} value={a.id}>{a.brand} {a.name} ({a.serialNumber})</option>)}
                     </select>
                   </div>
-                  {canManage && (selectedTicket.status === 'RESOLVED' || selectedTicket.status === 'CLOSED') && (
+                  {canManage && (tempStatus === 'RESOLVED' || tempStatus === 'CLOSED') && (
                     <div className="col-span-2 flex flex-col gap-1 mt-2">
                       <label className="text-[10px] text-gray-400 font-bold uppercase">Catatan Resolusi (Solution)</label>
                       <textarea 
-                        value={selectedTicket.resolution || ''} 
-                        onChange={e => {
-                          updateTicket(selectedTicket.id, { resolution: e.target.value });
-                          setSelectedTicket({ ...selectedTicket, resolution: e.target.value });
-                        }}
+                        value={tempResolution} 
+                        onChange={e => setTempResolution(e.target.value)}
                         placeholder="Tuliskan bagaimana masalah ini berhasil diselesaikan..."
                         rows={2}
                         className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-xs text-white outline-none focus:border-violet-500"
                       />
                     </div>
                   )}
+
+                  {/* Manual Update Ticket Attributes Button with Business Rule Validations */}
+                  <div className="col-span-2 mt-2 pt-2 border-t border-gray-800/60 flex flex-col gap-2">
+                    <button
+                      onClick={async () => {
+                        // Rule 1: No regression to OPEN
+                        if (tempStatus === 'OPEN' && selectedTicket.status !== 'OPEN') {
+                          toast.error("Status yang sudah berjalan tidak bisa dikembalikan ke OPEN!");
+                          return;
+                        }
+
+                        // Rule 2 & 3: RESOLVED / CLOSED requires at least 1 sub-task and all must be completed
+                        if (tempStatus === 'RESOLVED' || tempStatus === 'CLOSED') {
+                          const ticketTasks = tasks.filter(t => t.ticketId === selectedTicket.id);
+                          
+                          if (ticketTasks.length === 0) {
+                            toast.error("Wajib membuat minimal 1 sub-task sebelum menyelesaikan tiket!");
+                            return;
+                          }
+
+                          const hasUnfinishedTasks = ticketTasks.some(t => t.status !== 'done');
+                          if (hasUnfinishedTasks) {
+                            toast.error("Selesaikan semua sub-task terlebih dahulu!");
+                            return;
+                          }
+                        }
+
+                        try {
+                          toast.loading('Menyimpan perubahan...', { id: 'save-ticket-toast' });
+                          await updateTicket(selectedTicket.id, {
+                            status: tempStatus as TicketStatus,
+                            assigneeId: tempAssigneeId,
+                            category: tempCategory,
+                            priority: tempPriority as TicketPriority,
+                            assetId: tempAssetId,
+                            resolution: tempResolution
+                          });
+                          setSelectedTicket({
+                            ...selectedTicket,
+                            status: tempStatus as TicketStatus,
+                            assigneeId: tempAssigneeId,
+                            category: tempCategory,
+                            priority: tempPriority as TicketPriority,
+                            assetId: tempAssetId,
+                            resolution: tempResolution
+                          });
+                          toast.success('Tiket berhasil diperbarui!', { id: 'save-ticket-toast' });
+                        } catch (err: any) {
+                          console.error(err);
+                          toast.error(`Gagal memperbarui tiket: ${err.message}`, { id: 'save-ticket-toast' });
+                        }
+                      }}
+                      className="w-full rounded-lg bg-violet-600 px-4 py-2 text-xs font-semibold text-white hover:bg-violet-500 transition-colors"
+                    >
+                      Update Ticket
+                    </button>
+                  </div>
+
                   <div className="col-span-2 mt-2 pt-2 border-t border-gray-800/60 flex justify-between items-center">
                     {canManage && (selectedTicket.status === 'RESOLVED' || selectedTicket.status === 'CLOSED') && (
                       <button 
