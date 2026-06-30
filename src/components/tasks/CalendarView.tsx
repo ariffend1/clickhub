@@ -74,7 +74,11 @@ export default function CalendarView() {
                   {dayTasks.slice(0, 2).map(task => (
                     <button key={task.id} onClick={() => selectTask(task.id)}
                       className="flex w-full items-center gap-1.5 rounded-md bg-gray-700/40 px-1.5 py-0.5 text-left transition-colors hover:bg-gray-700/60">
-                      <div className={cn("h-1.5 w-1.5 shrink-0 rounded-full", priorityDot[task.priority])} />
+                      <div className={cn("h-1.5 w-1.5 shrink-0 rounded-full", (() => {
+                        const p = (task.priority || 'normal').toLowerCase();
+                        const key = p === 'medium' ? 'normal' : p;
+                        return priorityDot[key as keyof typeof priorityDot] || 'bg-gray-400';
+                      })())} />
                       <span className="truncate text-[10px] text-gray-300">{task.title}</span>
                     </button>
                   ))}

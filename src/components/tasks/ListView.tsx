@@ -23,7 +23,16 @@ function TaskRow({ task }: { task: Task }) {
   const { selectTask, getUserById, getTagById, moveTask } = useStore();
   const completedSubtasks = task.subtasks.filter(s => s.completed).length;
   const totalSubtasks = task.subtasks.length;
-  const priority = priorityConfig[task.priority];
+  
+  const getNormalizedPriorityKey = (p: string) => {
+    const val = (p || 'normal').toLowerCase();
+    if (val === 'medium') return 'normal';
+    if (val === 'urgent' || val === 'high' || val === 'low' || val === 'normal') return val;
+    return 'normal';
+  };
+
+  const priorityKey = getNormalizedPriorityKey(task.priority);
+  const priority = priorityConfig[priorityKey as keyof typeof priorityConfig] || priorityConfig.normal;
 
   const handleCheckbox = (e: React.MouseEvent) => {
     e.stopPropagation();
