@@ -121,10 +121,10 @@ export default function GoodsReceiptPage() {
                 <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Receipt Number</label>
                 <input
                   required
+                  readOnly
                   type="text"
                   value={receiptNumber}
-                  onChange={e => setReceiptNumber(e.target.value)}
-                  className="w-full rounded-xl border border-gray-800 bg-gray-950/60 px-4 py-2.5 text-xs text-white outline-none focus:border-violet-600 transition-colors font-mono"
+                  className="w-full rounded-xl border border-gray-800 bg-gray-950/30 px-4 py-2.5 text-xs text-gray-400 cursor-not-allowed outline-none font-mono"
                 />
               </div>
 

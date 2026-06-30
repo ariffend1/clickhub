@@ -81,7 +81,7 @@ export default function EquipmentCheckoutPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!purpose.trim() || !expectedReturn || selectedItems.length === 0) return;
+    if (!purpose.trim() || selectedItems.length === 0) return;
 
     const items = selectedItems.map(item => ({
       assetId: item.type === 'ASSET' ? item.id : null,
@@ -151,10 +151,9 @@ export default function EquipmentCheckoutPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Expected Return Date</label>
+                <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Expected Return Date (Optional)</label>
                 <div className="relative">
                   <input
-                    required
                     type="datetime-local"
                     value={expectedReturn}
                     onChange={e => setExpectedReturn(e.target.value)}

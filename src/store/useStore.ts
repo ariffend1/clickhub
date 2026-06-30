@@ -3167,7 +3167,7 @@ export const useStore = create<AppState>()(
           taskId: null,
           purpose: data.purpose,
           status: 'PENDING_APPROVAL',
-          expectedReturn: data.expectedReturn,
+          expectedReturn: data.expectedReturn || null,
           actualReturn: null,
           notes: null,
           createdAt: now,
