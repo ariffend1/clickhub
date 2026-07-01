@@ -1178,7 +1178,8 @@ export default function TicketsPage() {
                 <div className="space-y-2">
                   {colTickets.map(ticket => {
                     const assignee = ticket.assigneeId ? getUserById(ticket.assigneeId) : null;
-                    const pConfig = priorityConfig[ticket.priority];
+                    const pKey = (ticket.priority || 'MEDIUM').toUpperCase() as TicketPriority;
+                    const pConfig = priorityConfig[pKey] || priorityConfig.MEDIUM;
                     return (
                       <button key={ticket.id} onClick={() => setSelectedTicket(ticket)}
                         className="w-full rounded-lg border border-gray-700/50 bg-[#282c34] p-3 text-left hover:border-gray-600 transition">
