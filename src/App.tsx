@@ -21,6 +21,7 @@ import ChatManagementPage from './components/clickhub/ChatManagementPage';
 import ReportsPage from './components/clickhub/ReportsPage';
 import EquipmentCheckoutPage from './components/clickhub/EquipmentCheckoutPage';
 import GoodsReceiptPage from './components/clickhub/GoodsReceiptPage';
+import ErrorBoundary from './components/common/ErrorBoundary';
 import { useEffect } from 'react';
 import { useStore } from './store/useStore';
 import { Toaster } from 'sonner';
@@ -114,9 +115,17 @@ export default function App() {
       case 'dashboards':
         return !hasRole(['EMPLOYEE']) ? <DashboardsPage /> : <HomePage />;
       case 'tickets':
-        return <TicketsPage />;
+        return (
+          <ErrorBoundary>
+            <TicketsPage />
+          </ErrorBoundary>
+        );
       case 'assets':
-        return !hasRole(['EMPLOYEE']) ? <AssetsPage /> : <HomePage />;
+        return !hasRole(['EMPLOYEE']) ? (
+          <ErrorBoundary>
+            <AssetsPage />
+          </ErrorBoundary>
+        ) : <HomePage />;
       case 'knowledge':
         return <KnowledgeBasePage />;
       case 'chat_admin':
@@ -126,7 +135,11 @@ export default function App() {
       case 'checkout':
         return hasRole(['ROOT', 'SUPER_ADMIN', 'ADMIN', 'MANAGER', 'TECHNICIAN']) ? <EquipmentCheckoutPage /> : <HomePage />;
       case 'receipt':
-        return hasRole(['ROOT', 'SUPER_ADMIN', 'ADMIN', 'MANAGER', 'TECHNICIAN']) ? <GoodsReceiptPage /> : <HomePage />;
+        return hasRole(['ROOT', 'SUPER_ADMIN', 'ADMIN', 'MANAGER', 'TECHNICIAN']) ? (
+          <ErrorBoundary>
+            <GoodsReceiptPage />
+          </ErrorBoundary>
+        ) : <HomePage />;
       case 'admin':
         return hasRole(['ROOT', 'SUPER_ADMIN', 'ADMIN']) ? <AdminPage /> : <HomePage />;
       case 'my_tasks':

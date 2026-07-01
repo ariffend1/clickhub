@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { cn } from '../../utils/cn';
-import { Plus, Search, X, Monitor, Laptop, Server, Printer, Wifi, Camera, Cpu, Box, Network, Layers, GitFork, Globe, Database, HardDrive, Webhook, MessageSquare, ShieldAlert, Key, FileCheck, Phone, PhoneCall, Package, ClipboardList, Truck, FolderGit, FileText, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Search, X, Monitor, Laptop, Server, Printer, Wifi, Camera, Cpu, Box, Network, Layers, GitFork, Globe, Database, HardDrive, Webhook, MessageSquare, ShieldAlert, Key, FileCheck, Phone, PhoneCall, Package, ClipboardList, Truck, FolderGit, FileText, Edit2, Trash2, ShieldCheck } from 'lucide-react';
 import type { AssetStatus, Asset, ConfigType } from '../../types';
 import BarcodeScannerModal from './BarcodeScannerModal';
 import EquipmentCheckoutPage from './EquipmentCheckoutPage';
@@ -32,10 +32,11 @@ export default function AssetsPage() {
     directoryCategories, directoryEntries, addDirectoryConfig, deleteDirectoryConfig,
     requestDeleteDirectoryConfig, approveDeleteDirectoryConfig, rejectDeleteDirectoryConfig, deleteDirectoryCategory,
     checklistTemplates,
-    addInventoryMaster, updateInventoryMaster, deleteInventoryMaster, verifyInventoryItem
+    addInventoryMaster, updateInventoryMaster, deleteInventoryMaster, verifyInventoryItem,
+    auditLogs
   } = useStore();
 
-  const [activeTab, setActiveTab] = useState<'assets' | 'inventory' | 'requests' | 'checkout' | 'receipt' | 'configs'>('assets');
+  const [activeTab, setActiveTab] = useState<'assets' | 'inventory' | 'requests' | 'checkout' | 'receipt' | 'configs' | 'audit'>('assets');
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
@@ -43,7 +44,7 @@ export default function AssetsPage() {
   const [selected, setSelected] = useState<Asset | null>(null);
   const [form, setForm] = useState({ name: '', brand: '', type: 'Laptop', serialNumber: '', location: '', price: '', vendor: '', processor: '', ram: '', storage: '', os: '' });
   const [scanTarget, setScanTarget] = useState<'assets-search' | 'inventory-search' | 'form-sn' | null>(null);
-  const [modalTab, setModalTab] = useState<'specs' | 'audit' | 'maintenance' | 'qr_label'>('specs');
+  const [modalTab, setModalTab] = useState<'specs' | 'audit' | 'maintenance' | 'qr_label' | 'depreciation'>('specs');
 
   // Inventory Master Forms state
   const [showAddMaster, setShowAddMaster] = useState(false);
@@ -73,6 +74,10 @@ export default function AssetsPage() {
   });
 
   const [showCreateConfig, setShowCreateConfig] = useState(false);
+  const [auditUserFilter, setAuditUserFilter] = useState('all');
+  const [auditActionFilter, setAuditActionFilter] = useState('all');
+  const [auditSearch, setAuditSearch] = useState('');
+  const [auditDateRange, setAuditDateRange] = useState<'all' | 'today' | 'week' | 'month'>('all');
   const [newConfig, setNewConfig] = useState({ name: '', type: 'SERVER_PHYSICAL' as ConfigType, category: 'Server / VM', value: '', notes: '', linkedAssetId: '' });
   const [customCategoryInput, setCustomCategoryInput] = useState('');
   const [isCustomCategory, setIsCustomCategory] = useState(false);
@@ -277,6 +282,35 @@ export default function AssetsPage() {
   };
 
   const canManage = hasRole(['ROOT', 'SUPER_ADMIN', 'ADMIN', 'MANAGER', 'TECHNICIAN']);
+  const isAdminOrManager = hasRole(['ROOT', 'SUPER_ADMIN', 'ADMIN', 'MANAGER']);
+
+  const filteredAuditLogs = auditLogs.filter(log => {
+    if (auditUserFilter !== 'all' && log.userId !== auditUserFilter) return false;
+    if (auditActionFilter !== 'all' && log.action !== auditActionFilter) return false;
+    if (auditSearch) {
+      const q = auditSearch.toLowerCase();
+      const actionMatch = log.action.toLowerCase().includes(q);
+      const detailsMatch = log.details.toLowerCase().includes(q);
+      const userObj = users.find(u => u.id === log.userId);
+      const userMatch = userObj ? userObj.name.toLowerCase().includes(q) : false;
+      if (!actionMatch && !detailsMatch && !userMatch) return false;
+    }
+    if (auditDateRange !== 'all') {
+      const logDate = new Date(log.createdAt);
+      const now = new Date();
+      if (auditDateRange === 'today') {
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        if (logDate < todayStart) return false;
+      } else if (auditDateRange === 'week') {
+        const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        if (logDate < oneWeekAgo) return false;
+      } else if (auditDateRange === 'month') {
+        const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        if (logDate < oneMonthAgo) return false;
+      }
+    }
+    return true;
+  });
   const formatPrice = (p: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(p);
 
   const filteredAssets = assets.filter(a => {
@@ -456,6 +490,20 @@ export default function AssetsPage() {
             {partRequests.filter(r => r.status === 'PENDING').length + stockRequests.filter(r => r.status === 'PENDING').length}
           </span>
         </button>
+        {isAdminOrManager && (
+          <button
+            onClick={() => { setActiveTab('audit'); setSearch(''); }}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-200 border",
+              activeTab === 'audit'
+                ? "bg-violet-500/10 border-violet-500/30 text-violet-400 shadow-sm shadow-violet-500/5 font-bold"
+                : "bg-gray-900/20 border-transparent text-gray-400 hover:bg-gray-800/40 hover:text-gray-200"
+            )}
+          >
+            <ShieldCheck size={14} className={cn("transition-transform", activeTab === 'audit' && "scale-110")} />
+            <span>Audit Logs</span>
+          </button>
+        )}
       </div>
 
       {/* Assets Tab View */}
@@ -999,6 +1047,17 @@ export default function AssetsPage() {
               >
                 QR Label
               </button>
+              <button
+                onClick={() => setModalTab('depreciation')}
+                className={cn(
+                  "pb-2 text-xs font-semibold uppercase tracking-wider transition-colors border-b-2 px-1 -mb-px",
+                  modalTab === 'depreciation'
+                    ? "border-violet-500 text-violet-400 font-semibold"
+                    : "border-transparent text-gray-400 hover:text-gray-200"
+                )}
+              >
+                Depreciation (ISO 55001)
+              </button>
             </div>
 
             {modalTab === 'specs' && (
@@ -1335,6 +1394,66 @@ export default function AssetsPage() {
                 </div>
               </div>
             )}
+
+            {modalTab === 'depreciation' && (() => {
+              const initialPrice = selected.price || 0;
+              const purchaseDate = selected.purchaseDate ? new Date(selected.purchaseDate) : null;
+              const now = new Date();
+              let ageYears = 0;
+              if (purchaseDate) {
+                ageYears = Math.max(0, (now.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24 * 365.25));
+              }
+              const rate = 0.20;
+              const linearCurrentValue = Math.max(0, initialPrice * (1 - ageYears * rate));
+              
+              return (
+                <div className="space-y-4 p-4 bg-gray-900/40 rounded-xl border border-gray-800 text-left">
+                  <div className="flex items-center justify-between border-b border-gray-800 pb-3">
+                    <h4 className="text-xs font-bold text-gray-300 uppercase tracking-wider">Asset Depreciation & ISO 55001 Value Tracking</h4>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-violet-500/10 text-violet-400 font-bold border border-violet-500/20">ISO 55001 Compliance</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-[#1e222b] p-3 rounded-lg border border-gray-850">
+                      <span className="text-[10px] text-gray-500 uppercase tracking-wider block font-bold">Acquisition Price (Harga Awal)</span>
+                      <span className="text-lg font-black text-white">{formatPrice(initialPrice)}</span>
+                    </div>
+                    <div className="bg-[#1e222b] p-3 rounded-lg border border-gray-850">
+                      <span className="text-[10px] text-gray-500 uppercase tracking-wider block font-bold">Acquisition Date (Tanggal Perolehan)</span>
+                      <span className="text-sm font-semibold text-gray-300">
+                        {purchaseDate ? purchaseDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : 'N/A'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-[#1e222b] p-3 rounded-lg border border-gray-850">
+                      <span className="text-[10px] text-gray-500 uppercase tracking-wider block font-bold">Asset Age (Umur Aset)</span>
+                      <span className="text-lg font-black text-violet-450">{ageYears.toFixed(1)} <span className="text-xs text-gray-500 font-bold">Years</span></span>
+                    </div>
+                    <div className="bg-[#1e222b] p-3 rounded-lg border border-gray-850">
+                      <span className="text-[10px] text-gray-500 uppercase tracking-wider block font-bold">Estimated Current Value (Nilai Buku Saat Ini)</span>
+                      <span className="text-lg font-black text-emerald-400">{formatPrice(linearCurrentValue)}</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-950/20 p-3 rounded-lg border border-gray-850/50 space-y-2 text-[11px] text-gray-400">
+                    <div className="flex justify-between">
+                      <span>Standard Annual Rate:</span>
+                      <span className="font-bold text-white">20.0% (Linear/Straight Line)</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Accumulated Depreciation:</span>
+                      <span className="font-bold text-rose-400">{formatPrice(Math.max(0, initialPrice - linearCurrentValue))}</span>
+                    </div>
+                    <div className="flex justify-between border-t border-gray-800/80 pt-1.5 mt-1.5">
+                      <span>Depreciation Method:</span>
+                      <span className="font-medium text-gray-450">Straight Line Method (SLM)</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {canManage && (
               <div className="mt-4 flex justify-between gap-2">
@@ -1890,6 +2009,159 @@ export default function AssetsPage() {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Audit Logs Tab View */}
+      {activeTab === 'audit' && (
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 animate-fade-in text-left">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-800 pb-5">
+            <div>
+              <h2 className="text-xl font-bold text-gray-150 flex items-center gap-2">
+                <ShieldCheck className="text-violet-500" size={22} />
+                Audit Trail & ISO 27001 Compliance
+              </h2>
+              <p className="text-xs text-gray-500 mt-1">
+                Security event logging and configuration changes tracker for regulatory compliance.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              ISO 27001 Compliant
+            </div>
+          </div>
+
+          {/* Filters Bar */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 bg-[#1e222b] p-4 rounded-xl border border-gray-800 shadow-md">
+            {/* Search */}
+            <div className="relative">
+              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">
+                <Search size={14} />
+              </span>
+              <input
+                type="text"
+                value={auditSearch}
+                onChange={e => setAuditSearch(e.target.value)}
+                placeholder="Search action or details..."
+                className="w-full bg-[#282c34] border border-gray-700 rounded-lg py-2 pl-9 pr-4 text-xs text-gray-300 focus:outline-none focus:border-violet-500"
+              />
+            </div>
+
+            {/* Filter User */}
+            <div>
+              <select
+                value={auditUserFilter}
+                onChange={e => setAuditUserFilter(e.target.value)}
+                className="w-full bg-[#282c34] border border-gray-700 rounded-lg py-2 px-3 text-xs text-gray-300 focus:outline-none focus:border-violet-500"
+              >
+                <option value="all">All Users</option>
+                {users.map(u => (
+                  <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
+                ))}
+                <option value="system">System</option>
+              </select>
+            </div>
+
+            {/* Filter Action */}
+            <div>
+              <select
+                value={auditActionFilter}
+                onChange={e => setAuditActionFilter(e.target.value)}
+                className="w-full bg-[#282c34] border border-gray-700 rounded-lg py-2 px-3 text-xs text-gray-300 focus:outline-none focus:border-violet-500"
+              >
+                <option value="all">All Actions</option>
+                {Array.from(new Set(auditLogs.map(l => l.action))).map(act => (
+                  <option key={act} value={act}>{act}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Filter Date Range */}
+            <div className="flex gap-2">
+              <select
+                value={auditDateRange}
+                onChange={e => setAuditDateRange(e.target.value as any)}
+                className="flex-1 bg-[#282c34] border border-gray-700 rounded-lg py-2 px-3 text-xs text-gray-300 focus:outline-none focus:border-violet-500"
+              >
+                <option value="all">All Time</option>
+                <option value="today">Today</option>
+                <option value="week">Last 7 Days</option>
+                <option value="month">Last 30 Days</option>
+              </select>
+              {(auditSearch || auditUserFilter !== 'all' || auditActionFilter !== 'all' || auditDateRange !== 'all') && (
+                <button
+                  onClick={() => {
+                    setAuditSearch('');
+                    setAuditUserFilter('all');
+                    setAuditActionFilter('all');
+                    setAuditDateRange('all');
+                  }}
+                  className="px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 hover:text-white rounded-lg text-xs font-semibold transition-colors"
+                  title="Reset Filters"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Audit Logs Table */}
+          <div className="rounded-xl border border-gray-800 bg-[#282c34] overflow-hidden shadow-lg">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-gray-900/40 text-gray-400 font-bold border-b border-gray-800">
+                    <th className="px-5 py-4 w-48">Timestamp</th>
+                    <th className="px-5 py-4 w-48">User</th>
+                    <th className="px-5 py-4 w-60">Action</th>
+                    <th className="px-5 py-4">Details</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-850">
+                  {filteredAuditLogs.length > 0 ? (
+                    filteredAuditLogs.map(log => {
+                      const user = log.userId === 'system' ? { name: 'System', role: 'SYSTEM' } : users.find(u => u.id === log.userId);
+                      const actionColor = log.action.includes('ALERT') || log.action.includes('DELETE') || log.action.includes('REJECT')
+                        ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                        : log.action.includes('CREATE') || log.action.includes('VERIFIED') || log.action.includes('APPROVE')
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                        : log.action.includes('UPDATE')
+                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                        : 'bg-violet-500/10 text-violet-400 border border-violet-500/20';
+
+                      return (
+                        <tr key={log.id} className="hover:bg-gray-900/10 transition-colors">
+                          <td className="px-5 py-4 font-mono text-[11px] text-gray-400">
+                            {new Date(log.createdAt).toLocaleString()}
+                          </td>
+                          <td className="px-5 py-4">
+                            <div className="flex flex-col">
+                              <span className="font-semibold text-gray-200">{user?.name || 'Unknown User'}</span>
+                              <span className="text-[10px] text-gray-500 uppercase tracking-wide">{user?.role || 'USER'}</span>
+                            </div>
+                          </td>
+                          <td className="px-5 py-4">
+                            <span className={cn("px-2.5 py-1 rounded-md text-[10px] font-bold tracking-wider uppercase font-mono", actionColor)}>
+                              {log.action}
+                            </span>
+                          </td>
+                          <td className="px-5 py-4 text-gray-300 font-medium">
+                            {log.details}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={4} className="px-5 py-12 text-center text-gray-500">
+                        No audit logs matching the current criteria were found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

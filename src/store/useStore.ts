@@ -1716,25 +1716,41 @@ export const useStore = create<AppState>()(
       moveTask: async (taskId, newStatus) => {
         const task = get().tasks.find(t => t.id === taskId);
         if (!task) return;
+        
+        const previousTasks = get().tasks;
+        const previousActivities = get().activities;
+        const previousTickets = get().tickets;
+
         set({
           tasks: get().tasks.map(t => t.id === taskId ? { ...t, status: newStatus, updatedAt: new Date().toISOString() } : t),
           activities: [...get().activities, { id: uuidv4(), type: 'moved', taskId, userId: get().currentUser?.id || '', description: `moved "${task.title}" to "${newStatus}"`, createdAt: new Date().toISOString() }],
         });
-        await get().enqueueWrite('Task', 'update', {
-          status: newStatus.toUpperCase() === 'IN_PROGRESS' ? 'IN_PROGRESS' : (newStatus.toUpperCase() === 'IN_REVIEW' ? 'REVIEW' : newStatus.toUpperCase()),
-          updatedAt: new Date().toISOString()
-        }, 'id', taskId);
 
-        // Find matching ticket and update status (Opsi E)
-        if (task.ticketId) {
-          const matchingTicket = get().tickets.find(t => t.id === task.ticketId);
-          if (matchingTicket) {
-            const mappedStatus = newStatus === 'todo' ? 'OPEN' :
-                                 newStatus === 'in_progress' ? 'IN_PROGRESS' : 'RESOLVED';
-            if (matchingTicket.status !== mappedStatus) {
-              await get().updateTicket(matchingTicket.id, { status: mappedStatus });
+        try {
+          await get().enqueueWrite('Task', 'update', {
+            status: newStatus.toUpperCase() === 'IN_PROGRESS' ? 'IN_PROGRESS' : (newStatus.toUpperCase() === 'IN_REVIEW' ? 'REVIEW' : newStatus.toUpperCase()),
+            updatedAt: new Date().toISOString()
+          }, 'id', taskId);
+
+          // Find matching ticket and update status (Opsi E)
+          if (task.ticketId) {
+            const matchingTicket = get().tickets.find(t => t.id === task.ticketId);
+            if (matchingTicket) {
+              const mappedStatus = newStatus === 'todo' ? 'OPEN' :
+                                   newStatus === 'in_progress' ? 'IN_PROGRESS' : 'RESOLVED';
+              if (matchingTicket.status !== mappedStatus) {
+                await get().updateTicket(matchingTicket.id, { status: mappedStatus });
+              }
             }
           }
+        } catch (error) {
+          console.error("Failed to move task. Rolling back.", error);
+          set({
+            tasks: previousTasks,
+            activities: previousActivities,
+            tickets: previousTickets
+          });
+          throw error;
         }
       },
       selectTask: (id) => set({ selectedTaskId: id, showTaskModal: id !== null }),
@@ -2182,65 +2198,78 @@ export const useStore = create<AppState>()(
       updateTicket: async (id, updates) => {
         const old = get().tickets.find(t => t.id === id);
         const resolvedAt = updates.status === 'RESOLVED' ? new Date().toISOString() : (updates.status === 'CLOSED' ? old?.resolvedAt || null : null);
-        get().addAuditLog('TICKET_UPDATED', `Ticket "${old?.title}" updated`);
+        
+        const previousTickets = get().tickets;
+        const previousTasks = get().tasks;
+
         set({ tickets: get().tickets.map(t => t.id === id ? { ...t, ...updates, resolvedAt: updates.resolvedAt !== undefined ? updates.resolvedAt : resolvedAt, updatedAt: new Date().toISOString() } : t) });
 
-        const dbUpdates: any = { ...updates };
-        if (updates.status !== undefined) {
-          dbUpdates.status = updates.status;
-          dbUpdates.resolvedAt = resolvedAt;
-        }
-        if (dbUpdates.assigneeId !== undefined) {
-          dbUpdates.assigneeId = sanitizeNullableDbId(dbUpdates.assigneeId);
-        }
-        if (dbUpdates.reporterId !== undefined) {
-          dbUpdates.reporterId = sanitizeDbId(dbUpdates.reporterId, get().users);
-        }
-        dbUpdates.updatedAt = new Date().toISOString();
-        await ticketService.updateTicket(id, dbUpdates);
-
-        // Find matching task and update it (Opsi E)
-        const matchingTask = get().tasks.find(t => t.ticketId === id);
-        if (matchingTask) {
-          const taskUpdates: any = {};
-          const ticketNumber = id.slice(0, 8).toUpperCase();
-
-          if (updates.title !== undefined) {
-            const newTitle = `Ticket #TK-${ticketNumber}: ${updates.title}`;
-            if (matchingTask.title !== newTitle) {
-              taskUpdates.title = newTitle;
-            }
-          }
-          if (updates.description !== undefined) {
-            if (matchingTask.description !== updates.description) {
-              taskUpdates.description = updates.description;
-            }
-          }
-          if (updates.priority !== undefined) {
-            const mappedPriority = updates.priority === 'CRITICAL' ? 'urgent' :
-                                   updates.priority === 'HIGH' ? 'high' :
-                                   updates.priority === 'MEDIUM' ? 'normal' : 'low';
-            if (matchingTask.priority !== mappedPriority) {
-              taskUpdates.priority = mappedPriority;
-            }
-          }
+        try {
+          const dbUpdates: any = { ...updates };
           if (updates.status !== undefined) {
-            const mappedStatus = updates.status === 'OPEN' ? 'todo' :
-                                 updates.status === 'IN_PROGRESS' ? 'in_progress' : 'done';
-            if (matchingTask.status !== mappedStatus) {
-              taskUpdates.status = mappedStatus;
-            }
+            dbUpdates.status = updates.status;
+            dbUpdates.resolvedAt = resolvedAt;
           }
-          if (updates.assigneeId !== undefined) {
-            const currentAssignee = matchingTask.assigneeIds[0] || null;
-            if (currentAssignee !== updates.assigneeId) {
-              taskUpdates.assigneeIds = updates.assigneeId ? [updates.assigneeId] : [];
-            }
+          if (dbUpdates.assigneeId !== undefined) {
+            dbUpdates.assigneeId = sanitizeNullableDbId(dbUpdates.assigneeId);
           }
+          if (dbUpdates.reporterId !== undefined) {
+            dbUpdates.reporterId = sanitizeDbId(dbUpdates.reporterId, get().users);
+          }
+          dbUpdates.updatedAt = new Date().toISOString();
+          await ticketService.updateTicket(id, dbUpdates);
 
-          if (Object.keys(taskUpdates).length > 0) {
-            await get().updateTask(matchingTask.id, taskUpdates);
+          // Find matching task and update it (Opsi E)
+          const matchingTask = get().tasks.find(t => t.ticketId === id);
+          if (matchingTask) {
+            const taskUpdates: any = {};
+            const ticketNumber = id.slice(0, 8).toUpperCase();
+
+            if (updates.title !== undefined) {
+              const newTitle = `Ticket #TK-${ticketNumber}: ${updates.title}`;
+              if (matchingTask.title !== newTitle) {
+                taskUpdates.title = newTitle;
+              }
+            }
+            if (updates.description !== undefined) {
+              if (matchingTask.description !== updates.description) {
+                taskUpdates.description = updates.description;
+              }
+            }
+            if (updates.priority !== undefined) {
+              const mappedPriority = updates.priority === 'CRITICAL' ? 'urgent' :
+                                     updates.priority === 'HIGH' ? 'high' :
+                                     updates.priority === 'MEDIUM' ? 'normal' : 'low';
+              if (matchingTask.priority !== mappedPriority) {
+                taskUpdates.priority = mappedPriority;
+              }
+            }
+            if (updates.status !== undefined) {
+              const mappedStatus = updates.status === 'OPEN' ? 'todo' :
+                                   updates.status === 'IN_PROGRESS' ? 'in_progress' : 'done';
+              if (matchingTask.status !== mappedStatus) {
+                taskUpdates.status = mappedStatus;
+              }
+            }
+            if (updates.assigneeId !== undefined) {
+              const currentAssignee = matchingTask.assigneeIds[0] || null;
+              if (currentAssignee !== updates.assigneeId) {
+                taskUpdates.assigneeIds = updates.assigneeId ? [updates.assigneeId] : [];
+              }
+            }
+
+            if (Object.keys(taskUpdates).length > 0) {
+              await get().updateTask(matchingTask.id, taskUpdates);
+            }
           }
+          get().addAuditLog('TICKET_UPDATED', `Ticket "${old?.title}" updated`);
+        } catch (error) {
+          console.error("Failed to update ticket. Rolling back.", error);
+          set({
+            tickets: previousTickets,
+            tasks: previousTasks
+          });
+          throw error;
         }
       },
       deleteTicket: async (id) => {
@@ -3539,20 +3568,28 @@ export const useStore = create<AppState>()(
 
       updateInventoryMaster: async (id, updates) => {
         const now = new Date().toISOString();
+        const previousInventories = get().inventories;
+
         set({
           inventories: get().inventories.map(i => i.id === id ? { ...i, ...updates, updatedAt: now } : i)
         });
 
-        const dbUpdates: any = { updatedAt: now };
-        if (updates.name !== undefined) dbUpdates.name = updates.name;
-        if (updates.sku !== undefined) dbUpdates.sku = updates.sku;
-        if (updates.unit !== undefined) dbUpdates.unit = updates.unit;
-        if (updates.location !== undefined) dbUpdates.location = updates.location;
-        if (updates.minStock !== undefined) dbUpdates.minStock = updates.minStock;
-        if (updates.description !== undefined) dbUpdates.description = updates.description;
+        try {
+          const dbUpdates: any = { updatedAt: now };
+          if (updates.name !== undefined) dbUpdates.name = updates.name;
+          if (updates.sku !== undefined) dbUpdates.sku = updates.sku;
+          if (updates.unit !== undefined) dbUpdates.unit = updates.unit;
+          if (updates.location !== undefined) dbUpdates.location = updates.location;
+          if (updates.minStock !== undefined) dbUpdates.minStock = updates.minStock;
+          if (updates.description !== undefined) dbUpdates.description = updates.description;
 
-        await get().enqueueWrite('Inventory', 'update', dbUpdates, 'id', id);
-        get().addAuditLog('INVENTORY_MASTER_UPDATED', `Master item updated`);
+          await get().enqueueWrite('Inventory', 'update', dbUpdates, 'id', id);
+          get().addAuditLog('INVENTORY_MASTER_UPDATED', `Master item updated`);
+        } catch (error) {
+          console.error("Failed to update inventory master. Rolling back.", error);
+          set({ inventories: previousInventories });
+          throw error;
+        }
       },
 
       deleteInventoryMaster: async (id) => {
