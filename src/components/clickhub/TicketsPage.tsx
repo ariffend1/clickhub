@@ -1260,6 +1260,21 @@ export default function TicketsPage() {
               {filtered.map(ticket => {
                 const assignee = ticket.assigneeId ? getUserById(ticket.assigneeId) : null;
                 const reporter = getUserById(ticket.reporterId);
+                
+                const sKey = (ticket.status || 'OPEN').toUpperCase() as TicketStatus;
+                const sConfig = statusConfig[sKey] || statusConfig.OPEN;
+
+                const pKey = (ticket.priority || 'MEDIUM').toUpperCase() as TicketPriority;
+                const pConfig = priorityConfig[pKey] || priorityConfig.MEDIUM;
+
+                const formattedDate = (() => {
+                  try {
+                    return formatDistanceToNow(new Date(ticket.createdAt), { addSuffix: true });
+                  } catch (e) {
+                    return 'Unknown';
+                  }
+                })();
+
                 return (
                   <tr key={ticket.id} onClick={() => setSelectedTicket(ticket)} className="cursor-pointer border-b border-gray-800/50 hover:bg-gray-800/30">
                     <td className="px-4 py-3">
@@ -1269,12 +1284,12 @@ export default function TicketsPage() {
                         {ticket.isArchived && <span className="rounded bg-gray-800 px-1.5 py-0.5 text-[8px] font-bold text-gray-400 border border-gray-700">Archived</span>}
                       </div>
                     </td>
-                    <td className="px-4 py-3"><span className={cn("flex items-center gap-1 text-xs", statusConfig[ticket.status].color)}>{statusConfig[ticket.status].icon} {statusConfig[ticket.status].label}</span></td>
-                    <td className="px-4 py-3"><span className={cn("flex items-center gap-1 text-xs", priorityConfig[ticket.priority].color)}><div className={cn("h-1.5 w-1.5 rounded-full", priorityConfig[ticket.priority].dot)} />{priorityConfig[ticket.priority].label}</span></td>
+                    <td className="px-4 py-3"><span className={cn("flex items-center gap-1 text-xs", sConfig.color)}>{sConfig.icon} {sConfig.label}</span></td>
+                    <td className="px-4 py-3"><span className={cn("flex items-center gap-1 text-xs", pConfig.color)}><div className={cn("h-1.5 w-1.5 rounded-full", pConfig.dot)} />{pConfig.label}</span></td>
                     <td className="px-4 py-3"><span className="text-xs text-gray-400">{ticket.category}</span></td>
                     <td className="px-4 py-3"><span className="text-xs text-gray-300">{reporter?.name || 'Unknown'}</span></td>
                     <td className="px-4 py-3">{assignee ? <span className="text-xs text-gray-300">{assignee.name}</span> : <span className="text-xs text-gray-600">Unassigned</span>}</td>
-                    <td className="px-4 py-3"><span className="text-xs text-gray-500">{formatDistanceToNow(new Date(ticket.createdAt), { addSuffix: true })}</span></td>
+                    <td className="px-4 py-3"><span className="text-xs text-gray-500">{formattedDate}</span></td>
                   </tr>
                 );
               })}
