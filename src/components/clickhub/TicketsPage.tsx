@@ -183,7 +183,9 @@ export default function TicketsPage() {
     }
   });
 
-  const linkedTasks = selectedTicket ? tasks.filter(t => t.ticketId === selectedTicket.id) : [];
+  const linkedTasks = selectedTicket 
+    ? tasks.filter(t => t.ticketId === selectedTicket.id && !t.title.startsWith('Ticket #')) 
+    : [];
 
   const handleCreate = async () => {
     if (!title.trim()) return;
@@ -638,7 +640,7 @@ export default function TicketsPage() {
 
                         // Rule 2 & 3: RESOLVED / CLOSED requires at least 1 sub-task and all must be completed
                         if (tempStatus === 'RESOLVED' || tempStatus === 'CLOSED') {
-                          const ticketTasks = tasks.filter(t => t.ticketId === selectedTicket.id);
+                          const ticketTasks = tasks.filter(t => t.ticketId === selectedTicket.id && !t.title.startsWith('Ticket #'));
                           
                           if (ticketTasks.length === 0) {
                             toast.error("Wajib membuat minimal 1 sub-task sebelum menyelesaikan tiket!");
