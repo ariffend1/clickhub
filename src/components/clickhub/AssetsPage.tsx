@@ -31,7 +31,8 @@ export default function AssetsPage() {
     maintenanceSchedules, addMaintenanceSchedule, updateMaintenanceSchedule, deleteMaintenanceSchedule,
     directoryCategories, directoryEntries, addDirectoryConfig, deleteDirectoryConfig,
     requestDeleteDirectoryConfig, approveDeleteDirectoryConfig, rejectDeleteDirectoryConfig, deleteDirectoryCategory,
-    checklistTemplates
+    checklistTemplates,
+    addInventoryMaster, updateInventoryMaster, deleteInventoryMaster, verifyInventoryItem
   } = useStore();
 
   const [activeTab, setActiveTab] = useState<'assets' | 'inventory' | 'requests' | 'checkout' | 'receipt' | 'configs'>('assets');
@@ -43,6 +44,12 @@ export default function AssetsPage() {
   const [form, setForm] = useState({ name: '', brand: '', type: 'Laptop', serialNumber: '', location: '', price: '', vendor: '', processor: '', ram: '', storage: '', os: '' });
   const [scanTarget, setScanTarget] = useState<'assets-search' | 'inventory-search' | 'form-sn' | null>(null);
   const [modalTab, setModalTab] = useState<'specs' | 'audit' | 'maintenance' | 'qr_label'>('specs');
+
+  // Inventory Master Forms state
+  const [showAddMaster, setShowAddMaster] = useState(false);
+  const [showEditMaster, setShowEditMaster] = useState(false);
+  const [selectedMasterId, setSelectedMasterId] = useState<string | null>(null);
+  const [masterForm, setMasterForm] = useState({ name: '', sku: '', unit: 'pcs', location: 'Warehouse', minStock: 5, description: '' });
 
   // IT Configuration Directory & Configs integration with Supabase
   const categories = directoryCategories.length > 0 
@@ -555,6 +562,65 @@ export default function AssetsPage() {
       {/* Inventory Tab View */}
       {activeTab === 'inventory' && (
         <div>
+          {/* Pending Verifications (Barang Baru dari Penerimaan) */}
+          {hasRole(['ROOT', 'ADMIN', 'MANAGER']) && inventories.some(i => !i.isVerified) && (
+            <div className="mb-6 bg-amber-500/10 border border-amber-500/20 rounded-2xl p-5 backdrop-blur-xl">
+              <h3 className="text-xs font-bold text-amber-400 uppercase mb-3 flex items-center gap-1.5">
+                <ShieldAlert size={14} /> PENDING VERIFICATION (Merek/SKU Baru Menunggu Persetujuan)
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {inventories.filter(i => !i.isVerified).map(inv => {
+                  // Find receipt for this new item to show details
+                  const receipt = useStore.getState().goodsReceipts.find(r => r.inventoryId === inv.id);
+                  return (
+                    <div key={inv.id} className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 flex flex-col justify-between hover:border-amber-500/30 transition shadow-md">
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] text-amber-400 font-mono font-semibold">SKU PENDING</span>
+                          <span className="rounded-full px-2 py-0.5 text-[9px] font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                            Pending: {receipt?.quantityReceived || 0} {inv.unit}
+                          </span>
+                        </div>
+                        <h4 className="text-xs font-bold text-white mb-1">{inv.name}</h4>
+                        <p className="text-[10px] text-gray-400 mb-1">{inv.description}</p>
+                        {receipt && (
+                          <div className="text-[10px] text-amber-400/80 bg-amber-950/20 rounded p-1.5 mb-3">
+                            <p>Penerima: {users.find(u => u.id === receipt.receivedById)?.name || 'Unknown'}</p>
+                            <p>Catatan GR: {receipt.notes || '-'}</p>
+                            {receipt.price > 0 && <p>Harga Satuan: Rp {Number(receipt.price).toLocaleString('id-ID')}</p>}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex gap-2 border-t border-amber-500/10 pt-3">
+                        <button
+                          onClick={() => {
+                            if (confirm(`Setujui & Verifikasi barang baru "${inv.name}" ke dalam inventaris?`)) {
+                              verifyInventoryItem(inv.id);
+                            }
+                          }}
+                          className="flex-1 text-center py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-[10px] font-bold transition-colors"
+                        >
+                          Verify & Activate Stock
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (confirm(`Hapus pengajuan barang baru "${inv.name}"?`)) {
+                              deleteInventoryMaster(inv.id);
+                            }
+                          }}
+                          className="px-2.5 py-1.5 rounded-lg bg-red-950 hover:bg-red-900 border border-red-500/20 text-red-400 text-[10px] font-bold transition-colors"
+                          title="Hapus Pengajuan"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Inventory Toolbar */}
           <div className="mb-4 flex items-center gap-3">
             <div className="relative flex-1">
@@ -574,6 +640,17 @@ export default function AssetsPage() {
                 <Camera size={14} />
               </button>
             </div>
+            {hasRole(['ROOT', 'ADMIN', 'MANAGER']) && (
+              <button 
+                onClick={() => {
+                  setMasterForm({ name: '', sku: '', unit: 'pcs', location: 'Warehouse', minStock: 5, description: '' });
+                  setShowAddMaster(true);
+                }} 
+                className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-500 transition-colors shadow-md shadow-blue-950/20"
+              >
+                <Plus size={12} /> Register Master Item
+              </button>
+            )}
             <button 
               onClick={() => setShowDirectBon(true)} 
               className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-500 transition-colors"
@@ -590,33 +667,72 @@ export default function AssetsPage() {
 
           {/* Inventory Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {inventories.filter(inv => !search || inv.name.toLowerCase().includes(search.toLowerCase()) || inv.sku.toLowerCase().includes(search.toLowerCase())).map(inv => (
-              <div 
-                key={inv.id} 
-                className="rounded-xl border border-gray-700/50 bg-[#282c34] p-4 flex flex-col justify-between hover:border-gray-600 transition shadow-md"
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-violet-400 font-mono font-semibold">{inv.sku}</span>
-                    <span className={cn(
-                      "rounded-full px-2 py-0.5 text-[9px] font-semibold border",
-                      inv.quantity > inv.minStock ? "bg-green-500/10 text-green-400 border-green-500/20" :
-                      inv.quantity > 0 ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
-                      "bg-red-500/10 text-red-400 border-red-500/20"
-                    )}>
-                      {inv.quantity > inv.minStock ? `In Stock: ${inv.quantity} ${inv.unit}` :
-                       inv.quantity > 0 ? `Low Stock: ${inv.quantity} ${inv.unit}` : 'Out of Stock'}
-                    </span>
+            {inventories
+              .filter(inv => inv.isVerified !== false)
+              .filter(inv => !search || inv.name.toLowerCase().includes(search.toLowerCase()) || inv.sku.toLowerCase().includes(search.toLowerCase()))
+              .map(inv => (
+                <div 
+                  key={inv.id} 
+                  className="rounded-xl border border-gray-700/50 bg-[#282c34] p-4 flex flex-col justify-between hover:border-gray-600 transition shadow-md"
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs text-violet-400 font-mono font-semibold">{inv.sku}</span>
+                      <span className={cn(
+                        "rounded-full px-2 py-0.5 text-[9px] font-semibold border",
+                        inv.quantity > inv.minStock ? "bg-green-500/10 text-green-400 border-green-500/20" :
+                        inv.quantity > 0 ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
+                        "bg-red-500/10 text-red-400 border-red-500/20"
+                      )}>
+                        {inv.quantity > inv.minStock ? `In Stock: ${inv.quantity} ${inv.unit}` :
+                         inv.quantity > 0 ? `Low Stock: ${inv.quantity} ${inv.unit}` : 'Out of Stock'}
+                      </span>
+                    </div>
+                    <h3 className="text-sm font-semibold text-white mb-1">{inv.name}</h3>
+                    <p className="text-xs text-gray-400 mb-3">{inv.description || 'No description provided.'}</p>
                   </div>
-                  <h3 className="text-sm font-semibold text-white mb-1">{inv.name}</h3>
-                  <p className="text-xs text-gray-400 mb-3">{inv.description || 'No description provided.'}</p>
+                  <div className="text-[11px] text-gray-500 border-t border-gray-800/80 pt-2 flex items-center justify-between">
+                    <span>📍 {inv.location || 'Warehouse'}</span>
+                    {hasRole(['ROOT', 'ADMIN', 'MANAGER']) ? (
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedMasterId(inv.id);
+                            setMasterForm({
+                              name: inv.name,
+                              sku: inv.sku,
+                              unit: inv.unit,
+                              location: inv.location || 'Warehouse',
+                              minStock: inv.minStock,
+                              description: inv.description || ''
+                            });
+                            setShowEditMaster(true);
+                          }}
+                          className="text-gray-400 hover:text-blue-400 transition-colors"
+                          title="Edit Master Data"
+                        >
+                          <Edit2 size={12} />
+                        </button>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm(`Hapus master data barang "${inv.name}"? Tindakan ini tidak dapat dibatalkan!`)) {
+                              deleteInventoryMaster(inv.id);
+                            }
+                          }}
+                          className="text-gray-400 hover:text-red-400 transition-colors"
+                          title="Hapus Master Data"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    ) : (
+                      <span>Verifikasi: ✓ Verified</span>
+                    )}
+                  </div>
                 </div>
-                <div className="text-[11px] text-gray-500 border-t border-gray-800/80 pt-2 flex items-center justify-between">
-                  <span>📍 {inv.location || 'Warehouse'}</span>
-                  <span>Verifikasi: {inv.isVerified ? '✓ Verified' : '✗ Unverified'}</span>
-                </div>
-              </div>
-            ))}
+              ))}
           </div>
         </div>
       )}
@@ -1774,6 +1890,112 @@ export default function AssetsPage() {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Add Master Inventory */}
+      {showAddMaster && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl border border-gray-800 bg-[#1e222b] p-6 space-y-4 shadow-2xl animate-scale-up">
+            <div className="flex justify-between items-center border-b border-gray-800/80 pb-3">
+              <h3 className="text-sm font-bold text-white">Register New Master Item</h3>
+              <button onClick={() => setShowAddMaster(false)} className="text-gray-500 hover:text-white">
+                <X size={16} />
+              </button>
+            </div>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              await addInventoryMaster(masterForm);
+              setShowAddMaster(false);
+            }} className="space-y-4 text-xs text-gray-300">
+              <div>
+                <label className="block font-bold text-gray-400 uppercase mb-2">Item Name</label>
+                <input required type="text" value={masterForm.name} onChange={e => setMasterForm({...masterForm, name: e.target.value})} placeholder="e.g. Cisco Switch 2960" className="w-full rounded-xl border border-gray-800 bg-gray-950 px-4 py-2 text-white outline-none focus:border-violet-500" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold text-gray-400 uppercase mb-2">SKU (Barcode/Label)</label>
+                  <input required type="text" value={masterForm.sku} onChange={e => setMasterForm({...masterForm, sku: e.target.value})} placeholder="e.g. CS-2960-24" className="w-full rounded-xl border border-gray-800 bg-gray-950 px-4 py-2 text-white outline-none focus:border-violet-500" />
+                </div>
+                <div>
+                  <label className="block font-bold text-gray-400 uppercase mb-2">Unit (Satuan)</label>
+                  <input required type="text" value={masterForm.unit} onChange={e => setMasterForm({...masterForm, unit: e.target.value})} placeholder="e.g. pcs, box, roll" className="w-full rounded-xl border border-gray-800 bg-gray-950 px-4 py-2 text-white outline-none focus:border-violet-500" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold text-gray-400 uppercase mb-2">Location</label>
+                  <input required type="text" value={masterForm.location} onChange={e => setMasterForm({...masterForm, location: e.target.value})} placeholder="e.g. Warehouse A" className="w-full rounded-xl border border-gray-800 bg-gray-950 px-4 py-2 text-white outline-none focus:border-violet-500" />
+                </div>
+                <div>
+                  <label className="block font-bold text-gray-400 uppercase mb-2">Min Stock</label>
+                  <input required type="number" min={1} value={masterForm.minStock} onChange={e => setMasterForm({...masterForm, minStock: parseInt(e.target.value) || 5})} className="w-full rounded-xl border border-gray-800 bg-gray-950 px-4 py-2 text-white outline-none focus:border-violet-500" />
+                </div>
+              </div>
+              <div>
+                <label className="block font-bold text-gray-400 uppercase mb-2">Description</label>
+                <textarea rows={2} value={masterForm.description} onChange={e => setMasterForm({...masterForm, description: e.target.value})} placeholder="Specs, models, details..." className="w-full rounded-xl border border-gray-800 bg-gray-950 px-4 py-2 text-white outline-none focus:border-violet-500" />
+              </div>
+              <div className="flex justify-end gap-2 border-t border-gray-800/80 pt-4">
+                <button type="button" onClick={() => setShowAddMaster(false)} className="rounded-lg bg-gray-950 border border-gray-800 px-4 py-2 text-gray-400 font-bold">Cancel</button>
+                <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-white font-bold hover:bg-blue-500">Register Item</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Edit Master Inventory */}
+      {showEditMaster && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl border border-gray-800 bg-[#1e222b] p-6 space-y-4 shadow-2xl animate-scale-up">
+            <div className="flex justify-between items-center border-b border-gray-800/80 pb-3">
+              <h3 className="text-sm font-bold text-white">Edit Master Item</h3>
+              <button onClick={() => setShowEditMaster(false)} className="text-gray-500 hover:text-white">
+                <X size={16} />
+              </button>
+            </div>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              if (selectedMasterId) {
+                await updateInventoryMaster(selectedMasterId, masterForm);
+              }
+              setShowEditMaster(false);
+            }} className="space-y-4 text-xs text-gray-300">
+              <div>
+                <label className="block font-bold text-gray-400 uppercase mb-2">Item Name</label>
+                <input required type="text" value={masterForm.name} onChange={e => setMasterForm({...masterForm, name: e.target.value})} className="w-full rounded-xl border border-gray-800 bg-gray-950 px-4 py-2 text-white outline-none focus:border-violet-500" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold text-gray-400 uppercase mb-2">SKU (Barcode/Label)</label>
+                  <input required type="text" value={masterForm.sku} onChange={e => setMasterForm({...masterForm, sku: e.target.value})} className="w-full rounded-xl border border-gray-800 bg-gray-950 px-4 py-2 text-white outline-none focus:border-violet-500" />
+                </div>
+                <div>
+                  <label className="block font-bold text-gray-400 uppercase mb-2">Unit (Satuan)</label>
+                  <input required type="text" value={masterForm.unit} onChange={e => setMasterForm({...masterForm, unit: e.target.value})} className="w-full rounded-xl border border-gray-800 bg-gray-950 px-4 py-2 text-white outline-none focus:border-violet-500" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold text-gray-400 uppercase mb-2">Location</label>
+                  <input required type="text" value={masterForm.location} onChange={e => setMasterForm({...masterForm, location: e.target.value})} className="w-full rounded-xl border border-gray-800 bg-gray-950 px-4 py-2 text-white outline-none focus:border-violet-500" />
+                </div>
+                <div>
+                  <label className="block font-bold text-gray-400 uppercase mb-2">Min Stock</label>
+                  <input required type="number" min={1} value={masterForm.minStock} onChange={e => setMasterForm({...masterForm, minStock: parseInt(e.target.value) || 5})} className="w-full rounded-xl border border-gray-800 bg-gray-950 px-4 py-2 text-white outline-none focus:border-violet-500" />
+                </div>
+              </div>
+              <div>
+                <label className="block font-bold text-gray-400 uppercase mb-2">Description</label>
+                <textarea rows={2} value={masterForm.description} onChange={e => setMasterForm({...masterForm, description: e.target.value})} className="w-full rounded-xl border border-gray-800 bg-gray-950 px-4 py-2 text-white outline-none focus:border-violet-500" />
+              </div>
+              <div className="flex justify-end gap-2 border-t border-gray-800/80 pt-4">
+                <button type="button" onClick={() => setShowEditMaster(false)} className="rounded-lg bg-gray-950 border border-gray-800 px-4 py-2 text-gray-400 font-bold">Cancel</button>
+                <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-white font-bold hover:bg-blue-500">Save Changes</button>
+              </div>
+            </form>
           </div>
         </div>
       )}

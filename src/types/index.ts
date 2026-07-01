@@ -265,6 +265,7 @@ export interface GoodsReceipt {
   assetLocation?: string | null;
   createdAt?: string;
   updatedAt?: string;
+  price?: number;
 }
 
 export interface Holiday {

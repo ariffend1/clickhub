@@ -180,7 +180,11 @@ interface AppState {
   approveEquipmentCheckout: (id: string) => Promise<void>;
   returnEquipmentItem: (checkoutId: string, itemId: string, condition: 'GOOD' | 'DAMAGED' | 'BROKEN', notes: string) => Promise<void>;
   adminAddUser: (name: string, email: string, password: string, role: UserRole, department?: string, phone?: string) => Promise<{ success: boolean; error?: string }>;
-  addGoodsReceipt: (data: { receiptNumber: string; purchaseRequestId: string | null; itemName: string; quantityOrdered: number; quantityReceived: number; destinationType: 'ASSET' | 'INVENTORY'; inventoryId?: string | null; assetId?: string | null; condition: 'GOOD' | 'DAMAGED' | 'INCOMPLETE'; notes?: string; assetSerialNumber?: string | null; assetLocation?: string | null }) => Promise<void>;
+  addGoodsReceipt: (data: { receiptNumber: string; purchaseRequestId: string | null; itemName: string; quantityOrdered: number; quantityReceived: number; destinationType: 'ASSET' | 'INVENTORY'; inventoryId?: string | null; assetId?: string | null; condition: 'GOOD' | 'DAMAGED' | 'INCOMPLETE'; notes?: string; assetSerialNumber?: string | null; assetLocation?: string | null; price?: number }) => Promise<void>;
+  addInventoryMaster: (data: { name: string; sku: string; unit: string; location: string; minStock: number; description?: string }) => Promise<void>;
+  updateInventoryMaster: (id: string, updates: Partial<{ name: string; sku: string; unit: string; location: string; minStock: number; description?: string }>) => Promise<void>;
+  deleteInventoryMaster: (id: string) => Promise<void>;
+  verifyInventoryItem: (id: string) => Promise<void>;
   addDirectoryConfig: (name: string, type: ConfigType, categoryName: string, value: string, notes: string, linkedAssetId: string) => Promise<void>;
   deleteDirectoryConfig: (id: string) => Promise<void>;
   requestDeleteDirectoryConfig: (id: string) => Promise<void>;
@@ -3390,6 +3394,28 @@ export const useStore = create<AppState>()(
         const receiptId = uuidv4();
         const now = new Date().toISOString();
 
+        let targetInventoryId = data.inventoryId || null;
+        let isNewInventoryItem = false;
+        let newInvItem = null;
+
+        if (data.destinationType === 'INVENTORY' && !data.inventoryId) {
+          isNewInventoryItem = true;
+          targetInventoryId = uuidv4();
+          newInvItem = {
+            id: targetInventoryId,
+            name: data.itemName,
+            description: data.notes || `Created via Goods Receipt ${data.receiptNumber}`,
+            sku: 'SKU-' + uuidv4().slice(0, 8).toUpperCase(),
+            quantity: 0, // Starts at 0 until verified by Manager
+            unit: 'pcs',
+            location: 'Warehouse',
+            isVerified: false, // Pending verification
+            createdAt: now,
+            updatedAt: now,
+            createdById: cu.id
+          };
+        }
+
         const newReceipt: GoodsReceipt = {
           id: receiptId,
           receiptNumber: data.receiptNumber,
@@ -3398,7 +3424,7 @@ export const useStore = create<AppState>()(
           quantityOrdered: data.quantityOrdered,
           quantityReceived: data.quantityReceived,
           destinationType: data.destinationType,
-          inventoryId: data.inventoryId || null,
+          inventoryId: targetInventoryId,
           assetId: data.assetId || null,
           receivedById: cu.id,
           receivedAt: now,
@@ -3407,7 +3433,8 @@ export const useStore = create<AppState>()(
           assetSerialNumber: data.assetSerialNumber || null,
           assetLocation: data.assetLocation || null,
           createdAt: now,
-          updatedAt: now
+          updatedAt: now,
+          price: data.price || 0
         };
 
         set({ goodsReceipts: [newReceipt, ...get().goodsReceipts] });
@@ -3425,29 +3452,36 @@ export const useStore = create<AppState>()(
           }, 'id', data.purchaseRequestId);
         }
 
-        if (data.destinationType === 'INVENTORY' && data.inventoryId) {
-          const inv = get().inventories.find(i => i.id === data.inventoryId);
-          if (inv) {
-            const newQty = inv.quantity + data.quantityReceived;
+        if (data.destinationType === 'INVENTORY') {
+          if (!isNewInventoryItem && targetInventoryId) {
+            const inv = get().inventories.find(i => i.id === targetInventoryId);
+            if (inv) {
+              const newQty = inv.quantity + data.quantityReceived;
+              set({
+                inventories: get().inventories.map(i => i.id === targetInventoryId ? { ...i, quantity: newQty, updatedAt: now } : i)
+              });
+
+              await get().enqueueWrite('Inventory', 'update', {
+                quantity: newQty,
+                updatedAt: now
+              }, 'id', targetInventoryId);
+
+              await get().enqueueWrite('InventoryTransaction', 'insert', {
+                id: uuidv4(),
+                type: 'IN',
+                quantity: data.quantityReceived,
+                previousQty: inv.quantity,
+                newQty: newQty,
+                notes: `Received stock via receipt ${data.receiptNumber}`,
+                inventoryId: targetInventoryId,
+                userId: cu.id
+              });
+            }
+          } else if (newInvItem) {
             set({
-              inventories: get().inventories.map(i => i.id === data.inventoryId ? { ...i, quantity: newQty, updatedAt: now } : i)
+              inventories: [...get().inventories, newInvItem]
             });
-
-            await get().enqueueWrite('Inventory', 'update', {
-              quantity: newQty,
-              updatedAt: now
-            }, 'id', data.inventoryId);
-
-            await get().enqueueWrite('InventoryTransaction', 'insert', {
-              id: uuidv4(),
-              type: 'IN',
-              quantity: data.quantityReceived,
-              previousQty: inv.quantity,
-              newQty: newQty,
-              notes: `Received stock via receipt ${data.receiptNumber}`,
-              inventoryId: data.inventoryId,
-              userId: cu.id
-            });
+            await get().enqueueWrite('Inventory', 'insert', newInvItem);
           }
         } else if (data.destinationType === 'ASSET') {
           await get().addAsset({
@@ -3457,7 +3491,7 @@ export const useStore = create<AppState>()(
             serialNumber: data.assetSerialNumber || uuidv4().slice(0, 8).toUpperCase(),
             location: data.assetLocation || 'IT Room',
             status: 'AVAILABLE',
-            price: 0,
+            price: data.price || 0,
             vendor: 'Unknown'
           });
         }
@@ -3466,6 +3500,91 @@ export const useStore = create<AppState>()(
         if (navigator.onLine) {
           await get().loadAllData();
         }
+      },
+
+      addInventoryMaster: async (data) => {
+        const cu = get().currentUser; if (!cu) return;
+        const now = new Date().toISOString();
+        const newId = uuidv4();
+        const newItem = {
+          id: newId,
+          name: data.name,
+          sku: data.sku,
+          quantity: 0,
+          minStock: data.minStock || 5,
+          unit: data.unit || 'pcs',
+          location: data.location || 'Warehouse',
+          description: data.description || '',
+          isVerified: true, // Direct Master Creation is verified immediately
+          createdAt: now,
+          updatedAt: now,
+          createdById: cu.id
+        };
+
+        set({ inventories: [...get().inventories, newItem] });
+        await get().enqueueWrite('Inventory', 'insert', newItem);
+        get().addAuditLog('INVENTORY_MASTER_CREATED', `Master item "${newItem.name}" registered`);
+      },
+
+      updateInventoryMaster: async (id, updates) => {
+        const now = new Date().toISOString();
+        set({
+          inventories: get().inventories.map(i => i.id === id ? { ...i, ...updates, updatedAt: now } : i)
+        });
+
+        const dbUpdates: any = { updatedAt: now };
+        if (updates.name !== undefined) dbUpdates.name = updates.name;
+        if (updates.sku !== undefined) dbUpdates.sku = updates.sku;
+        if (updates.unit !== undefined) dbUpdates.unit = updates.unit;
+        if (updates.location !== undefined) dbUpdates.location = updates.location;
+        if (updates.minStock !== undefined) dbUpdates.minStock = updates.minStock;
+        if (updates.description !== undefined) dbUpdates.description = updates.description;
+
+        await get().enqueueWrite('Inventory', 'update', dbUpdates, 'id', id);
+        get().addAuditLog('INVENTORY_MASTER_UPDATED', `Master item updated`);
+      },
+
+      deleteInventoryMaster: async (id) => {
+        set({
+          inventories: get().inventories.filter(i => i.id !== id)
+        });
+        await get().enqueueWrite('Inventory', 'delete', null, 'id', id);
+        get().addAuditLog('INVENTORY_MASTER_DELETED', `Master item deleted`);
+      },
+
+      verifyInventoryItem: async (id) => {
+        const cu = get().currentUser; if (!cu) return;
+        const now = new Date().toISOString();
+        const inv = get().inventories.find(i => i.id === id);
+        if (!inv) return;
+
+        // Find associated GoodsReceipts to fetch quantity received
+        const receipts = get().goodsReceipts.filter(r => r.inventoryId === id);
+        const totalReceived = receipts.reduce((sum, r) => sum + r.quantityReceived, 0);
+
+        set({
+          inventories: get().inventories.map(i => i.id === id ? { ...i, isVerified: true, quantity: totalReceived, updatedAt: now } : i)
+        });
+
+        await get().enqueueWrite('Inventory', 'update', {
+          isVerified: true,
+          quantity: totalReceived,
+          updatedAt: now
+        }, 'id', id);
+
+        // Record the transaction
+        await get().enqueueWrite('InventoryTransaction', 'insert', {
+          id: uuidv4(),
+          type: 'IN',
+          quantity: totalReceived,
+          previousQty: 0,
+          newQty: totalReceived,
+          notes: `Verified and Activated via Manager Approval`,
+          inventoryId: id,
+          userId: cu.id
+        });
+
+        get().addAuditLog('INVENTORY_VERIFIED', `Inventory item "${inv.name}" verified and activated`);
       },
 
       // AUDIT & UI MANAGEMENT

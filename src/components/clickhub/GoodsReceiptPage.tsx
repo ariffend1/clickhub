@@ -27,6 +27,7 @@ export default function GoodsReceiptPage() {
   const [notes, setNotes] = useState('');
   const [assetSerialNumber, setAssetSerialNumber] = useState('');
   const [assetLocation, setAssetLocation] = useState('');
+  const [price, setPrice] = useState<number>(0);
   const [scanTarget, setScanTarget] = useState<'receipt-inventory' | 'receipt-asset-sn' | null>(null);
 
   // Filter approved stock requests
@@ -41,6 +42,7 @@ export default function GoodsReceiptPage() {
       setQuantityReceived(req.quantity);
       setDestinationType(req.type === 'NEW_ITEM' ? 'ASSET' : 'INVENTORY');
       setInventoryId(req.inventoryId || '');
+      setPrice(req.estimatedPrice || 0);
     }
   };
 
@@ -57,6 +59,7 @@ export default function GoodsReceiptPage() {
     setNotes('');
     setAssetSerialNumber('');
     setAssetLocation('');
+    setPrice(0);
     setShowForm(true);
   };
 
@@ -75,7 +78,8 @@ export default function GoodsReceiptPage() {
       condition,
       notes: notes.trim(),
       assetSerialNumber: destinationType === 'ASSET' ? assetSerialNumber : null,
-      assetLocation: destinationType === 'ASSET' ? assetLocation : null
+      assetLocation: destinationType === 'ASSET' ? assetLocation : null,
+      price: price
     });
 
     setShowForm(false);
@@ -181,6 +185,19 @@ export default function GoodsReceiptPage() {
                   />
                 </div>
               </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Unit Price (IDR)</label>
+                <input
+                  required
+                  type="number"
+                  min={0}
+                  placeholder="e.g. 50000"
+                  value={price === 0 ? '' : price}
+                  onChange={e => setPrice(parseFloat(e.target.value) || 0)}
+                  className="w-full rounded-xl border border-gray-800 bg-gray-950/60 px-4 py-2.5 text-xs text-white placeholder-gray-500 outline-none focus:border-violet-600 transition-colors"
+                />
+              </div>
             </div>
 
             <div className="space-y-4 border-l border-gray-800 pl-6">
@@ -233,6 +250,9 @@ export default function GoodsReceiptPage() {
                       <Camera size={14} />
                     </button>
                   </div>
+                  <p className="text-[10px] text-gray-500 mt-1.5">
+                    * Kosongkan jika ingin mendaftarkan barang ini sebagai barang inventaris/part baru.
+                  </p>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-4">
@@ -325,6 +345,7 @@ export default function GoodsReceiptPage() {
                 <th className="py-2.5">Receipt No</th>
                 <th className="py-2.5">Item Name</th>
                 <th className="py-2.5">Qty Received</th>
+                <th className="py-2.5">Unit Price</th>
                 <th className="py-2.5">Destination</th>
                 <th className="py-2.5">Received By</th>
                 <th className="py-2.5">Received At</th>
@@ -335,7 +356,7 @@ export default function GoodsReceiptPage() {
             <tbody className="divide-y divide-gray-800/40 text-gray-300">
               {goodsReceipts.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-gray-500">
+                  <td colSpan={9} className="py-8 text-center text-gray-500">
                     No goods receipts registered in Supabase.
                   </td>
                 </tr>
@@ -351,6 +372,9 @@ export default function GoodsReceiptPage() {
                       {receipt.quantityOrdered > 0 && (
                         <span className="text-[10px] text-gray-500 ml-1">/ {receipt.quantityOrdered}</span>
                       )}
+                    </td>
+                    <td className="py-3 font-mono text-gray-350">
+                      {receipt.price ? `Rp ${Number(receipt.price).toLocaleString('id-ID')}` : 'Rp 0'}
                     </td>
                     <td className="py-3 font-semibold text-gray-400 font-mono text-[10px]">
                       {receipt.destinationType}
