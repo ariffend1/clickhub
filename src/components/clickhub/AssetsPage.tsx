@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { cn } from '../../utils/cn';
-import { Plus, Search, X, Monitor, Laptop, Server, Printer, Wifi, Camera, Cpu, Box, Network, Layers, GitFork, Globe, Database, HardDrive, Webhook, MessageSquare, ShieldAlert, Key, FileCheck, Phone, PhoneCall, Package, ClipboardList, Truck, FolderGit, FileText } from 'lucide-react';
+import { Plus, Search, X, Monitor, Laptop, Server, Printer, Wifi, Camera, Cpu, Box, Network, Layers, GitFork, Globe, Database, HardDrive, Webhook, MessageSquare, ShieldAlert, Key, FileCheck, Phone, PhoneCall, Package, ClipboardList, Truck, FolderGit, FileText, Edit2, Trash2 } from 'lucide-react';
 import type { AssetStatus, Asset, ConfigType } from '../../types';
 import BarcodeScannerModal from './BarcodeScannerModal';
 import EquipmentCheckoutPage from './EquipmentCheckoutPage';
