@@ -103,10 +103,12 @@ export default function TicketsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [filterPriority, setFilterPriority] = useState<string>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [filterType, setFilterType] = useState<string>('all');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<TicketPriority>('MEDIUM');
   const [category, setCategory] = useState('General');
+  const [type, setType] = useState<'Incident' | 'Service Request'>('Incident');
   const [assigneeId, setAssigneeId] = useState('');
   const [viewMode, setViewMode] = useState<'board' | 'list' | 'archive'>('board');
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
@@ -140,6 +142,7 @@ export default function TicketsPage() {
   const [tempAssigneeId, setTempAssigneeId] = useState<string | null>(null);
   const [tempCategory, setTempCategory] = useState<string>('');
   const [tempPriority, setTempPriority] = useState<TicketPriority | ''>('');
+  const [tempType, setTempType] = useState<'Incident' | 'Service Request' | ''>('');
   const [tempAssetId, setTempAssetId] = useState<string | null>(null);
   const [tempResolution, setTempResolution] = useState<string>('');
 
@@ -151,6 +154,7 @@ export default function TicketsPage() {
       setTempAssigneeId(selectedTicket.assigneeId);
       setTempCategory(selectedTicket.category || 'General');
       setTempPriority(selectedTicket.priority);
+      setTempType(selectedTicket.type || 'Incident');
       setTempAssetId(selectedTicket.assetId || null);
       setTempResolution(selectedTicket.resolution || '');
     } else {
@@ -158,6 +162,7 @@ export default function TicketsPage() {
       setTempAssigneeId(null);
       setTempCategory('');
       setTempPriority('');
+      setTempType('');
       setTempAssetId(null);
       setTempResolution('');
     }
@@ -173,6 +178,7 @@ export default function TicketsPage() {
   const filtered = tickets.filter(t => {
     if (filterPriority !== 'all' && t.priority !== filterPriority) return false;
     if (filterCategory !== 'all' && t.category !== filterCategory) return false;
+    if (filterType !== 'all' && t.type !== filterType) return false;
     if (!canManage && currentUser && t.reporterId !== currentUser.id) return false;
     
     // Filter active vs archived tickets depending on viewMode
@@ -193,6 +199,7 @@ export default function TicketsPage() {
         description: description.trim(),
         priority,
         category,
+        type,
         assigneeId: assigneeId || null
       });
 
@@ -210,6 +217,7 @@ export default function TicketsPage() {
       setDescription('');
       setPriority('MEDIUM');
       setCategory('General');
+      setType('Incident');
       setAssigneeId('');
       setSelectedFiles([]);
       setShowCreate(false);
@@ -255,6 +263,11 @@ export default function TicketsPage() {
             <option value="all">All Categories</option>
             {categories.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
+          <select value={filterType} onChange={e => setFilterType(e.target.value)} className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-1.5 text-xs text-white outline-none">
+            <option value="all">All Types</option>
+            <option value="Incident">Incident</option>
+            <option value="Service Request">Service Request</option>
+          </select>
           {(canManage || currentUser?.role === 'EMPLOYEE') && (
             <button onClick={() => setShowCreate(true)} className="flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-500 btn-new-ticket">
               <Plus size={12} /> New Ticket
@@ -273,6 +286,14 @@ export default function TicketsPage() {
                 className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-4 py-2.5 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500" />
               <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Description..." rows={3}
                 className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-4 py-2.5 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500" />
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] text-gray-400 font-bold uppercase">Ticket Type</label>
+                <select value={type} onChange={e => setType(e.target.value as 'Incident' | 'Service Request')}
+                  className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white outline-none cursor-pointer">
+                  <option value="Incident">Incident</option>
+                  <option value="Service Request">Service Request</option>
+                </select>
+              </div>
               {currentUser?.role !== 'EMPLOYEE' && (
                 <div className="grid grid-cols-2 gap-3">
                   <select value={priority} onChange={e => setPriority(e.target.value as TicketPriority)}
@@ -440,6 +461,7 @@ export default function TicketsPage() {
 
             <p className="mb-4 text-sm text-gray-400">{selectedTicket.description}</p>
             <div className="grid grid-cols-2 gap-3 mb-4 text-xs">
+              <div><span className="text-gray-500">Type:</span> <span className="text-violet-400 font-semibold">{selectedTicket.type || 'Incident'}</span></div>
               <div><span className="text-gray-500">Status:</span> <span className={statusConfig[selectedTicket.status].color}>{statusConfig[selectedTicket.status].label}</span></div>
               <div><span className="text-gray-500">Priority:</span> <span className={priorityConfig[selectedTicket.priority].color}>{priorityConfig[selectedTicket.priority].label}</span></div>
               <div><span className="text-gray-500">Category:</span> <span className="text-gray-300">{selectedTicket.category}</span></div>
@@ -606,6 +628,14 @@ export default function TicketsPage() {
                     </select>
                   </div>
                   <div className="col-span-2 flex flex-col gap-1">
+                    <label className="text-[10px] text-gray-400">Ticket Type</label>
+                    <select value={tempType} onChange={e => setTempType(e.target.value as 'Incident' | 'Service Request')}
+                      className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-1.5 text-xs text-white outline-none w-full cursor-pointer">
+                      <option value="Incident">Incident</option>
+                      <option value="Service Request">Service Request</option>
+                    </select>
+                  </div>
+                  <div className="col-span-2 flex flex-col gap-1">
                     <label className="text-[10px] text-gray-400">Link Asset (Hardware Device)</label>
                     <select value={tempAssetId || ''} onChange={e => setTempAssetId(e.target.value || null)}
                       className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-1.5 text-xs text-white outline-none w-full cursor-pointer">
@@ -659,6 +689,7 @@ export default function TicketsPage() {
                             assigneeId: tempAssigneeId,
                             category: tempCategory,
                             priority: tempPriority as TicketPriority,
+                            type: tempType as 'Incident' | 'Service Request',
                             assetId: tempAssetId,
                             resolution: tempResolution
                           });
@@ -668,6 +699,7 @@ export default function TicketsPage() {
                             assigneeId: tempAssigneeId,
                             category: tempCategory,
                             priority: tempPriority as TicketPriority,
+                            type: tempType as 'Incident' | 'Service Request',
                             assetId: tempAssetId,
                             resolution: tempResolution
                           });
@@ -1193,6 +1225,7 @@ export default function TicketsPage() {
                             <div className={cn("h-1.5 w-1.5 rounded-full", pConfig.dot)} />
                             <span className={cn("text-[10px]", pConfig.color)}>{pConfig.label}</span>
                             <span className="rounded-full bg-gray-700/50 px-1.5 py-0.5 text-[9px] text-gray-400">{ticket.category}</span>
+                            <span className="rounded-full bg-violet-950/40 px-1.5 py-0.5 text-[9px] text-violet-300 border border-violet-850/30">{ticket.type || 'Incident'}</span>
                           </div>
                           <SlaBadge ticket={ticket} />
                         </div>
@@ -1246,10 +1279,12 @@ export default function TicketsPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-700 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th className="px-4 py-3">Type</th>
                 <th className="px-4 py-3">Ticket</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Priority</th>
                 <th className="px-4 py-3">Category</th>
+                <th className="px-4 py-3">SLA Status</th>
                 <th className="px-4 py-3">Reporter</th>
                 <th className="px-4 py-3">Assignee</th>
                 <th className="px-4 py-3">Created</th>
@@ -1276,6 +1311,7 @@ export default function TicketsPage() {
 
                 return (
                   <tr key={ticket.id} onClick={() => setSelectedTicket(ticket)} className="cursor-pointer border-b border-gray-800/50 hover:bg-gray-800/30">
+                    <td className="px-4 py-3"><span className="rounded bg-violet-950/40 px-2 py-0.5 text-[10px] font-semibold text-violet-300 border border-violet-800/30">{ticket.type || 'Incident'}</span></td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-white">{ticket.title}</span>
@@ -1286,6 +1322,7 @@ export default function TicketsPage() {
                     <td className="px-4 py-3"><span className={cn("flex items-center gap-1 text-xs", sConfig.color)}>{sConfig.icon} {sConfig.label}</span></td>
                     <td className="px-4 py-3"><span className={cn("flex items-center gap-1 text-xs", pConfig.color)}><div className={cn("h-1.5 w-1.5 rounded-full", pConfig.dot)} />{pConfig.label}</span></td>
                     <td className="px-4 py-3"><span className="text-xs text-gray-400">{ticket.category}</span></td>
+                    <td className="px-4 py-3"><SlaBadge ticket={ticket} /></td>
                     <td className="px-4 py-3"><span className="text-xs text-gray-300">{reporter?.name || 'Unknown'}</span></td>
                     <td className="px-4 py-3">{assignee ? <span className="text-xs text-gray-300">{assignee.name}</span> : <span className="text-xs text-gray-600">Unassigned</span>}</td>
                     <td className="px-4 py-3"><span className="text-xs text-gray-500">{formattedDate}</span></td>

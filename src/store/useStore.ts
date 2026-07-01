@@ -22,12 +22,12 @@ import { compressImage } from '../utils/imageCompressor';
 
 const calculateSlaDeadline = (priority: string, createdAt: string): string => {
   const date = new Date(createdAt);
-  let hoursToAdd = 12; // default for Medium
+  let hoursToAdd = 24; // default for Medium
   const p = priority.toUpperCase();
-  if (p === 'CRITICAL') hoursToAdd = 2;
-  else if (p === 'HIGH') hoursToAdd = 4;
-  else if (p === 'MEDIUM') hoursToAdd = 12;
-  else if (p === 'LOW') hoursToAdd = 24;
+  if (p === 'CRITICAL' || p === 'URGENT') hoursToAdd = 2;
+  else if (p === 'HIGH') hoursToAdd = 8;
+  else if (p === 'MEDIUM') hoursToAdd = 24;
+  else if (p === 'LOW') hoursToAdd = 48;
 
   date.setHours(date.getHours() + hoursToAdd);
   return date.toISOString();
@@ -307,21 +307,21 @@ const defaultNotifications: Notification[] = [
 ];
 
 const defaultTickets: Ticket[] = [
-  { id: 'ticket-1', title: 'VPN Connection Issues', description: 'Unable to connect to VPN since this morning. Error code 789.', status: 'OPEN', priority: 'HIGH', reporterId: 'user-5', assigneeId: 'user-4', category: 'Network', createdAt: '2026-05-20T08:00:00Z', updatedAt: '2026-05-20T08:00:00Z', resolvedAt: null },
-  { id: 'ticket-2', title: 'Email Server Down', description: 'Company email server not responding since 9 AM.', status: 'IN_PROGRESS', priority: 'CRITICAL', reporterId: 'user-3', assigneeId: 'user-1', category: 'Server', createdAt: '2026-05-19T09:00:00Z', updatedAt: '2026-05-20T10:00:00Z', resolvedAt: null },
-  { id: 'ticket-3', title: 'New Laptop Request', description: 'Need new laptop for new hire starting next week.', status: 'OPEN', priority: 'MEDIUM', reporterId: 'user-3', assigneeId: 'user-2', category: 'Hardware', createdAt: '2026-05-18T14:00:00Z', updatedAt: '2026-05-18T14:00:00Z', resolvedAt: null },
-  { id: 'ticket-4', title: 'Printer Not Working', description: '3rd floor printer showing offline.', status: 'RESOLVED', priority: 'LOW', reporterId: 'user-5', assigneeId: 'user-4', category: 'Hardware', createdAt: '2026-05-17T11:00:00Z', updatedAt: '2026-05-18T10:00:00Z', resolvedAt: '2026-05-18T10:00:00Z' },
-  { id: 'ticket-5', title: 'Software License Renewal', description: 'Adobe Creative Cloud licenses expiring end of month.', status: 'OPEN', priority: 'MEDIUM', reporterId: 'user-2', assigneeId: null, category: 'Software', createdAt: '2026-05-16T09:00:00Z', updatedAt: '2026-05-16T09:00:00Z', resolvedAt: null },
-  { id: 'ticket-6', title: 'WiFi Access Point Failure', description: 'Meeting room AP not broadcasting. Users unable to connect.', status: 'CLOSED', priority: 'HIGH', reporterId: 'user-4', assigneeId: 'user-1', category: 'Network', createdAt: '2026-05-15T08:00:00Z', updatedAt: '2026-05-16T14:00:00Z', resolvedAt: '2026-05-16T14:00:00Z' },
+  { id: 'ticket-1', title: 'VPN Connection Issues', description: 'Unable to connect to VPN since this morning. Error code 789.', status: 'OPEN', priority: 'HIGH', type: 'Incident', reporterId: 'user-5', assigneeId: 'user-4', category: 'Network', createdAt: '2026-05-20T08:00:00Z', updatedAt: '2026-05-20T08:00:00Z', resolvedAt: null },
+  { id: 'ticket-2', title: 'Email Server Down', description: 'Company email server not responding since 9 AM.', status: 'IN_PROGRESS', priority: 'CRITICAL', type: 'Incident', reporterId: 'user-3', assigneeId: 'user-1', category: 'Server', createdAt: '2026-05-19T09:00:00Z', updatedAt: '2026-05-20T10:00:00Z', resolvedAt: null },
+  { id: 'ticket-3', title: 'New Laptop Request', description: 'Need new laptop for new hire starting next week.', status: 'OPEN', priority: 'MEDIUM', type: 'Service Request', reporterId: 'user-3', assigneeId: 'user-2', category: 'Hardware', createdAt: '2026-05-18T14:00:00Z', updatedAt: '2026-05-18T14:00:00Z', resolvedAt: null },
+  { id: 'ticket-4', title: 'Printer Not Working', description: '3rd floor printer showing offline.', status: 'RESOLVED', priority: 'LOW', type: 'Incident', reporterId: 'user-5', assigneeId: 'user-4', category: 'Hardware', createdAt: '2026-05-17T11:00:00Z', updatedAt: '2026-05-18T10:00:00Z', resolvedAt: '2026-05-18T10:00:00Z' },
+  { id: 'ticket-5', title: 'Software License Renewal', description: 'Adobe Creative Cloud licenses expiring end of month.', status: 'OPEN', priority: 'MEDIUM', type: 'Service Request', reporterId: 'user-2', assigneeId: null, category: 'Software', createdAt: '2026-05-16T09:00:00Z', updatedAt: '2026-05-16T09:00:00Z', resolvedAt: null },
+  { id: 'ticket-6', title: 'WiFi Access Point Failure', description: 'Meeting room AP not broadcasting. Users unable to connect.', status: 'CLOSED', priority: 'HIGH', type: 'Incident', reporterId: 'user-4', assigneeId: 'user-1', category: 'Network', createdAt: '2026-05-15T08:00:00Z', updatedAt: '2026-05-16T14:00:00Z', resolvedAt: '2026-05-16T14:00:00Z' },
 ];
 
 const defaultAssets: Asset[] = [
-  { id: 'asset-1', name: 'Dell Latitude 5540', brand: 'Dell', type: 'Laptop', serialNumber: 'DL-5540-001', location: 'Office A - Floor 3', status: 'IN_USE', purchaseDate: '2025-03-15', price: 15000000, vendor: 'Dell Indonesia', assignedToId: 'user-1', specs: { processor: 'Intel i7-1365U', ram: '16GB DDR5', storage: '512GB NVMe', os: 'Windows 11 Pro' }, createdAt: '2025-03-15T00:00:00Z', updatedAt: '2026-05-01T00:00:00Z' },
-  { id: 'asset-2', name: 'MacBook Pro 14"', brand: 'Apple', type: 'Laptop', serialNumber: 'AP-MBP14-002', location: 'Office A - Floor 2', status: 'IN_USE', purchaseDate: '2025-06-01', price: 35000000, vendor: 'Apple Store', assignedToId: 'user-3', specs: { processor: 'Apple M3 Pro', ram: '18GB', storage: '512GB SSD', os: 'macOS Sonoma' }, createdAt: '2025-06-01T00:00:00Z', updatedAt: '2026-05-01T00:00:00Z' },
-  { id: 'asset-3', name: 'HP ProDesk 400', brand: 'HP', type: 'Desktop', serialNumber: 'HP-PD400-003', location: 'IT Room', status: 'AVAILABLE', purchaseDate: '2024-09-10', price: 8000000, vendor: 'HP Indonesia', assignedToId: null, specs: { processor: 'Intel i5-13500', ram: '8GB DDR4', storage: '256GB SSD', os: 'Windows 11 Pro' }, createdAt: '2024-09-10T00:00:00Z', updatedAt: '2026-05-01T00:00:00Z' },
-  { id: 'asset-4', name: 'Cisco Catalyst 9200', brand: 'Cisco', type: 'Switch', serialNumber: 'CS-9200-004', location: 'Server Room', status: 'IN_USE', purchaseDate: '2024-01-20', price: 25000000, vendor: 'Cisco Indonesia', assignedToId: null, specs: { processor: '-', ram: '-', storage: '-', ipAddress: '192.168.1.1' }, createdAt: '2024-01-20T00:00:00Z', updatedAt: '2026-05-01T00:00:00Z' },
-  { id: 'asset-5', name: 'Epson EcoTank L3250', brand: 'Epson', type: 'Printer', serialNumber: 'EP-ET3250-005', location: 'Office A - Floor 1', status: 'IN_USE', purchaseDate: '2025-02-05', price: 3500000, vendor: 'Epson Indonesia', assignedToId: null, specs: {}, createdAt: '2025-02-05T00:00:00Z', updatedAt: '2026-05-01T00:00:00Z' },
-  { id: 'asset-6', name: 'Dell PowerEdge R750', brand: 'Dell', type: 'Server', serialNumber: 'DL-PE750-006', location: 'Server Room', status: 'IN_USE', purchaseDate: '2024-06-15', price: 85000000, vendor: 'Dell Indonesia', assignedToId: null, specs: { processor: 'Intel Xeon Gold 6338', ram: '128GB DDR4', storage: '4x 1TB NVMe RAID 10', ipAddress: '10.0.0.1' }, createdAt: '2024-06-15T00:00:00Z', updatedAt: '2026-05-01T00:00:00Z' },
+  { id: 'asset-1', name: 'Dell Latitude 5540', brand: 'Dell', type: 'Laptop', serialNumber: 'DL-5540-001', location: 'Office A - Floor 3', status: 'DEPLOYED', purchaseDate: '2025-03-15', price: 15000000, vendor: 'Dell Indonesia', assignedToId: 'user-1', specs: { processor: 'Intel i7-1365U', ram: '16GB DDR5', storage: '512GB NVMe', os: 'Windows 11 Pro' }, createdAt: '2025-03-15T00:00:00Z', updatedAt: '2026-05-01T00:00:00Z' },
+  { id: 'asset-2', name: 'MacBook Pro 14"', brand: 'Apple', type: 'Laptop', serialNumber: 'AP-MBP14-002', location: 'Office A - Floor 2', status: 'DEPLOYED', purchaseDate: '2025-06-01', price: 35000000, vendor: 'Apple Store', assignedToId: 'user-3', specs: { processor: 'Apple M3 Pro', ram: '18GB', storage: '512GB SSD', os: 'macOS Sonoma' }, createdAt: '2025-06-01T00:00:00Z', updatedAt: '2026-05-01T00:00:00Z' },
+  { id: 'asset-3', name: 'HP ProDesk 400', brand: 'HP', type: 'Desktop', serialNumber: 'HP-PD400-003', location: 'IT Room', status: 'IN_STORAGE', purchaseDate: '2024-09-10', price: 8000000, vendor: 'HP Indonesia', assignedToId: null, specs: { processor: 'Intel i5-13500', ram: '8GB DDR4', storage: '256GB SSD', os: 'Windows 11 Pro' }, createdAt: '2024-09-10T00:00:00Z', updatedAt: '2026-05-01T00:00:00Z' },
+  { id: 'asset-4', name: 'Cisco Catalyst 9200', brand: 'Cisco', type: 'Switch', serialNumber: 'CS-9200-004', location: 'Server Room', status: 'DEPLOYED', purchaseDate: '2024-01-20', price: 25000000, vendor: 'Cisco Indonesia', assignedToId: null, specs: { processor: '-', ram: '-', storage: '-', ipAddress: '192.168.1.1' }, createdAt: '2024-01-20T00:00:00Z', updatedAt: '2026-05-01T00:00:00Z' },
+  { id: 'asset-5', name: 'Epson EcoTank L3250', brand: 'Epson', type: 'Printer', serialNumber: 'EP-ET3250-005', location: 'Office A - Floor 1', status: 'DEPLOYED', purchaseDate: '2025-02-05', price: 3500000, vendor: 'Epson Indonesia', assignedToId: null, specs: {}, createdAt: '2025-02-05T00:00:00Z', updatedAt: '2026-05-01T00:00:00Z' },
+  { id: 'asset-6', name: 'Dell PowerEdge R750', brand: 'Dell', type: 'Server', serialNumber: 'DL-PE750-006', location: 'Server Room', status: 'DEPLOYED', purchaseDate: '2024-06-15', price: 85000000, vendor: 'Dell Indonesia', assignedToId: null, specs: { processor: 'Intel Xeon Gold 6338', ram: '128GB DDR4', storage: '4x 1TB NVMe RAID 10', ipAddress: '10.0.0.1' }, createdAt: '2024-06-15T00:00:00Z', updatedAt: '2026-05-01T00:00:00Z' },
   { id: 'asset-7', name: 'ThinkPad X1 Carbon', brand: 'Lenovo', type: 'Laptop', serialNumber: 'LN-X1C-007', location: 'Warehouse', status: 'MAINTENANCE', purchaseDate: '2024-08-22', price: 22000000, vendor: 'Lenovo Indonesia', assignedToId: null, specs: { processor: 'Intel i7-1365U', ram: '16GB LPDDR5', storage: '512GB SSD', os: 'Windows 11 Pro' }, createdAt: '2024-08-22T00:00:00Z', updatedAt: '2026-05-10T00:00:00Z' },
 ];
 
@@ -1792,6 +1792,7 @@ export const useStore = create<AppState>()(
           description: data.description || '',
           status: data.status || 'OPEN',
           priority: data.priority || 'MEDIUM',
+          type: data.type || 'Incident',
           reporterId: data.reporterId || cu?.id || '',
           assigneeId: data.assigneeId || null,
           category: data.category || 'General',
@@ -1810,6 +1811,7 @@ export const useStore = create<AppState>()(
           description: ticket.description,
           status: ticket.status,
           priority: ticket.priority,
+          type: ticket.type,
           reporterId: sanitizeDbId(ticket.reporterId, get().users),
           assigneeId: sanitizeNullableDbId(ticket.assigneeId),
           category: ticket.category,
@@ -2352,7 +2354,7 @@ export const useStore = create<AppState>()(
           type: data.type || 'Other',
           serialNumber: data.serialNumber || uuidv4().slice(0, 8).toUpperCase(),
           location: data.location || '',
-          status: data.status || 'AVAILABLE',
+          status: data.status || 'IN_STORAGE',
           purchaseDate: data.purchaseDate || null,
           price: data.price || 0,
           vendor: data.vendor || '',
@@ -2496,7 +2498,7 @@ export const useStore = create<AppState>()(
         if (inv) {
           const newQty = inv.quantity - req.quantity;
           await assetService.updateInventoryQuantity(req.inventoryId, newQty);
-          // Log Transaction
+          // Log Transaction with referenceId
           await assetService.insertInventoryTransaction({
             id: uuidv4(),
             type: 'OUT',
@@ -2505,10 +2507,13 @@ export const useStore = create<AppState>()(
             newQty: newQty,
             notes: `Approved PartRequest for Task/Ticket`,
             inventoryId: req.inventoryId,
-            userId: cu?.id || 'system'
+            userId: cu?.id || 'system',
+            referenceId: req.ticketId || req.taskId || req.id
           });
 
-          if (newQty <= inv.minStock) {
+          if (newQty < inv.minStock) {
+            get().addAuditLog('LOW_STOCK_ALERT', `Stock for "${inv.name}" dropped below minimum threshold (${inv.minStock}). Current: ${newQty}`);
+            
             const recipientUsers = get().users.filter(u => u.role !== 'EMPLOYEE');
             const newDbNotifs = recipientUsers.map(u => ({
               id: uuidv4(),
@@ -2561,7 +2566,8 @@ export const useStore = create<AppState>()(
                 newQty: newQty,
                 notes: `Restock via StockRequest approved`,
                 inventoryId: req.inventoryId,
-                userId: cu?.id || 'system'
+                userId: cu?.id || 'system',
+                referenceId: req.id
               });
             }
           } else if (req.type === 'NEW_ITEM') {
@@ -2586,7 +2592,8 @@ export const useStore = create<AppState>()(
               newQty: req.quantity,
               notes: `New Item registered via StockRequest approval`,
               inventoryId: newInvId,
-              userId: cu?.id || 'system'
+              userId: cu?.id || 'system',
+              referenceId: req.id
             });
           }
         }
@@ -3288,7 +3295,7 @@ export const useStore = create<AppState>()(
           for (const item of checkout.items) {
             if (item.assetId) {
               await assetService.updateAsset(item.assetId, {
-                status: 'IN_USE',
+                status: 'DEPLOYED',
                 assignedToId: checkout.technicianId
               });
             }
@@ -3306,10 +3313,13 @@ export const useStore = create<AppState>()(
                   newQty: newQty,
                   notes: `Checkout approved for ${checkout.checkoutNumber}`,
                   inventoryId: item.inventoryId,
-                  userId: cu.id
+                  userId: cu.id,
+                  referenceId: checkout.ticketId || checkout.taskId || checkout.id
                 });
 
-                if (newQty <= inv.minStock) {
+                if (newQty < inv.minStock) {
+                  get().addAuditLog('LOW_STOCK_ALERT', `Stock for "${inv.name}" dropped below minimum threshold (${inv.minStock}) during checkout approval. Current: ${newQty}`);
+                  
                   const recipientUsers = get().users.filter(u => u.role !== 'EMPLOYEE');
                   const newDbNotifs = recipientUsers.map(u => ({
                     id: uuidv4(),
@@ -3366,7 +3376,7 @@ export const useStore = create<AppState>()(
         try {
           const itemData = await operationsService.getCheckoutItemById(itemId);
           if (itemData && itemData.assetId) {
-            const newAssetStatus = (condition === 'DAMAGED' || condition === 'BROKEN') ? 'BROKEN' : 'AVAILABLE';
+            const newAssetStatus = (condition === 'DAMAGED' || condition === 'BROKEN') ? 'MAINTENANCE' : 'IN_STORAGE';
             await assetService.updateAsset(itemData.assetId, {
               status: newAssetStatus
             });
@@ -3474,7 +3484,8 @@ export const useStore = create<AppState>()(
                 newQty: newQty,
                 notes: `Received stock via receipt ${data.receiptNumber}`,
                 inventoryId: targetInventoryId,
-                userId: cu.id
+                userId: cu.id,
+                referenceId: data.purchaseRequestId || data.receiptNumber
               });
             }
           } else if (newInvItem) {
@@ -3490,7 +3501,7 @@ export const useStore = create<AppState>()(
             type: 'Hardware',
             serialNumber: data.assetSerialNumber || uuidv4().slice(0, 8).toUpperCase(),
             location: data.assetLocation || 'IT Room',
-            status: 'AVAILABLE',
+            status: 'IN_STORAGE',
             price: data.price || 0,
             vendor: 'Unknown'
           });
@@ -3581,7 +3592,8 @@ export const useStore = create<AppState>()(
           newQty: totalReceived,
           notes: `Verified and Activated via Manager Approval`,
           inventoryId: id,
-          userId: cu.id
+          userId: cu.id,
+          referenceId: receipts[0]?.id || id
         });
 
         get().addAuditLog('INVENTORY_VERIFIED', `Inventory item "${inv.name}" verified and activated`);
@@ -3741,15 +3753,53 @@ export const useStore = create<AppState>()(
               continue;
             }
 
-            // 2. Create the Task
-            const taskId = uuidv4();
-            const taskTitle = `PM: ${schedule.title} - ${scheduledDate.toLocaleDateString('id-ID')}`;
-            const taskDescription = `Tugas pemeliharaan preventif otomatis.\nAset: ${get().assets.find(a => a.id === schedule.assetId)?.name || schedule.assetId}\nFrekuensi: ${schedule.frequency}\nDeskripsi: ${schedule.description || '-'}`;
+            // 2. Create the Ticket and the Task
+            const ticketId = uuidv4();
+            const ticketNumber = ticketId.slice(0, 8).toUpperCase();
+            const ticketTitle = `PM: ${schedule.title} - ${scheduledDate.toLocaleDateString('id-ID')}`;
+            const ticketDescription = `Tugas pemeliharaan preventif otomatis.\nAset: ${get().assets.find(a => a.id === schedule.assetId)?.name || schedule.assetId}\nFrekuensi: ${schedule.frequency}\nDeskripsi: ${schedule.description || '-'}`;
             
+            const newTicket: Ticket = {
+              id: ticketId,
+              title: ticketTitle,
+              description: ticketDescription,
+              status: 'OPEN',
+              priority: 'MEDIUM',
+              type: 'Service Request',
+              reporterId: get().currentUser?.id || 'user-system',
+              assigneeId: null,
+              category: 'Maintenance',
+              assetId: schedule.assetId,
+              slaDeadline: calculateSlaDeadline('MEDIUM', now.toISOString()),
+              createdAt: now.toISOString(),
+              updatedAt: now.toISOString(),
+              resolvedAt: null,
+            };
+
+            set({ tickets: [...get().tickets, newTicket] });
+            await get().enqueueWrite('Ticket', 'insert', {
+              id: newTicket.id,
+              ticketNumber,
+              title: newTicket.title,
+              description: newTicket.description,
+              status: newTicket.status,
+              priority: newTicket.priority,
+              type: newTicket.type,
+              reporterId: sanitizeDbId(newTicket.reporterId, get().users),
+              assigneeId: null,
+              category: newTicket.category,
+              assetId: newTicket.assetId,
+              slaDeadline: newTicket.slaDeadline,
+              updatedAt: now.toISOString()
+            });
+
+            get().addAuditLog('TICKET_CREATED', `Ticket "${newTicket.title}" created automatically from PM schedule`);
+
+            const taskId = uuidv4();
             const newTask: Task = {
               id: taskId,
-              title: taskTitle,
-              description: taskDescription,
+              title: `Ticket #TK-${ticketNumber}: ${newTicket.title}`,
+              description: newTicket.description,
               status: 'todo',
               priority: 'normal',
               assigneeIds: [],
@@ -3763,6 +3813,7 @@ export const useStore = create<AppState>()(
               order: 0,
               timeEstimate: 0,
               timeTracked: 0,
+              ticketId: newTicket.id,
               checklistTemplateId: schedule.checklistTemplateId || null
             };
 
@@ -3779,6 +3830,7 @@ export const useStore = create<AppState>()(
               dueDate: newTask.dueDate,
               createdAt: newTask.createdAt,
               updatedAt: newTask.updatedAt,
+              ticketId: newTask.ticketId,
               checklistTemplateId: newTask.checklistTemplateId
             });
 

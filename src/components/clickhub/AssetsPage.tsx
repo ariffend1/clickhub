@@ -9,11 +9,11 @@ import GoodsReceiptPage from './GoodsReceiptPage';
 import PageHelp from '../layout/PageHelpModal';
 
 const statusConfig: Record<AssetStatus, { label: string; color: string; bg: string }> = {
-  AVAILABLE: { label: 'Available', color: 'text-green-400', bg: 'bg-green-500/20' },
-  IN_USE: { label: 'In Use', color: 'text-blue-400', bg: 'bg-blue-500/20' },
+  DRAFT: { label: 'Draft', color: 'text-gray-400', bg: 'bg-gray-500/20' },
+  IN_STORAGE: { label: 'In Storage', color: 'text-blue-400', bg: 'bg-blue-500/20' },
+  DEPLOYED: { label: 'Deployed', color: 'text-green-400', bg: 'bg-green-500/20' },
   MAINTENANCE: { label: 'Maintenance', color: 'text-yellow-400', bg: 'bg-yellow-500/20' },
-  RETIRED: { label: 'Retired', color: 'text-gray-400', bg: 'bg-gray-500/20' },
-  BROKEN: { label: 'Broken', color: 'text-red-400', bg: 'bg-red-500/20' },
+  RETIRED: { label: 'Retired', color: 'text-red-400', bg: 'bg-red-500/20' },
 };
 
 const typeIcons: Record<string, React.ReactNode> = {

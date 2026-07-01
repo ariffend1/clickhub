@@ -128,6 +128,7 @@ export interface Ticket {
   description: string;
   status: TicketStatus;
   priority: TicketPriority;
+  type: 'Incident' | 'Service Request';
   reporterId: string;
   assigneeId: string | null;
   helperAssigneeIds?: string[];
@@ -146,7 +147,7 @@ export interface Ticket {
 }
 
 
-export type AssetStatus = 'AVAILABLE' | 'IN_USE' | 'MAINTENANCE' | 'RETIRED' | 'BROKEN';
+export type AssetStatus = 'DRAFT' | 'IN_STORAGE' | 'DEPLOYED' | 'MAINTENANCE' | 'RETIRED';
 
 export interface Asset {
   id: string;
