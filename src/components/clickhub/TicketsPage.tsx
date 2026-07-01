@@ -1158,7 +1158,18 @@ export default function TicketsPage() {
       {viewMode === 'board' ? (
         <div className="flex gap-4 overflow-x-auto">
           {columns.map(status => {
-            const colTickets = filtered.filter(t => t.status === status);
+            const colTickets = filtered
+              .filter(t => t.status === status)
+              .sort((a, b) => {
+                if (status === 'RESOLVED' || status === 'CLOSED') {
+                  const timeA = a.resolvedAt ? new Date(a.resolvedAt).getTime() : new Date(a.updatedAt || a.createdAt).getTime();
+                  const timeB = b.resolvedAt ? new Date(b.resolvedAt).getTime() : new Date(b.updatedAt || b.createdAt).getTime();
+                  return timeB - timeA;
+                }
+                const timeA = new Date(a.updatedAt || a.createdAt).getTime();
+                const timeB = new Date(b.updatedAt || b.createdAt).getTime();
+                return timeB - timeA;
+              });
             const config = statusConfig[status];
             return (
               <div key={status} className="min-w-[260px] flex-1">
