@@ -286,14 +286,16 @@ export default function TicketsPage() {
                 className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-4 py-2.5 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500" />
               <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Description..." rows={3}
                 className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-4 py-2.5 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500" />
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-gray-400 font-bold uppercase">Ticket Type</label>
-                <select value={type} onChange={e => setType(e.target.value as 'Incident' | 'Service Request')}
-                  className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white outline-none cursor-pointer">
-                  <option value="Incident">Incident</option>
-                  <option value="Service Request">Service Request</option>
-                </select>
-              </div>
+              {currentUser?.role !== 'EMPLOYEE' && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] text-gray-400 font-bold uppercase">Ticket Type</label>
+                  <select value={type} onChange={e => setType(e.target.value as 'Incident' | 'Service Request')}
+                    className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white outline-none cursor-pointer">
+                    <option value="Incident">Incident</option>
+                    <option value="Service Request">Service Request</option>
+                  </select>
+                </div>
+              )}
               {currentUser?.role !== 'EMPLOYEE' && (
                 <div className="grid grid-cols-2 gap-3">
                   <select value={priority} onChange={e => setPriority(e.target.value as TicketPriority)}
@@ -490,6 +492,31 @@ export default function TicketsPage() {
                   )}
                 </span>
               </div>
+              <div className="col-span-2 mt-2 pt-2 border-t border-gray-800/60">
+                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block mb-1.5">Timeline & Durasi Kerja</span>
+                <div className="space-y-1.5 text-xs text-gray-300">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">📅 Dibuat (Created):</span>
+                    <span>{new Date(selectedTicket.createdAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">🚀 Mulai (In Progress):</span>
+                    <span>
+                      {selectedTicket.inProgressAt 
+                        ? new Date(selectedTicket.inProgressAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })
+                        : <span className="text-amber-500/80 italic">Belum dikerjakan</span>}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">✅ Selesai (Resolved):</span>
+                    <span>
+                      {selectedTicket.resolvedAt 
+                        ? new Date(selectedTicket.resolvedAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })
+                        : <span className="text-gray-500 italic">Belum selesai</span>}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
             {canManage && (
               <div className="space-y-3 border-t border-gray-800 pt-4 mb-4">
@@ -668,6 +695,11 @@ export default function TicketsPage() {
 
                         // Rule 2 & 3: RESOLVED / CLOSED requires at least 1 sub-task and all must be completed
                         if (tempStatus === 'RESOLVED' || tempStatus === 'CLOSED') {
+                          if (!tempResolution.trim()) {
+                            toast.error("Wajib mengisi Catatan Resolusi (Solution) sebelum menyelesaikan tiket!");
+                            return;
+                          }
+
                           const ticketTasks = tasks.filter(t => t.ticketId === selectedTicket.id);
                           
                           if (ticketTasks.length === 0) {

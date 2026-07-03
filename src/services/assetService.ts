@@ -9,7 +9,7 @@ export const assetService = {
   },
 
   async insertAsset(payload: any) {
-    const { error } = await supabase.from('Asset').insert([payload]);
+    const { error } = await supabase.from('Asset').upsert([payload]);
     if (error) throw error;
   },
 
@@ -41,7 +41,7 @@ export const assetService = {
   },
 
   async insertInventory(payload: any) {
-    const { error } = await supabase.from('Inventory').insert([payload]);
+    const { error } = await supabase.from('Inventory').upsert([payload]);
     if (error) throw error;
   },
 
@@ -55,7 +55,7 @@ export const assetService = {
 
   // --- INVENTORY TRANSACTIONS ---
   async insertInventoryTransaction(payload: any) {
-    const { error } = await supabase.from('InventoryTransaction').insert([payload]);
+    const { error } = await supabase.from('InventoryTransaction').upsert([payload]);
     if (error) throw error;
   },
 
@@ -77,7 +77,7 @@ export const assetService = {
   },
 
   async insertPartRequest(payload: any) {
-    const { error } = await supabase.from('PartRequest').insert([payload]);
+    const { error } = await supabase.from('PartRequest').upsert([payload]);
     if (error) throw error;
   },
 
@@ -107,7 +107,7 @@ export const assetService = {
   },
 
   async insertStockRequest(payload: any) {
-    const { error } = await supabase.from('StockRequest').insert([payload]);
+    const { error } = await supabase.from('StockRequest').upsert([payload]);
     if (error) throw error;
   },
 
@@ -127,7 +127,7 @@ export const assetService = {
   },
 
   async insertMaintenanceSchedule(payload: any) {
-    const { error } = await supabase.from('MaintenanceSchedule').insert([payload]);
+    const { error } = await supabase.from('MaintenanceSchedule').upsert([payload]);
     if (error) throw error;
   },
 

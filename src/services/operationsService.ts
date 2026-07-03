@@ -22,7 +22,7 @@ export const operationsService = {
   },
 
   async insertEquipmentCheckout(payload: any) {
-    const { error } = await supabase.from('EquipmentCheckout').insert([payload]);
+    const { error } = await supabase.from('EquipmentCheckout').upsert([payload]);
     if (error) throw error;
   },
 
@@ -62,7 +62,7 @@ export const operationsService = {
   },
 
   async insertCheckoutItem(payload: any) {
-    const { error } = await supabase.from('CheckoutItem').insert([payload]);
+    const { error } = await supabase.from('CheckoutItem').upsert([payload]);
     if (error) throw error;
   },
 
@@ -85,7 +85,7 @@ export const operationsService = {
   },
 
   async insertGoodsReceipt(payload: any) {
-    const { error } = await supabase.from('GoodsReceipt').insert([payload]);
+    const { error } = await supabase.from('GoodsReceipt').upsert([payload]);
     if (error) throw error;
   }
 };

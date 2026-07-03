@@ -42,6 +42,8 @@ export default function TaskDetailModal() {
   // Inspection Checklist Form State
   const [checklistAnswers, setChecklistAnswers] = useState<Record<string, { value: 'OK' | 'FAIL'; notes: string }>>({});
 
+  const isEmployee = currentUser?.role === 'EMPLOYEE';
+
   if (!task) return null;
 
   const hasTemplate = !!task.checklistTemplateId;
@@ -78,48 +80,69 @@ export default function TaskDetailModal() {
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-800 px-6 py-4">
           <div className="flex items-center gap-3">
-            <select value={task.status} onChange={e => updateTask(task.id, { status: e.target.value as TaskStatus })}
-              className="rounded-lg border border-gray-700 bg-gray-800/50 px-2.5 py-1 text-xs text-white outline-none">
-              {statusOptions.map(s => {
-                const isDisabled = s.value === 'done' && hasTemplate && !submission;
-                return (
-                  <option key={s.value} value={s.value} disabled={isDisabled}>
-                    {s.label} {isDisabled ? '(Locked)' : ''}
-                  </option>
-                );
-              })}
-            </select>
-            <select value={task.priority} onChange={e => updateTask(task.id, { priority: e.target.value as Priority })}
-              className="rounded-lg border border-gray-700 bg-gray-800/50 px-2.5 py-1 text-xs text-white outline-none">
-              {priorityOptions.map(p => <option key={p.value} value={p.value}>{p.icon} {p.label}</option>)}
-            </select>
+            {isEmployee ? (
+              <span className={cn(
+                "rounded-lg px-2.5 py-1 text-xs font-semibold border",
+                task.status === 'done' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
+                task.status === 'in_progress' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                task.status === 'in_review' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' :
+                'bg-gray-500/10 text-gray-400 border-gray-500/20'
+              )}>
+                {statusOptions.find(s => s.value === task.status)?.label || task.status}
+              </span>
+            ) : (
+              <select value={task.status} onChange={e => updateTask(task.id, { status: e.target.value as TaskStatus })}
+                className="rounded-lg border border-gray-700 bg-gray-800/50 px-2.5 py-1 text-xs text-white outline-none">
+                {statusOptions.map(s => {
+                  const isDisabled = s.value === 'done' && hasTemplate && !submission;
+                  return (
+                    <option key={s.value} value={s.value} disabled={isDisabled}>
+                      {s.label} {isDisabled ? '(Locked)' : ''}
+                    </option>
+                  );
+                })}
+              </select>
+            )}
+            {!isEmployee && (
+              <select value={task.priority} onChange={e => updateTask(task.id, { priority: e.target.value as Priority })}
+                className="rounded-lg border border-gray-700 bg-gray-800/50 px-2.5 py-1 text-xs text-white outline-none">
+                {priorityOptions.map(p => <option key={p.value} value={p.value}>{p.icon} {p.label}</option>)}
+              </select>
+            )}
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => { deleteTask(task.id); setShowTaskModal(false); }} className="rounded-lg p-1.5 text-gray-500 hover:bg-red-500/10 hover:text-red-400"><Trash2 size={16} /></button>
+            {!isEmployee && (
+              <button onClick={() => { deleteTask(task.id); setShowTaskModal(false); }} className="rounded-lg p-1.5 text-gray-500 hover:bg-red-500/10 hover:text-red-400"><Trash2 size={16} /></button>
+            )}
             <button onClick={() => setShowTaskModal(false)} className="rounded-lg p-1.5 text-gray-500 hover:text-white"><X size={18} /></button>
           </div>
         </div>
 
         <div className="p-6">
           {/* Title */}
-          {editingTitle ? (
+          {editingTitle && !isEmployee ? (
             <input autoFocus value={editTitle} onChange={e => setEditTitle(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { updateTask(task.id, { title: editTitle }); setEditingTitle(false); } if (e.key === 'Escape') setEditingTitle(false); }}
               onBlur={() => { if (editTitle.trim()) updateTask(task.id, { title: editTitle }); setEditingTitle(false); }}
               className="mb-4 w-full bg-transparent text-xl font-bold text-white outline-none" />
           ) : (
-            <h2 onClick={() => { setEditTitle(task.title); setEditingTitle(true); }} className="mb-4 cursor-pointer text-xl font-bold text-white hover:text-violet-300">{task.title}</h2>
+            <h2
+              onClick={() => { if (!isEmployee) { setEditTitle(task.title); setEditingTitle(true); } }}
+              className={cn("mb-4 text-xl font-bold text-white", !isEmployee && "cursor-pointer hover:text-violet-300")}>
+              {task.title}
+            </h2>
           )}
 
           {/* Description */}
-          {editingDesc ? (
+          {editingDesc && !isEmployee ? (
             <textarea autoFocus value={editDesc} onChange={e => setEditDesc(e.target.value)}
               onBlur={() => { updateTask(task.id, { description: editDesc }); setEditingDesc(false); }}
               className="mb-4 w-full rounded-lg border border-gray-700 bg-gray-800/50 p-3 text-sm text-gray-300 outline-none focus:border-violet-500" rows={3} />
           ) : (
-            <p onClick={() => { setEditDesc(task.description); setEditingDesc(true); }}
-              className="mb-6 cursor-pointer text-sm text-gray-400 hover:text-gray-300">
-              {task.description || 'Click to add description...'}
+            <p
+              onClick={() => { if (!isEmployee) { setEditDesc(task.description); setEditingDesc(true); } }}
+              className={cn("mb-6 text-sm text-gray-400", !isEmployee && "cursor-pointer hover:text-gray-300")}>
+              {task.description || (isEmployee ? 'Tidak ada deskripsi.' : 'Click to add description...')}
             </p>
           )}
 
@@ -137,31 +160,41 @@ export default function TaskDetailModal() {
                       <div key={id} className="flex items-center gap-2 rounded-full bg-gray-800/50 px-2.5 py-1">
                         <div className="flex h-5 w-5 items-center justify-center rounded-full text-[8px] font-semibold text-white" style={{ backgroundColor: user.color }}>{user.name.charAt(0)}</div>
                         <span className="text-xs text-gray-300">{user.name}</span>
-                        <button onClick={() => updateTask(task.id, { assigneeIds: task.assigneeIds.filter(a => a !== id) })} className="text-gray-600 hover:text-red-400"><X size={10} /></button>
+                        {!isEmployee && (
+                          <button onClick={() => updateTask(task.id, { assigneeIds: task.assigneeIds.filter(a => a !== id) })} className="text-gray-600 hover:text-red-400"><X size={10} /></button>
+                        )}
                       </div>
                     );
                   })}
-                  {task.assigneeIds.length === 0 && currentUser && (
-                    <button
-                      onClick={() => updateTask(task.id, { assigneeIds: [currentUser.id] })}
-                      className="rounded-full bg-violet-600 px-3 py-1 text-xs font-medium text-white hover:bg-violet-500 transition-colors"
-                    >
-                      Claim Task
-                    </button>
+                  {!isEmployee && (
+                    <>
+                      {task.assigneeIds.length === 0 && currentUser && (
+                        <button
+                          onClick={() => updateTask(task.id, { assigneeIds: [currentUser.id] })}
+                          className="rounded-full bg-violet-600 px-3 py-1 text-xs font-medium text-white hover:bg-violet-500 transition-colors"
+                        >
+                          Claim Task
+                        </button>
+                      )}
+                      <select onChange={e => { if (e.target.value && !task.assigneeIds.includes(e.target.value)) updateTask(task.id, { assigneeIds: [...task.assigneeIds, e.target.value] }); e.target.value = ''; }}
+                        className="rounded-full border border-gray-700 bg-gray-800/50 px-2 py-1 text-xs text-gray-400 outline-none">
+                        <option value="">+ Add</option>
+                        {users.filter(u => !task.assigneeIds.includes(u.id)).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                      </select>
+                    </>
                   )}
-                  <select onChange={e => { if (e.target.value && !task.assigneeIds.includes(e.target.value)) updateTask(task.id, { assigneeIds: [...task.assigneeIds, e.target.value] }); e.target.value = ''; }}
-                    className="rounded-full border border-gray-700 bg-gray-800/50 px-2 py-1 text-xs text-gray-400 outline-none">
-                    <option value="">+ Add</option>
-                    {users.filter(u => !task.assigneeIds.includes(u.id)).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                  </select>
                 </div>
               </div>
 
               {/* Due Date */}
               <div className="mb-4">
                 <p className="mb-2 text-xs font-semibold uppercase text-gray-500">Due Date</p>
-                <input type="date" value={task.dueDate || ''} onChange={e => updateTask(task.id, { dueDate: e.target.value || null })}
-                  className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-1.5 text-xs text-white outline-none" />
+                {isEmployee ? (
+                  <span className="text-xs text-gray-400">{task.dueDate || 'Tidak ditentukan'}</span>
+                ) : (
+                  <input type="date" value={task.dueDate || ''} onChange={e => updateTask(task.id, { dueDate: e.target.value || null })}
+                    className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-1.5 text-xs text-white outline-none" />
+                )}
               </div>
 
               {/* Checklist Template Select (Admin/Manager only) */}
@@ -226,27 +259,28 @@ export default function TaskDetailModal() {
                 <div className="space-y-1">
                   {task.subtasks.map(st => (
                     <div key={st.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-800/30">
-                      <button onClick={() => toggleSubtask(task.id, st.id)}
-                        className={cn("flex h-4 w-4 items-center justify-center rounded border",
-                          st.completed ? "border-green-500 bg-green-500" : "border-gray-600"
-                        )}>
+                      <div className={cn("flex h-4 w-4 items-center justify-center rounded border",
+                        st.completed ? "border-green-500 bg-green-500" : "border-gray-600"
+                      )}>
                         {st.completed && <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                      </button>
+                      </div>
                       <span className={cn("flex-1 text-xs", st.completed ? "text-gray-500 line-through" : "text-gray-300")}>{st.title}</span>
-                      <button onClick={() => deleteSubtask(task.id, st.id)} className="hidden group-hover:block text-gray-600 hover:text-red-400"><Trash2 size={10} /></button>
                     </div>
                   ))}
                 </div>
-                <div className="mt-2 flex gap-2">
-                  <input value={newSubtask} onChange={e => setNewSubtask(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') handleAddSubtask(); }}
-                    placeholder="Add subtask..."
-                    className="flex-1 rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-1.5 text-xs text-white placeholder-gray-500 outline-none focus:border-violet-500" />
-                  <button onClick={handleAddSubtask} className="rounded-lg bg-gray-700/50 px-2.5 py-1.5 text-xs text-gray-400 hover:text-white"><Plus size={12} /></button>
-                </div>
+                {!isEmployee && (
+                  <div className="mt-2 flex gap-2">
+                    <input value={newSubtask} onChange={e => setNewSubtask(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') handleAddSubtask(); }}
+                      placeholder="Add subtask..."
+                      className="flex-1 rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-1.5 text-xs text-white placeholder-gray-500 outline-none focus:border-violet-500" />
+                    <button onClick={handleAddSubtask} className="rounded-lg bg-gray-700/50 px-2.5 py-1.5 text-xs text-gray-400 hover:text-white"><Plus size={12} /></button>
+                  </div>
+                )}
               </div>
 
               {/* Spare Parts / Bon Requests */}
+              {!isEmployee && (
               <div className="mb-4 border-t border-gray-800 pt-4">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs font-semibold uppercase text-gray-500">Spare Parts / Bon</p>
@@ -340,6 +374,7 @@ export default function TaskDetailModal() {
                   )}
                 </div>
               </div>
+              )}
             </div>
 
             {/* Right - Comments & Activity */}

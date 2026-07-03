@@ -41,7 +41,7 @@ export default function Sidebar() {
   const navItems = [
     { key: 'home' as const, icon: <Home size={16} />, label: 'Home', badge: null },
     { key: 'inbox' as const, icon: <Inbox size={16} />, label: 'Inbox', badge: unreadCount > 0 ? unreadCount : null },
-    { key: 'my_tasks' as const, icon: <CheckSquare size={16} />, label: 'My Tasks', badge: myTasksCount },
+    ...(!isEmployee ? [{ key: 'my_tasks' as const, icon: <CheckSquare size={16} />, label: 'My Tasks', badge: myTasksCount }] : []),
     ...(!isEmployee ? [{ key: 'dashboards' as const, icon: <BarChart3 size={16} />, label: 'Dashboards', badge: null }] : []),
   ];
 

@@ -1271,7 +1271,7 @@ export const useStore = create<AppState>()(
                     }
                   } else {
                     if (item.action === 'insert') {
-                      res = await supabase.from(item.table).insert([item.payload]);
+                      res = await supabase.from(item.table).upsert([item.payload]);
                     } else if (item.action === 'update') {
                       res = await supabase.from(item.table).update(item.payload).eq(item.eqColumn!, item.eqValue);
                     } else if (item.action === 'delete') {
@@ -1291,7 +1291,21 @@ export const useStore = create<AppState>()(
             }
           } catch (err: any) {
             console.error(`Sync failed for queue item ${item.id} on table ${item.table}:`, err);
-            const isNetworkErr = err?.message?.includes('fetch') || err?.message?.includes('Network') || err?.message?.includes('delivery failed') || !navigator.onLine;
+            const isNetworkErr = 
+              !navigator.onLine ||
+              err?.message?.includes('fetch') || 
+              err?.message?.includes('Network') || 
+              err?.message?.includes('delivery failed') ||
+              err?.message?.includes('timeout') ||
+              err?.message?.includes('502') ||
+              err?.message?.includes('503') ||
+              err?.message?.includes('504') ||
+              err?.message?.includes('Connection') ||
+              err?.message?.includes('connection') ||
+              err?.code === 'P0000' ||
+              err?.status === 502 ||
+              err?.status === 503 ||
+              err?.status === 504;
             if (isNetworkErr) {
               break;
             } else {
@@ -2198,17 +2212,25 @@ export const useStore = create<AppState>()(
       updateTicket: async (id, updates) => {
         const old = get().tickets.find(t => t.id === id);
         const resolvedAt = updates.status === 'RESOLVED' ? new Date().toISOString() : (updates.status === 'CLOSED' ? old?.resolvedAt || null : null);
+        const inProgressAt = updates.status === 'IN_PROGRESS' ? new Date().toISOString() : (old?.inProgressAt || null);
         
         const previousTickets = get().tickets;
         const previousTasks = get().tasks;
 
-        set({ tickets: get().tickets.map(t => t.id === id ? { ...t, ...updates, resolvedAt: updates.resolvedAt !== undefined ? updates.resolvedAt : resolvedAt, updatedAt: new Date().toISOString() } : t) });
+        set({ tickets: get().tickets.map(t => t.id === id ? { 
+          ...t, 
+          ...updates, 
+          resolvedAt: updates.resolvedAt !== undefined ? updates.resolvedAt : resolvedAt, 
+          inProgressAt: updates.inProgressAt !== undefined ? updates.inProgressAt : inProgressAt,
+          updatedAt: new Date().toISOString() 
+        } : t) });
 
         try {
           const dbUpdates: any = { ...updates };
           if (updates.status !== undefined) {
             dbUpdates.status = updates.status;
             dbUpdates.resolvedAt = resolvedAt;
+            dbUpdates.inProgressAt = inProgressAt;
           }
           if (dbUpdates.assigneeId !== undefined) {
             dbUpdates.assigneeId = sanitizeNullableDbId(dbUpdates.assigneeId);

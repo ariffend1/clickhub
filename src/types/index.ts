@@ -138,6 +138,7 @@ export interface Ticket {
   createdAt: string;
   updatedAt: string;
   resolvedAt: string | null;
+  inProgressAt?: string | null;
   isArchived?: boolean;
   isDeleteRequested?: boolean;
   csatRating?: number | null;

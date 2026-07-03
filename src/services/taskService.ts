@@ -12,7 +12,7 @@ export const taskService = {
   },
 
   async insertSpace(payload: any) {
-    const { error } = await supabase.from('Space').insert([payload]);
+    const { error } = await supabase.from('Space').upsert([payload]);
     if (error) throw error;
   },
 
@@ -37,7 +37,7 @@ export const taskService = {
   },
 
   async insertTaskList(payload: any) {
-    const { error } = await supabase.from('TaskList').insert([payload]);
+    const { error } = await supabase.from('TaskList').upsert([payload]);
     if (error) throw error;
   },
 
@@ -64,7 +64,7 @@ export const taskService = {
   },
 
   async insertTask(payload: any) {
-    const { error } = await supabase.from('Task').insert([payload]);
+    const { error } = await supabase.from('Task').upsert([payload]);
     if (error) throw error;
   },
 
@@ -90,7 +90,7 @@ export const taskService = {
   },
 
   async insertChecklist(payload: any) {
-    const { error } = await supabase.from('Checklist').insert([payload]);
+    const { error } = await supabase.from('Checklist').upsert([payload]);
     if (error) throw error;
   },
 
@@ -106,7 +106,7 @@ export const taskService = {
 
   // --- COMMENTS ---
   async insertComment(payload: any) {
-    const { error } = await supabase.from('Comment').insert([payload]);
+    const { error } = await supabase.from('Comment').upsert([payload]);
     if (error) throw error;
   },
 
