@@ -258,13 +258,29 @@ export default function TaskDetailModal() {
                 <p className="mb-2 text-xs font-semibold uppercase text-gray-500">Subtasks ({task.subtasks.filter(s => s.completed).length}/{task.subtasks.length})</p>
                 <div className="space-y-1">
                   {task.subtasks.map(st => (
-                    <div key={st.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-800/30">
-                      <div className={cn("flex h-4 w-4 items-center justify-center rounded border",
-                        st.completed ? "border-green-500 bg-green-500" : "border-gray-600"
-                      )}>
+                    <div key={st.id} className="group flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-gray-800/30">
+                      <button 
+                        onClick={() => toggleSubtask(task.id, st.id)}
+                        className={cn("flex h-4 w-4 items-center justify-center rounded border transition-colors",
+                          st.completed ? "border-green-500 bg-green-500" : "border-gray-600 hover:border-violet-500"
+                        )}
+                      >
                         {st.completed && <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                      </div>
-                      <span className={cn("flex-1 text-xs", st.completed ? "text-gray-500 line-through" : "text-gray-300")}>{st.title}</span>
+                      </button>
+                      <span 
+                        onClick={() => toggleSubtask(task.id, st.id)}
+                        className={cn("flex-1 text-xs cursor-pointer select-none", st.completed ? "text-gray-500 line-through" : "text-gray-300 hover:text-white")}
+                      >
+                        {st.title}
+                      </span>
+                      {!isEmployee && (
+                        <button 
+                          onClick={() => deleteSubtask(task.id, st.id)}
+                          className="opacity-0 group-hover:opacity-100 rounded-lg p-1 text-gray-500 hover:bg-red-500/10 hover:text-red-400 transition-all"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
