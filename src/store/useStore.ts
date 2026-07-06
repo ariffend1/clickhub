@@ -568,7 +568,7 @@ export const useStore = create<AppState>()(
           }));
 
           const mappedTasks = (dbTasks || []).map(t => {
-            const taskChecklists = (dbChecklists || []).filter(c => c.taskId === t.id);
+            const taskChecklists = (dbChecklists || []).filter(c => c.taskId === t.id && c.isDeleted !== true);
             return {
               id: t.id,
               title: t.title,
@@ -1788,7 +1788,7 @@ export const useStore = create<AppState>()(
       },
       deleteSubtask: async (taskId, subtaskId) => {
         set({ tasks: get().tasks.map(t => t.id !== taskId ? t : { ...t, subtasks: t.subtasks.filter(st => st.id !== subtaskId), updatedAt: new Date().toISOString() }) });
-        await get().enqueueWrite('Checklist', 'delete', null, 'id', subtaskId);
+        await get().enqueueWrite('Checklist', 'update', { isDeleted: true }, 'id', subtaskId);
       },
 
       addComment: async (taskId, content) => {
