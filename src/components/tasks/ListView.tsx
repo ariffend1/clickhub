@@ -8,6 +8,7 @@ import { useState } from 'react';
 const statusGroups: { status: TaskStatus; label: string; dotColor: string }[] = [
   { status: 'todo', label: 'To Do', dotColor: 'bg-gray-400' },
   { status: 'in_progress', label: 'In Progress', dotColor: 'bg-blue-400' },
+  { status: 'pending', label: 'Pending', dotColor: 'bg-orange-400' },
   { status: 'in_review', label: 'In Review', dotColor: 'bg-yellow-400' },
   { status: 'done', label: 'Done', dotColor: 'bg-green-400' },
 ];

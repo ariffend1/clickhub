@@ -66,6 +66,7 @@ export default function CreateTaskModal() {
                 className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white outline-none">
                 <option value="todo">To Do</option>
                 <option value="in_progress">In Progress</option>
+                <option value="pending">Pending</option>
                 <option value="in_review">In Review</option>
                 <option value="done">Done</option>
               </select>

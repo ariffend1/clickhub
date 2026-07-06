@@ -2,8 +2,8 @@ import { useStore } from '../../store/useStore';
 import { cn } from '../../utils/cn';
 import { isPast } from 'date-fns';
 
-const statusLabels: Record<string, string> = { todo: 'To Do', in_progress: 'In Progress', in_review: 'In Review', done: 'Done' };
-const statusColors: Record<string, string> = { todo: 'bg-gray-400', in_progress: 'bg-blue-400', in_review: 'bg-yellow-400', done: 'bg-green-400' };
+const statusLabels: Record<string, string> = { todo: 'To Do', in_progress: 'In Progress', pending: 'Pending', in_review: 'In Review', done: 'Done' };
+const statusColors: Record<string, string> = { todo: 'bg-gray-400', in_progress: 'bg-blue-400', pending: 'bg-orange-400', in_review: 'bg-yellow-400', done: 'bg-green-400' };
 const priorityColors: Record<string, string> = { urgent: 'bg-red-400', high: 'bg-orange-400', normal: 'bg-blue-400', low: 'bg-gray-400' };
 const priorityLabels: Record<string, string> = { urgent: 'Urgent', high: 'High', normal: 'Normal', low: 'Low' };
 
@@ -17,7 +17,7 @@ export default function DashboardsPage() {
     ? tasks 
     : (currentUser ? tasks.filter(t => t.assigneeIds.includes(currentUser.id)) : []);
 
-  const statusData = ['todo', 'in_progress', 'in_review', 'done'].map(s => ({ status: s, count: visibleTasks.filter(t => t.status === s).length }));
+  const statusData = ['todo', 'in_progress', 'pending', 'in_review', 'done'].map(s => ({ status: s, count: visibleTasks.filter(t => t.status === s).length }));
   const maxStatusCount = Math.max(...statusData.map(d => d.count), 1);
   
   const priorityData = ['urgent', 'high', 'normal', 'low'].map(p => ({ priority: p, count: visibleTasks.filter(t => t.priority === p).length }));

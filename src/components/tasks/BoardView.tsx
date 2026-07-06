@@ -7,6 +7,7 @@ import type { TaskStatus } from '../../types';
 const columns: { status: TaskStatus; label: string; color: string; dotColor: string }[] = [
   { status: 'todo', label: 'To Do', color: 'bg-gray-400', dotColor: 'bg-gray-400' },
   { status: 'in_progress', label: 'In Progress', color: 'bg-blue-400', dotColor: 'bg-blue-400' },
+  { status: 'pending', label: 'Pending', color: 'bg-orange-400', dotColor: 'bg-orange-400' },
   { status: 'in_review', label: 'In Review', color: 'bg-yellow-400', dotColor: 'bg-yellow-400' },
   { status: 'done', label: 'Done', color: 'bg-green-400', dotColor: 'bg-green-400' },
 ];

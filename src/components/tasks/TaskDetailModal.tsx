@@ -8,6 +8,7 @@ import type { TaskStatus, Priority } from '../../types';
 const statusOptions: { value: TaskStatus; label: string; color: string }[] = [
   { value: 'todo', label: 'To Do', color: 'bg-gray-400' },
   { value: 'in_progress', label: 'In Progress', color: 'bg-blue-400' },
+  { value: 'pending', label: 'Pending', color: 'bg-orange-400' },
   { value: 'in_review', label: 'In Review', color: 'bg-yellow-400' },
   { value: 'done', label: 'Done', color: 'bg-green-400' },
 ];
@@ -85,6 +86,7 @@ export default function TaskDetailModal() {
                 "rounded-lg px-2.5 py-1 text-xs font-semibold border",
                 task.status === 'done' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
                 task.status === 'in_progress' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                task.status === 'pending' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
                 task.status === 'in_review' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' :
                 'bg-gray-500/10 text-gray-400 border-gray-500/20'
               )}>

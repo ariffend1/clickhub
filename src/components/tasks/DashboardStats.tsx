@@ -9,7 +9,7 @@ export default function DashboardStats() {
   const stats = {
     total: filteredTasks.length,
     done: filteredTasks.filter(t => t.status === 'done').length,
-    inProgress: filteredTasks.filter(t => t.status === 'in_progress').length,
+    inProgress: filteredTasks.filter(t => t.status === 'in_progress' || t.status === 'pending').length,
     overdue: filteredTasks.filter(t => t.dueDate && new Date(t.dueDate) < new Date() && t.status !== 'done').length,
   };
   const completionRate = stats.total > 0 ? Math.round((stats.done / stats.total) * 100) : 0;
