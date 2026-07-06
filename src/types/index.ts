@@ -1,5 +1,5 @@
 export type Priority = 'urgent' | 'high' | 'normal' | 'low';
-export type TaskStatus = 'todo' | 'in_progress' | 'in_review' | 'done';
+export type TaskStatus = 'todo' | 'in_progress' | 'pending' | 'in_review' | 'done';
 export type ViewMode = 'board' | 'list' | 'calendar';
 export type ActivePage = 'home' | 'inbox' | 'my_tasks' | 'dashboards' | 'spaces' | 'tickets' | 'assets' | 'knowledge' | 'admin' | 'chat_admin' | 'reports' | 'checkout' | 'receipt';
 export type UserRole = 'ROOT' | 'SUPER_ADMIN' | 'ADMIN' | 'MANAGER' | 'TECHNICIAN' | 'EMPLOYEE';
@@ -105,7 +105,7 @@ export interface Notification {
   createdAt: string;
 }
 
-export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'PENDING' | 'RESOLVED' | 'CLOSED';
 export type TicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
 export interface Attachment {
