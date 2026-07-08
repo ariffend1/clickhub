@@ -33,6 +33,14 @@ export const userService = {
     if (error) throw error;
   },
 
+  async updateUser(id: string, updates: any) {
+    const { error } = await supabase
+      .from('User')
+      .update(updates)
+      .eq('id', id);
+    if (error) throw error;
+  },
+
   // --- AUDIT LOGS ---
   async getAuditLogs() {
     const { data, error } = await supabase

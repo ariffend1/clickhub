@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { cn } from '../../utils/cn';
-import { BarChart3, Users, FileText, AlertTriangle, Server, TicketCheck, Plus, X, CheckSquare, ClipboardList } from 'lucide-react';
+import { BarChart3, Users, FileText, AlertTriangle, Server, TicketCheck, Plus, X, CheckSquare, ClipboardList, Edit2 } from 'lucide-react';
 import type { UserRole } from '../../types';
 import { isPast } from 'date-fns';
 import { toast } from 'sonner';
 import AdminChecklistTab from './AdminChecklistTab';
 
-type Tab = 'overview' | 'users' | 'approvals' | 'logs' | 'checklists';
+type Tab = 'overview' | 'users' | 'approvals' | 'logs' | 'checklists' | 'verification';
 
 const roleLabels: Record<UserRole, { label: string; color: string }> = {
   ROOT: { label: 'Root', color: 'bg-red-500/20 text-red-400' },
@@ -23,7 +23,9 @@ export default function AdminPage() {
     tickets, assets, tasks, users, auditLogs, adminAddUser,
     equipmentCheckouts, partRequests, stockRequests, directoryEntries,
     approveEquipmentCheckout, approvePartRequest, approveStockRequest, 
-    approveDeleteDirectoryConfig, rejectDeleteDirectoryConfig
+    approveDeleteDirectoryConfig, rejectDeleteDirectoryConfig,
+    currentUser, locations, masterData, verifyLocation, deleteLocation,
+    verifyMasterDataItem, deleteMasterDataItem, updateUserTitle
   } = useStore();
   const [tab, setTab] = useState<Tab>('overview');
 
@@ -35,8 +37,13 @@ export default function AdminPage() {
   const [newUserRole, setNewUserRole] = useState<UserRole>('EMPLOYEE');
   const [newUserDept, setNewUserDept] = useState('IT');
   const [newUserPhone, setNewUserPhone] = useState('');
+  const [newUserTitle, setNewUserTitle] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Editing User visual Title state
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editingUserTitle, setEditingUserTitle] = useState('');
 
   const formatPrice = (p: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(p);
 
@@ -50,12 +57,15 @@ export default function AdminPage() {
     recentLogs: auditLogs.slice(0, 20),
   };
 
-  const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
-    { key: 'overview', label: 'Overview', icon: <BarChart3 size={14} /> },
-    { key: 'users', label: 'Users', icon: <Users size={14} /> },
-    { key: 'approvals', label: 'Approvals', icon: <CheckSquare size={14} /> },
-    { key: 'checklists', label: 'Checklist Templates', icon: <ClipboardList size={14} /> },
-    { key: 'logs', label: 'Audit Logs', icon: <FileText size={14} /> },
+  const isAdminOrRoot = currentUser && ['ROOT', 'SUPER_ADMIN', 'ADMIN'].includes(currentUser.role);
+
+  const tabs = [
+    { key: 'overview' as const, label: 'Overview', icon: <BarChart3 size={14} /> },
+    ...(isAdminOrRoot ? [{ key: 'users' as const, label: 'Users', icon: <Users size={14} /> }] : []),
+    { key: 'approvals' as const, label: 'Approvals', icon: <CheckSquare size={14} /> },
+    { key: 'checklists' as const, label: 'Checklist Templates', icon: <ClipboardList size={14} /> },
+    { key: 'verification' as const, label: 'Verifikasi Master', icon: <ClipboardList size={14} /> },
+    ...(isAdminOrRoot ? [{ key: 'logs' as const, label: 'Audit Logs', icon: <FileText size={14} /> }] : []),
   ];
 
   return (
@@ -170,12 +180,16 @@ export default function AdminPage() {
               <table className="w-full">
                 <thead>
                 <tr className="border-b border-gray-700 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  <th className="px-4 py-3">User</th><th className="px-4 py-3">Role</th><th className="px-4 py-3">Department</th><th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">User</th>
+                  <th className="px-4 py-3">Role</th>
+                  <th className="px-4 py-3">Visual Title (Jabatan)</th>
+                  <th className="px-4 py-3">Department</th>
+                  <th className="px-4 py-3">Status</th>
                 </tr>
               </thead>
               <tbody>
                 {users.map(u => {
-                  const role = roleLabels[u.role] || roleLabels.EMPLOYEE;
+                  const role = roleLabels[u.role] || { label: u.role, color: 'bg-gray-500/20 text-gray-400' };
                   return (
                     <tr key={u.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
                       <td className="px-4 py-3">
@@ -185,6 +199,48 @@ export default function AdminPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3"><span className={cn("rounded-full px-2 py-0.5 text-[10px]", role.color)}>{role.label}</span></td>
+                      <td className="px-4 py-3 text-xs">
+                        {editingUserId === u.id ? (
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={editingUserTitle}
+                              onChange={e => setEditingUserTitle(e.target.value)}
+                              className="rounded border border-gray-700 bg-gray-950 px-2 py-1 text-xs text-white outline-none focus:border-violet-500"
+                            />
+                            <button
+                              onClick={async () => {
+                                await updateUserTitle(u.id, editingUserTitle.trim());
+                                setEditingUserId(null);
+                                toast.success(`Title untuk "${u.name}" berhasil diupdate.`);
+                              }}
+                              className="rounded bg-violet-600 px-2 py-1 text-white hover:bg-violet-500 text-[10px] cursor-pointer"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setEditingUserId(null)}
+                              className="rounded bg-gray-800 px-2 py-1 text-gray-400 hover:bg-gray-700 text-[10px] cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-300 font-medium">{u.title || '—'}</span>
+                            <button
+                              onClick={() => {
+                                setEditingUserId(u.id);
+                                setEditingUserTitle(u.title || '');
+                              }}
+                              className="text-gray-500 hover:text-violet-400 cursor-pointer"
+                              title="Edit visual title"
+                            >
+                              <Edit2 size={12} />
+                            </button>
+                          </div>
+                        )}
+                      </td>
                       <td className="px-4 py-3"><span className="text-xs text-gray-400">{u.department || '—'}</span></td>
                       <td className="px-4 py-3"><span className={cn("text-xs", u.isActive ? "text-green-400" : "text-gray-500")}>{u.isActive ? 'Active' : 'Inactive'}</span></td>
                     </tr>
@@ -488,6 +544,150 @@ export default function AdminPage() {
         {tab === 'checklists' && (
           <AdminChecklistTab />
         )}
+
+        {tab === 'verification' && (
+          <div className="space-y-6 animate-fade-in text-left">
+            <div className="bg-[#282c34] border border-gray-800 rounded-xl p-5 space-y-4">
+              <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                📋 Master Data Verification (Pending Approval)
+              </h3>
+              
+              {/* 1. Pending Locations */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Locations Pending</h4>
+                <div className="overflow-x-auto border border-gray-800 rounded-lg">
+                  <table className="w-full text-xs text-left">
+                    <thead>
+                      <tr className="border-b border-gray-800 text-gray-500 uppercase tracking-wider text-[10px] font-semibold bg-gray-900/10">
+                        <th className="py-2.5 px-3">Location Name</th>
+                        <th className="py-2.5 px-3">Requested By</th>
+                        <th className="py-2.5 px-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {locations.filter(l => l.isVerified === false).length === 0 ? (
+                        <tr>
+                          <td colSpan={3} className="py-4 text-center text-gray-500">Tidak ada pengusulan lokasi baru.</td>
+                        </tr>
+                      ) : (
+                        locations.filter(l => l.isVerified === false).map(loc => {
+                          const requester = users.find(u => u.id === loc.requestedById);
+                          return (
+                            <tr key={loc.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                              <td className="py-3 px-3 text-white font-medium">{loc.name}</td>
+                              <td className="py-3 px-3 text-gray-400">{requester?.name || 'Teknisi'}</td>
+                              <td className="py-3 px-3 text-right space-x-2">
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      await verifyLocation(loc.id);
+                                      toast.success(`Lokasi "${loc.name}" telah disetujui.`);
+                                    } catch (err) {
+                                      toast.error('Gagal memverifikasi lokasi');
+                                    }
+                                  }}
+                                  className="rounded bg-violet-600 px-2.5 py-1 text-white hover:bg-violet-500 transition-colors text-[10px] cursor-pointer"
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    if (confirm('Tolak dan hapus pengajuan lokasi ini?')) {
+                                      try {
+                                        await deleteLocation(loc.id);
+                                        toast.success('Pengajuan lokasi ditolak.');
+                                      } catch (err) {
+                                        toast.error('Gagal menolak lokasi');
+                                      }
+                                    }
+                                  }}
+                                  className="rounded bg-gray-850 px-2.5 py-1 text-gray-400 hover:bg-gray-800 hover:text-white transition-colors text-[10px] border border-gray-700 cursor-pointer"
+                                >
+                                  Reject
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* 2. Pending Master Data (Brand, Vendor, AssetType, Unit) */}
+              <div className="space-y-3 pt-4">
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Dropdown Items Pending (Brand/Vendor/Unit/Type)</h4>
+                <div className="overflow-x-auto border border-gray-800 rounded-lg">
+                  <table className="w-full text-xs text-left">
+                    <thead>
+                      <tr className="border-b border-gray-800 text-gray-500 uppercase tracking-wider text-[10px] font-semibold bg-gray-900/10">
+                        <th className="py-2.5 px-3">Item Name</th>
+                        <th className="py-2.5 px-3">Category</th>
+                        <th className="py-2.5 px-3">Requested By</th>
+                        <th className="py-2.5 px-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {masterData.filter(m => m.isVerified === false).length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="py-4 text-center text-gray-500">Tidak ada pengusulan master dropdown baru.</td>
+                        </tr>
+                      ) : (
+                        masterData.filter(m => m.isVerified === false).map(item => {
+                          const requester = users.find(u => u.id === item.requestedById);
+                          const categoryLabels: Record<string, string> = { BRAND: 'Merek', VENDOR: 'Vendor', ASSET_TYPE: 'Tipe Aset', UNIT: 'Satuan' };
+                          return (
+                            <tr key={item.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                              <td className="py-3 px-3 text-white font-medium">{item.name}</td>
+                              <td className="py-3 px-3">
+                                <span className="rounded-full bg-violet-500/10 text-violet-400 border border-violet-500/20 px-2 py-0.5 text-[9px] font-semibold">
+                                  {categoryLabels[item.category] || item.category}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3 text-gray-400">{requester?.name || 'Teknisi'}</td>
+                              <td className="py-3 px-3 text-right space-x-2">
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      await verifyMasterDataItem(item.id);
+                                      toast.success(`Master data "${item.name}" telah disetujui.`);
+                                    } catch (err) {
+                                      toast.error('Gagal memverifikasi master data');
+                                    }
+                                  }}
+                                  className="rounded bg-violet-600 px-2.5 py-1 text-white hover:bg-violet-500 transition-colors text-[10px] cursor-pointer"
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={async () => {
+                                    if (confirm('Tolak dan hapus pengajuan item ini?')) {
+                                      try {
+                                        await deleteMasterDataItem(item.id);
+                                        toast.success('Pengajuan item ditolak.');
+                                      } catch (err) {
+                                        toast.error('Gagal menolak item');
+                                      }
+                                    }
+                                  }}
+                                  className="rounded bg-gray-850 px-2.5 py-1 text-gray-400 hover:bg-gray-800 hover:text-white transition-colors text-[10px] border border-gray-700 cursor-pointer"
+                                >
+                                  Reject
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Add User Modal */}
@@ -573,6 +773,17 @@ export default function AdminPage() {
               </div>
 
               <div>
+                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Visual Title (Jabatan Visual)</label>
+                <input
+                  type="text"
+                  value={newUserTitle}
+                  onChange={e => setNewUserTitle(e.target.value)}
+                  placeholder="e.g. Head of IT, Manager IT, Technician"
+                  className="w-full rounded-xl border border-gray-800 bg-gray-950/60 px-4 py-2.5 text-xs text-white placeholder-gray-500 outline-none focus:border-violet-600 transition-colors"
+                />
+              </div>
+
+              <div>
                 <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Phone Number</label>
                 <input
                   type="text"
@@ -588,7 +799,7 @@ export default function AdminPage() {
               <button
                 type="button"
                 onClick={() => setShowAddUserModal(false)}
-                className="rounded-lg bg-gray-950 border border-gray-800 hover:bg-gray-900 text-gray-400 text-xs font-bold px-4 py-2 transition-all"
+                className="rounded-lg bg-gray-950 border border-gray-800 hover:bg-gray-900 text-gray-400 text-xs font-bold px-4 py-2 transition-all cursor-pointer"
               >
                 Cancel
               </button>
@@ -612,7 +823,8 @@ export default function AdminPage() {
                     newUserPassword,
                     newUserRole,
                     newUserDept.trim(),
-                    newUserPhone.trim()
+                    newUserPhone.trim(),
+                    newUserTitle.trim()
                   );
                   setSubmitting(false);
                   if (res.success) {
@@ -622,7 +834,7 @@ export default function AdminPage() {
                     setErrorMsg(res.error || 'Failed to create user');
                   }
                 }}
-                className="rounded-lg bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-xs font-bold px-4 py-2 transition-all shadow-md shadow-violet-950/20"
+                className="rounded-lg bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-xs font-bold px-4 py-2 transition-all shadow-md shadow-violet-950/20 cursor-pointer"
               >
                 {submitting ? 'Adding...' : 'Add User'}
               </button>

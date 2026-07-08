@@ -31,7 +31,7 @@ export default function Sidebar() {
   const myTasksCount = tasks.filter(t => t.assigneeIds.includes(currentUser.id) && t.status !== 'done').length;
   const unreadCount = getUnreadNotificationCount();
   const openTickets = tickets.filter(t => t.assigneeId === currentUser.id && t.status !== 'CLOSED' && t.status !== 'RESOLVED').length;
-  const isAdmin = hasRole(['ROOT', 'SUPER_ADMIN', 'ADMIN']);
+  const isAdmin = hasRole(['ROOT', 'SUPER_ADMIN', 'ADMIN', 'MANAGER']);
   const isHandler = hasRole(['ROOT', 'SUPER_ADMIN', 'ADMIN', 'MANAGER', 'TECHNICIAN']);
   const canDeleteSpaceList = hasRole(['ROOT', 'SUPER_ADMIN', 'ADMIN', 'MANAGER']);
   const openChats = chatSessions.filter(s => s.status === 'OPEN').length;
@@ -392,7 +392,7 @@ export default function Sidebar() {
           <div className="flex-1 min-w-0">
             <p className="truncate text-sm font-medium text-white">{currentUser.name}</p>
             <div className="flex items-center justify-between mt-0.5">
-              <span className="truncate text-[10px] text-gray-500">{currentUser.role} • {currentUser.department}</span>
+              <span className="truncate text-[10px] text-gray-500">{(currentUser as any).title || currentUser.role} • {currentUser.department}</span>
               <span 
                 onClick={() => setShowSettingsModal(true, 'changelog')}
                 title="View Release Changelog"

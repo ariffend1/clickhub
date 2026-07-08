@@ -141,7 +141,7 @@ export default function App() {
           </ErrorBoundary>
         ) : <HomePage />;
       case 'admin':
-        return hasRole(['ROOT', 'SUPER_ADMIN', 'ADMIN']) ? <AdminPage /> : <HomePage />;
+        return hasRole(['ROOT', 'SUPER_ADMIN', 'ADMIN', 'MANAGER']) ? <AdminPage /> : <HomePage />;
       case 'my_tasks':
         return (
           <>

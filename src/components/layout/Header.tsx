@@ -36,7 +36,7 @@ const pageTitle: Record<string, string> = {
 
 export default function Header() {
   const {
-    activePage, viewMode, setViewMode, searchQuery, setSearchQuery,
+    activePage, setActivePage, viewMode, setViewMode, searchQuery, setSearchQuery,
     filterPriority, filterAssignee, setFilterPriority, setFilterAssignee,
     notifications, showNotifications, setShowNotifications,
     markNotificationRead, markAllNotificationsRead, clearNotifications,
@@ -165,8 +165,22 @@ export default function Header() {
                     notifications
                       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                       .map(n => (
-                        <button key={n.id} onClick={() => markNotificationRead(n.id)}
-                          className={cn("flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-gray-700/30",
+                        <button key={n.id} onClick={() => {
+                          markNotificationRead(n.id);
+                          setShowNotifications(false);
+                          if (n.link) {
+                            if (n.link.startsWith('/')) {
+                              const url = new URL(n.link, window.location.origin);
+                              const page = url.pathname.slice(1);
+                              if (page) {
+                                setActivePage(page as any);
+                                window.history.pushState({}, '', n.link);
+                                window.dispatchEvent(new CustomEvent('app-route-change', { detail: { link: n.link } }));
+                              }
+                            }
+                          }
+                        }}
+                          className={cn("flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-gray-700/30 cursor-pointer",
                             !n.read && "bg-violet-500/5"
                           )}>
                           {!n.read && <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-violet-500" />}

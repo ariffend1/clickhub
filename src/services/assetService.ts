@@ -174,6 +174,76 @@ export const assetService = {
   async deleteDirectoryEntry(id: string) {
     const { error } = await supabase.from('DirectoryEntry').delete().eq('id', id);
     if (error) throw error;
+  },
+
+  // --- LOCATION MASTER ---
+  async getLocations() {
+    const { data, error } = await supabase.from('Location').select('*').order('name', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  },
+
+  async insertLocation(payload: any) {
+    const { data, error } = await supabase.from('Location').insert([payload]).select().single();
+    if (error) throw error;
+    return data;
+  },
+
+  async updateLocation(id: string, payload: any) {
+    const { error } = await supabase.from('Location').update({ ...payload, updatedAt: new Date().toISOString() }).eq('id', id);
+    if (error) throw error;
+  },
+
+  async deleteLocation(id: string) {
+    const { error } = await supabase.from('Location').delete().eq('id', id);
+    if (error) throw error;
+  },
+
+  // --- MASTER DATA (Brand, Vendor, AssetType, Unit) ---
+  async getMasterData() {
+    const { data, error } = await supabase.from('MasterData').select('*').order('name', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  },
+
+  async getMasterDataByCategory(category: string) {
+    const { data, error } = await supabase.from('MasterData').select('*').eq('category', category).order('name', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  },
+
+  async insertMasterData(payload: any) {
+    const { data, error } = await supabase.from('MasterData').insert([payload]).select().single();
+    if (error) throw error;
+    return data;
+  },
+
+  async updateMasterData(id: string, payload: any) {
+    const { error } = await supabase.from('MasterData').update({ ...payload, updatedAt: new Date().toISOString() }).eq('id', id);
+    if (error) throw error;
+  },
+
+  async deleteMasterData(id: string) {
+    const { error } = await supabase.from('MasterData').delete().eq('id', id);
+    if (error) throw error;
+  },
+
+  // --- RELOCATION HISTORY ---
+  async getRelocationHistory(assetId: string) {
+    const { data, error } = await supabase.from('RelocationHistory').select('*').eq('assetId', assetId).order('relocatedAt', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
+
+  async insertRelocationHistory(payload: any) {
+    const { error } = await supabase.from('RelocationHistory').upsert([payload]);
+    if (error) throw error;
+  },
+
+  // --- INVENTORY UPDATE (full payload) ---
+  async updateInventory(id: string, payload: any) {
+    const { error } = await supabase.from('Inventory').update({ ...payload, updatedAt: new Date().toISOString() }).eq('id', id);
+    if (error) throw error;
   }
 };
 

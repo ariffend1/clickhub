@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useStore } from '../../store/useStore';
 import { cn } from '../../utils/cn';
 import { Plus, Search, X, Monitor, Laptop, Server, Printer, Wifi, Camera, Cpu, Box, Network, Layers, GitFork, Globe, Database, HardDrive, Webhook, MessageSquare, ShieldAlert, Key, FileCheck, Phone, PhoneCall, Package, ClipboardList, Truck, FolderGit, FileText, Edit2, Trash2, ShieldCheck } from 'lucide-react';
@@ -21,8 +21,6 @@ const typeIcons: Record<string, React.ReactNode> = {
   Printer: <Printer size={16} />, Switch: <Wifi size={16} />,
 };
 
-const assetTypes = ['Laptop', 'Desktop', 'Server', 'Printer', 'Switch', 'Monitor', 'Phone', 'Other'];
-
 export default function AssetsPage() {
   const { 
     assets, addAsset, updateAsset, deleteAsset, getUserById, hasRole,
@@ -33,8 +31,44 @@ export default function AssetsPage() {
     requestDeleteDirectoryConfig, approveDeleteDirectoryConfig, rejectDeleteDirectoryConfig, deleteDirectoryCategory,
     checklistTemplates,
     addInventoryMaster, updateInventoryMaster, deleteInventoryMaster, verifyInventoryItem,
-    auditLogs
+    auditLogs,
+    locations, masterData, addLocation, addMasterDataItem, bulkAddAssets, bulkAddInventories
   } = useStore();
+
+  const assetTypes = masterData.filter(m => m.category === 'ASSET_TYPE' && m.isVerified !== false).map(m => m.name);
+  const brandOptions = masterData.filter(m => m.category === 'BRAND' && m.isVerified !== false).map(m => m.name);
+  const vendorOptions = masterData.filter(m => m.category === 'VENDOR' && m.isVerified !== false).map(m => m.name);
+  const unitOptions = masterData.filter(m => m.category === 'UNIT' && m.isVerified !== false).map(m => m.name);
+  const locationOptions = locations.filter(l => l.isVerified !== false).map(l => l.name);
+
+  // Calculations for Visual Widget
+  const totalAssetsCount = assets.length;
+  
+  // 1. Condition/Status Health Chart
+  const statusCounts = Object.keys(statusConfig).reduce((acc, status) => {
+    acc[status] = assets.filter(a => a.status === status).length;
+    return acc;
+  }, {} as Record<string, number>);
+
+  // 2. Sebaran Lokasi Chart (top 5 locations, rest as other)
+  const locationCounts = assets.reduce((acc, a) => {
+    const loc = a.location || 'Unknown';
+    acc[loc] = (acc[loc] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const sortedLocations = Object.entries(locationCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+
+  const colorsPalette = [
+    'bg-violet-500',
+    'bg-sky-500',
+    'bg-emerald-500',
+    'bg-amber-500',
+    'bg-rose-500',
+    'bg-gray-500'
+  ];
 
   const [activeTab, setActiveTab] = useState<'assets' | 'inventory' | 'requests' | 'checkout' | 'receipt' | 'configs' | 'audit'>('assets');
   const [search, setSearch] = useState('');
@@ -189,6 +223,264 @@ export default function AssetsPage() {
     estimatedPrice: '',
     reason: ''
   });
+
+  useEffect(() => {
+    const parseUrlParams = (urlStr: string) => {
+      try {
+        const url = new URL(urlStr, window.location.origin);
+        const tab = url.searchParams.get('tab');
+        const action = url.searchParams.get('action');
+        if (tab === 'requests') {
+          setActiveTab('requests');
+          if (action === 'restock') {
+            const invId = url.searchParams.get('inventoryId') || '';
+            const itemName = url.searchParams.get('itemName') || '';
+            const qty = parseInt(url.searchParams.get('quantity') || '5', 10);
+            
+            setStockForm({
+              type: 'RESTOCK',
+              inventoryId: invId,
+              itemName: itemName,
+              itemDescription: `Restock otomatis untuk item "${itemName}" karena stok menipis.`,
+              category: 'General',
+              quantity: qty,
+              estimatedPrice: '',
+              reason: 'Restock Otomatis (Low Stock Alert)'
+            });
+            setShowStockRequest(true);
+          }
+        }
+      } catch (err) {
+        console.error('URL parse error:', err);
+      }
+    };
+
+    parseUrlParams(window.location.href);
+
+    const handleRouteChange = (e: any) => {
+      if (e.detail?.link) {
+        parseUrlParams(e.detail.link);
+      }
+    };
+
+    window.addEventListener('app-route-change', handleRouteChange);
+    return () => {
+      window.removeEventListener('app-route-change', handleRouteChange);
+    };
+  }, []);
+
+  const handleExportAssetsCSV = () => {
+    const headers = ['Name', 'Brand', 'Type', 'Serial Number', 'Location', 'Price', 'Vendor', 'Status'];
+    const rows = filteredAssets.map(a => [
+      a.name,
+      a.brand || '',
+      a.type,
+      a.serialNumber,
+      a.location || '',
+      a.price.toString(),
+      a.vendor || '',
+      a.status
+    ]);
+    const csvContent = [headers.join(','), ...rows.map(r => r.map(val => `"${val.replace(/"/g, '""')}"`).join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `assets_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('Assets exported successfully!');
+  };
+
+  const handleImportAssetsCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const text = event.target?.result as string;
+        const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+        if (lines.length <= 1) {
+          toast.error('File CSV kosong atau tidak memiliki data.');
+          return;
+        }
+
+        const parseCSVLine = (line: string) => {
+          const result = [];
+          let current = '';
+          let inQuotes = false;
+          for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            if (char === '"') {
+              inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+              result.push(current.trim());
+              current = '';
+            } else {
+              current += char;
+            }
+          }
+          result.push(current.trim());
+          return result;
+        };
+
+        const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase());
+        const expectedHeaders = ['name', 'brand', 'type', 'serial number', 'location', 'price', 'vendor', 'status'];
+        const missing = expectedHeaders.filter(h => !headers.includes(h));
+        if (missing.length > 0) {
+          toast.error(`Format CSV salah. Kolom hilang: ${missing.join(', ')}`);
+          return;
+        }
+
+        const assetsToImport = [];
+        for (let i = 1; i < lines.length; i++) {
+          const cols = parseCSVLine(lines[i]);
+          const name = cols[headers.indexOf('name')] || '';
+          const brand = cols[headers.indexOf('brand')] || '';
+          const type = cols[headers.indexOf('type')] || 'Laptop';
+          const serialNumber = cols[headers.indexOf('serial number')] || '';
+          const location = cols[headers.indexOf('location')] || '';
+          const price = parseFloat(cols[headers.indexOf('price')] || '0') || 0;
+          const vendor = cols[headers.indexOf('vendor')] || '';
+          const status = (cols[headers.indexOf('status')] || 'AVAILABLE') as AssetStatus;
+
+          if (!name || !serialNumber) {
+            continue;
+          }
+          assetsToImport.push({
+            name,
+            brand,
+            type,
+            serialNumber,
+            location,
+            price,
+            vendor,
+            status,
+            specs: {},
+            purchaseDate: new Date().toISOString()
+          });
+        }
+
+        if (assetsToImport.length === 0) {
+          toast.error('Tidak ada data aset valid untuk diimpor.');
+          return;
+        }
+
+        await bulkAddAssets(assetsToImport);
+        toast.success(`Berhasil mengimpor ${assetsToImport.length} aset!`);
+      } catch (err: any) {
+        toast.error(`Gagal mengimpor CSV: ${err.message}`);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const handleExportInventoryCSV = () => {
+    const headers = ['Name', 'SKU', 'Unit', 'Location', 'Quantity', 'MinStock', 'Description'];
+    const rows = inventories.map(i => [
+      i.name,
+      i.sku,
+      i.unit,
+      i.location,
+      i.quantity.toString(),
+      i.minStock.toString(),
+      i.description || ''
+    ]);
+    const csvContent = [headers.join(','), ...rows.map(r => r.map(val => `"${val.replace(/"/g, '""')}"`).join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `inventory_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('Inventory exported successfully!');
+  };
+
+  const handleImportInventoryCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const text = event.target?.result as string;
+        const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+        if (lines.length <= 1) {
+          toast.error('File CSV kosong atau tidak memiliki data.');
+          return;
+        }
+
+        const parseCSVLine = (line: string) => {
+          const result = [];
+          let current = '';
+          let inQuotes = false;
+          for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            if (char === '"') {
+              inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+              result.push(current.trim());
+              current = '';
+            } else {
+              current += char;
+            }
+          }
+          result.push(current.trim());
+          return result;
+        };
+
+        const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase());
+        const expectedHeaders = ['name', 'sku', 'unit', 'location', 'quantity', 'minstock', 'description'];
+        const missing = expectedHeaders.filter(h => !headers.includes(h));
+        if (missing.length > 0) {
+          toast.error(`Format CSV salah. Kolom hilang: ${missing.join(', ')}`);
+          return;
+        }
+
+        const itemsToImport = [];
+        for (let i = 1; i < lines.length; i++) {
+          const cols = parseCSVLine(lines[i]);
+          const name = cols[headers.indexOf('name')] || '';
+          const sku = cols[headers.indexOf('sku')] || '';
+          const unit = cols[headers.indexOf('unit')] || 'pcs';
+          const location = cols[headers.indexOf('location')] || 'Warehouse';
+          const quantity = parseInt(cols[headers.indexOf('quantity')] || '0', 10) || 0;
+          const minStock = parseInt(cols[headers.indexOf('minstock')] || '5', 10) || 5;
+          const description = cols[headers.indexOf('description')] || '';
+
+          if (!name || !sku) {
+            continue;
+          }
+          itemsToImport.push({
+            name,
+            sku,
+            unit,
+            location,
+            quantity,
+            minStock,
+            description
+          });
+        }
+
+        if (itemsToImport.length === 0) {
+          toast.error('Tidak ada data inventaris valid untuk diimpor.');
+          return;
+        }
+
+        await bulkAddInventories(itemsToImport);
+        toast.success(`Berhasil mengimpor ${itemsToImport.length} item inventaris!`);
+      } catch (err: any) {
+        toast.error(`Gagal mengimpor CSV: ${err.message}`);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
 
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
 
@@ -509,6 +801,122 @@ export default function AssetsPage() {
       {/* Assets Tab View */}
       {activeTab === 'assets' && (
         <>
+          {/* Visual Dashboard Widgets */}
+          <div className="mb-6 grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in text-left">
+            {/* Condition Health Widget */}
+            <div className="lg:col-span-1 rounded-2xl border border-gray-800 bg-[#282c34] p-5 shadow-xl space-y-4">
+              <div className="flex justify-between items-center">
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Asset Health Indicator</h4>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">Live Status</span>
+              </div>
+              <div className="space-y-3">
+                <div className="flex justify-between items-end">
+                  <span className="text-2xl font-black text-white">
+                    {totalAssetsCount > 0 
+                      ? Math.round(((statusCounts['AVAILABLE'] || 0) + (statusCounts['IN_USE'] || 0)) / totalAssetsCount * 100) 
+                      : 100}%
+                  </span>
+                  <span className="text-[10px] text-gray-500 font-semibold uppercase">Operational Rate</span>
+                </div>
+                {/* Custom multi-color progress bar */}
+                <div className="h-2.5 w-full rounded-full bg-gray-800 flex overflow-hidden">
+                  {Object.entries(statusConfig).map(([status, config]) => {
+                    const count = statusCounts[status] || 0;
+                    const percent = totalAssetsCount > 0 ? (count / totalAssetsCount) * 100 : 0;
+                    if (percent === 0) return null;
+                    const bgClass = status === 'AVAILABLE' ? 'bg-green-500' :
+                                    status === 'IN_USE' ? 'bg-blue-550' :
+                                    status === 'BROKEN' ? 'bg-red-550' :
+                                    status === 'MAINTENANCE' ? 'bg-yellow-500' : 'bg-gray-500';
+                    return (
+                      <div 
+                        key={status} 
+                        style={{ width: `${percent}%` }} 
+                        className={`${bgClass} h-full`}
+                        title={`${config.label}: ${count} (${Math.round(percent)}%)`}
+                      />
+                    );
+                  })}
+                </div>
+                {/* Legend */}
+                <div className="grid grid-cols-2 gap-2 text-[10px] pt-1">
+                  {Object.entries(statusConfig).map(([status, config]) => {
+                    const count = statusCounts[status] || 0;
+                    const bgClass = status === 'AVAILABLE' ? 'bg-green-500' :
+                                    status === 'IN_USE' ? 'bg-blue-500' :
+                                    status === 'BROKEN' ? 'bg-red-500' :
+                                    status === 'MAINTENANCE' ? 'bg-yellow-500' : 'bg-gray-500';
+                    return (
+                      <div key={status} className="flex items-center gap-1.5 text-gray-400">
+                        <span className={`w-2 h-2 rounded-full ${bgClass}`} />
+                        <span>{config.label} ({count})</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Location Distribution Widget */}
+            <div className="lg:col-span-2 rounded-2xl border border-gray-800 bg-[#282c34] p-5 shadow-xl space-y-4">
+              <div className="flex justify-between items-center">
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Location Sebaran Aset</h4>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-violet-500/10 text-violet-400 border border-violet-500/20 font-bold">Top Locations</span>
+              </div>
+              <div className="space-y-3">
+                <div className="flex h-3 w-full rounded-full bg-gray-850 overflow-hidden">
+                  {sortedLocations.map(([loc, count], idx) => {
+                    const percent = totalAssetsCount > 0 ? (count / totalAssetsCount) * 100 : 0;
+                    return (
+                      <div 
+                        key={loc}
+                        style={{ width: `${percent}%` }}
+                        className={`${colorsPalette[idx % colorsPalette.length]} h-full`}
+                        title={`${loc}: ${count} assets`}
+                      />
+                    );
+                  })}
+                  {/* Remainder as other */}
+                  {(() => {
+                    const topSum = sortedLocations.reduce((sum, [, count]) => sum + count, 0);
+                    const remainder = totalAssetsCount - topSum;
+                    const percent = totalAssetsCount > 0 ? (remainder / totalAssetsCount) * 100 : 0;
+                    if (percent <= 0) return null;
+                    return (
+                      <div 
+                        style={{ width: `${percent}%` }}
+                        className="bg-gray-700 h-full"
+                        title={`Lainnya: ${remainder} assets`}
+                      />
+                    );
+                  })()}
+                </div>
+
+                <div className="flex flex-wrap gap-x-4 gap-y-2 text-[10px] text-gray-400 pt-1">
+                  {sortedLocations.map(([loc, count], idx) => (
+                    <div key={loc} className="flex items-center gap-1.5 font-medium">
+                      <span className={`w-2.5 h-2.5 rounded ${colorsPalette[idx % colorsPalette.length]}`} />
+                      <span className="font-semibold text-gray-300">{loc}</span>
+                      <span>({count})</span>
+                    </div>
+                  ))}
+                  {(() => {
+                    const topSum = sortedLocations.reduce((sum, [, count]) => sum + count, 0);
+                    const remainder = totalAssetsCount - topSum;
+                    if (remainder <= 0) return null;
+                    return (
+                      <div className="flex items-center gap-1.5 font-medium">
+                        <span className="w-2.5 h-2.5 rounded bg-gray-700" />
+                        <span className="font-semibold text-gray-300">Lainnya</span>
+                        <span>({remainder})</span>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Stats */}
           <div className="mb-6 grid grid-cols-2 md:grid-cols-5 gap-4">
             {Object.entries(statusConfig).map(([status, config]) => (
@@ -557,9 +965,26 @@ export default function AssetsPage() {
               </button>
             )}
             {canManage && (
-              <button onClick={() => setShowCreate(true)} className="flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-xs font-medium text-white hover:bg-violet-500 transition-colors">
-                <Plus size={12} /> Add Asset
-              </button>
+              <div className="flex gap-2">
+                <label className="flex items-center gap-1.5 rounded-lg bg-gray-800 border border-gray-700 px-3 py-2 text-xs font-semibold text-gray-300 hover:text-white hover:bg-gray-700 transition-colors cursor-pointer">
+                  📥 Import CSV
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={handleImportAssetsCSV}
+                    className="hidden"
+                  />
+                </label>
+                <button
+                  onClick={handleExportAssetsCSV}
+                  className="flex items-center gap-1.5 rounded-lg bg-gray-800 border border-gray-700 px-3 py-2 text-xs font-semibold text-gray-300 hover:text-white hover:bg-gray-700 transition-colors cursor-pointer"
+                >
+                  📤 Export CSV
+                </button>
+                <button onClick={() => setShowCreate(true)} className="flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-xs font-medium text-white hover:bg-violet-500 transition-colors cursor-pointer">
+                  <Plus size={12} /> Add Asset
+                </button>
+              </div>
             )}
           </div>
 
@@ -689,15 +1114,32 @@ export default function AssetsPage() {
               </button>
             </div>
             {hasRole(['ROOT', 'ADMIN', 'MANAGER']) && (
-              <button 
-                onClick={() => {
-                  setMasterForm({ name: '', sku: '', unit: 'pcs', location: 'Warehouse', minStock: 5, description: '' });
-                  setShowAddMaster(true);
-                }} 
-                className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-500 transition-colors shadow-md shadow-blue-950/20"
-              >
-                <Plus size={12} /> Register Master Item
-              </button>
+              <div className="flex gap-2">
+                <label className="flex items-center gap-1.5 rounded-lg bg-gray-800 border border-gray-700 px-3 py-2 text-xs font-semibold text-gray-300 hover:text-white hover:bg-gray-700 transition-colors cursor-pointer">
+                  📥 Import CSV
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={handleImportInventoryCSV}
+                    className="hidden"
+                  />
+                </label>
+                <button
+                  onClick={handleExportInventoryCSV}
+                  className="flex items-center gap-1.5 rounded-lg bg-gray-800 border border-gray-700 px-3 py-2 text-xs font-semibold text-gray-300 hover:text-white hover:bg-gray-700 transition-colors cursor-pointer"
+                >
+                  📤 Export CSV
+                </button>
+                <button 
+                  onClick={() => {
+                    setMasterForm({ name: '', sku: '', unit: 'pcs', location: 'Warehouse', minStock: 5, description: '' });
+                    setShowAddMaster(true);
+                  }} 
+                  className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-500 transition-colors shadow-md shadow-blue-950/20 cursor-pointer"
+                >
+                  <Plus size={12} /> Register Master Item
+                </button>
+              </div>
             )}
             <button 
               onClick={() => setShowDirectBon(true)} 
@@ -947,11 +1389,41 @@ export default function AssetsPage() {
             <div className="grid grid-cols-2 gap-3">
               <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Asset name *"
                 className="col-span-2 rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500" />
-              <input value={form.brand} onChange={e => setForm({ ...form, brand: e.target.value })} placeholder="Brand"
-                className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500" />
-              <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}
-                className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white outline-none">
+              <select
+                value={form.brand}
+                onChange={e => {
+                  if (e.target.value === '__ADD_NEW__') {
+                    const newBrand = prompt('Masukkan nama merek baru:');
+                    if (newBrand && newBrand.trim()) {
+                      addMasterDataItem('BRAND', newBrand.trim()).then(() => setForm({ ...form, brand: newBrand.trim() })).catch(() => {});
+                    }
+                  } else {
+                    setForm({ ...form, brand: e.target.value });
+                  }
+                }}
+                className="rounded-lg border border-gray-700 bg-[#1e2028] px-3 py-2 text-sm text-white outline-none"
+              >
+                <option value="">Pilih merek...</option>
+                {brandOptions.map(b => <option key={b} value={b}>{b}</option>)}
+                <option value="__ADD_NEW__">＋ Tambah Merek Baru...</option>
+              </select>
+              <select
+                value={form.type}
+                onChange={e => {
+                  if (e.target.value === '__ADD_NEW__') {
+                    const newType = prompt('Masukkan tipe aset baru:');
+                    if (newType && newType.trim()) {
+                      addMasterDataItem('ASSET_TYPE', newType.trim()).then(() => setForm({ ...form, type: newType.trim() })).catch(() => {});
+                    }
+                  } else {
+                    setForm({ ...form, type: e.target.value });
+                  }
+                }}
+                className="rounded-lg border border-gray-700 bg-[#1e2028] px-3 py-2 text-sm text-white outline-none"
+              >
+                <option value="">Pilih tipe...</option>
                 {assetTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                <option value="__ADD_NEW__">＋ Tambah Tipe Baru...</option>
               </select>
               <div className="relative">
                 <input value={form.serialNumber} onChange={e => setForm({ ...form, serialNumber: e.target.value })} placeholder="Serial Number"
@@ -959,18 +1431,50 @@ export default function AssetsPage() {
                 <button
                   type="button"
                   onClick={() => setScanTarget('form-sn')}
-                  className="absolute right-3 top-2.5 text-gray-500 hover:text-white transition-colors"
+                  className="absolute right-3 top-2.5 text-gray-500 hover:text-white transition-colors cursor-pointer"
                   title="Scan Serial Number"
                 >
                   <Camera size={14} />
                 </button>
               </div>
-              <input value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} placeholder="Location"
-                className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500" />
+              <select
+                value={form.location}
+                onChange={e => {
+                  if (e.target.value === '__ADD_NEW__') {
+                    const newLoc = prompt('Masukkan lokasi baru:');
+                    if (newLoc && newLoc.trim()) {
+                      addLocation(newLoc.trim()).then(() => setForm({ ...form, location: newLoc.trim() })).catch(() => {});
+                    }
+                  } else {
+                    setForm({ ...form, location: e.target.value });
+                  }
+                }}
+                className="rounded-lg border border-gray-700 bg-[#1e2028] px-3 py-2 text-sm text-white outline-none"
+              >
+                <option value="">Pilih lokasi...</option>
+                {locationOptions.map(l => <option key={l} value={l}>{l}</option>)}
+                <option value="__ADD_NEW__">＋ Tambah Lokasi Baru...</option>
+              </select>
               <input value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} placeholder="Price" type="number"
                 className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500" />
-              <input value={form.vendor} onChange={e => setForm({ ...form, vendor: e.target.value })} placeholder="Vendor"
-                className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500" />
+              <select
+                value={form.vendor}
+                onChange={e => {
+                  if (e.target.value === '__ADD_NEW__') {
+                    const newVendor = prompt('Masukkan vendor baru:');
+                    if (newVendor && newVendor.trim()) {
+                      addMasterDataItem('VENDOR', newVendor.trim()).then(() => setForm({ ...form, vendor: newVendor.trim() })).catch(() => {});
+                    }
+                  } else {
+                    setForm({ ...form, vendor: e.target.value });
+                  }
+                }}
+                className="rounded-lg border border-gray-700 bg-[#1e2028] px-3 py-2 text-sm text-white outline-none"
+              >
+                <option value="">Pilih vendor...</option>
+                {vendorOptions.map(v => <option key={v} value={v}>{v}</option>)}
+                <option value="__ADD_NEW__">＋ Tambah Vendor Baru...</option>
+              </select>
             </div>
             <p className="mt-3 mb-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">Specifications (optional)</p>
             <div className="grid grid-cols-2 gap-3">
@@ -1462,13 +1966,39 @@ export default function AssetsPage() {
                     className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-1.5 text-xs text-white outline-none">
                     {Object.entries(statusConfig).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                   </select>
+                  <select
+                    value={selected.location || ''}
+                    onChange={async (e) => {
+                      const newLoc = e.target.value;
+                      if (newLoc === selected.location) return;
+                      const reason = prompt('Masukkan alasan pemindahan lokasi aset:');
+                      if (reason !== null) {
+                        try {
+                          await updateAsset(selected.id, { 
+                            location: newLoc,
+                            _relocationReason: reason.trim() || 'Location updated'
+                          } as any);
+                          setSelected({ ...selected, location: newLoc });
+                          toast.success(`Aset berhasil dipindahkan ke "${newLoc}"`);
+                        } catch (err) {
+                          toast.error('Gagal memindahkan lokasi aset');
+                        }
+                      }
+                    }}
+                    className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-1.5 text-xs text-white outline-none"
+                  >
+                    <option value="">Pilih lokasi...</option>
+                    {locationOptions.map(l => (
+                      <option key={l} value={l}>{l}</option>
+                    ))}
+                  </select>
                   <button onClick={() => handlePrintLabels([selected])}
-                    className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 transition-colors shadow">
+                    className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500 transition-colors shadow cursor-pointer">
                     Print Label
                   </button>
                 </div>
                 <button onClick={() => { deleteAsset(selected.id); setSelected(null); }}
-                  className="rounded-lg bg-red-600/20 px-3 py-1.5 text-xs text-red-400 hover:bg-red-600/30">Delete</button>
+                  className="rounded-lg bg-red-600/20 px-3 py-1.5 text-xs text-red-400 hover:bg-red-600/30 cursor-pointer">Delete</button>
               </div>
             )}
           </div>
@@ -2192,13 +2722,49 @@ export default function AssetsPage() {
                 </div>
                 <div>
                   <label className="block font-bold text-gray-400 uppercase mb-2">Unit (Satuan)</label>
-                  <input required type="text" value={masterForm.unit} onChange={e => setMasterForm({...masterForm, unit: e.target.value})} placeholder="e.g. pcs, box, roll" className="w-full rounded-xl border border-gray-800 bg-gray-950 px-4 py-2 text-white outline-none focus:border-violet-500" />
+                  <select
+                    required
+                    value={masterForm.unit}
+                    onChange={e => {
+                      if (e.target.value === '__ADD_NEW__') {
+                        const newUnit = prompt('Masukkan satuan baru:');
+                        if (newUnit && newUnit.trim()) {
+                          addMasterDataItem('UNIT', newUnit.trim()).then(() => setMasterForm({...masterForm, unit: newUnit.trim()})).catch(() => {});
+                        }
+                      } else {
+                        setMasterForm({...masterForm, unit: e.target.value});
+                      }
+                    }}
+                    className="w-full rounded-xl border border-gray-800 bg-gray-950 px-3 py-2 text-white outline-none focus:border-violet-500"
+                  >
+                    <option value="">Pilih satuan...</option>
+                    {unitOptions.map(u => <option key={u} value={u}>{u}</option>)}
+                    <option value="__ADD_NEW__">＋ Tambah Satuan Baru...</option>
+                  </select>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block font-bold text-gray-400 uppercase mb-2">Location</label>
-                  <input required type="text" value={masterForm.location} onChange={e => setMasterForm({...masterForm, location: e.target.value})} placeholder="e.g. Warehouse A" className="w-full rounded-xl border border-gray-800 bg-gray-950 px-4 py-2 text-white outline-none focus:border-violet-500" />
+                  <select
+                    required
+                    value={masterForm.location}
+                    onChange={e => {
+                      if (e.target.value === '__ADD_NEW__') {
+                        const newLoc = prompt('Masukkan lokasi baru:');
+                        if (newLoc && newLoc.trim()) {
+                          addLocation(newLoc.trim()).then(() => setMasterForm({...masterForm, location: newLoc.trim()})).catch(() => {});
+                        }
+                      } else {
+                        setMasterForm({...masterForm, location: e.target.value});
+                      }
+                    }}
+                    className="w-full rounded-xl border border-gray-800 bg-gray-950 px-3 py-2 text-white outline-none focus:border-violet-500"
+                  >
+                    <option value="">Pilih lokasi...</option>
+                    {locationOptions.map(l => <option key={l} value={l}>{l}</option>)}
+                    <option value="__ADD_NEW__">＋ Tambah Lokasi Baru...</option>
+                  </select>
                 </div>
                 <div>
                   <label className="block font-bold text-gray-400 uppercase mb-2">Min Stock</label>
@@ -2246,13 +2812,49 @@ export default function AssetsPage() {
                 </div>
                 <div>
                   <label className="block font-bold text-gray-400 uppercase mb-2">Unit (Satuan)</label>
-                  <input required type="text" value={masterForm.unit} onChange={e => setMasterForm({...masterForm, unit: e.target.value})} className="w-full rounded-xl border border-gray-800 bg-gray-950 px-4 py-2 text-white outline-none focus:border-violet-500" />
+                  <select
+                    required
+                    value={masterForm.unit}
+                    onChange={e => {
+                      if (e.target.value === '__ADD_NEW__') {
+                        const newUnit = prompt('Masukkan satuan baru:');
+                        if (newUnit && newUnit.trim()) {
+                          addMasterDataItem('UNIT', newUnit.trim()).then(() => setMasterForm({...masterForm, unit: newUnit.trim()})).catch(() => {});
+                        }
+                      } else {
+                        setMasterForm({...masterForm, unit: e.target.value});
+                      }
+                    }}
+                    className="w-full rounded-xl border border-gray-800 bg-gray-950 px-3 py-2 text-white outline-none focus:border-violet-500"
+                  >
+                    <option value="">Pilih satuan...</option>
+                    {unitOptions.map(u => <option key={u} value={u}>{u}</option>)}
+                    <option value="__ADD_NEW__">＋ Tambah Satuan Baru...</option>
+                  </select>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block font-bold text-gray-400 uppercase mb-2">Location</label>
-                  <input required type="text" value={masterForm.location} onChange={e => setMasterForm({...masterForm, location: e.target.value})} className="w-full rounded-xl border border-gray-800 bg-gray-950 px-4 py-2 text-white outline-none focus:border-violet-500" />
+                  <select
+                    required
+                    value={masterForm.location}
+                    onChange={e => {
+                      if (e.target.value === '__ADD_NEW__') {
+                        const newLoc = prompt('Masukkan lokasi baru:');
+                        if (newLoc && newLoc.trim()) {
+                          addLocation(newLoc.trim()).then(() => setMasterForm({...masterForm, location: newLoc.trim()})).catch(() => {});
+                        }
+                      } else {
+                        setMasterForm({...masterForm, location: e.target.value});
+                      }
+                    }}
+                    className="w-full rounded-xl border border-gray-800 bg-gray-950 px-3 py-2 text-white outline-none focus:border-violet-500"
+                  >
+                    <option value="">Pilih lokasi...</option>
+                    {locationOptions.map(l => <option key={l} value={l}>{l}</option>)}
+                    <option value="__ADD_NEW__">＋ Tambah Lokasi Baru...</option>
+                  </select>
                 </div>
                 <div>
                   <label className="block font-bold text-gray-400 uppercase mb-2">Min Stock</label>

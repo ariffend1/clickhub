@@ -22,6 +22,7 @@ export interface User {
   department?: string;
   phone?: string;
   isActive: boolean;
+  title?: string;
 }
 
 export interface Comment {
@@ -96,12 +97,13 @@ export interface Activity {
 
 export interface Notification {
   id: string;
-  type: 'assigned' | 'commented' | 'mentioned' | 'due_soon' | 'status_changed' | 'ticket_assigned' | 'asset_alert';
+  type: any;
   title: string;
   message: string;
   taskId?: string;
   ticketId?: string;
   read: boolean;
+  link?: string;
   createdAt: string;
 }
 

@@ -100,6 +100,8 @@ interface AppState {
   auditLogs: AuditLog[];
   directoryCategories: DirectoryCategory[];
   directoryEntries: DirectoryEntry[];
+  locations: { id: string; name: string; isVerified?: boolean; requestedById?: string; createdAt?: string }[];
+  masterData: { id: string; category: string; name: string; isVerified?: boolean; requestedById?: string; createdAt?: string }[];
   activePage: ActivePage;
   selectedSpaceId: string | null;
   selectedListId: string | null;
@@ -179,7 +181,7 @@ interface AppState {
   addEquipmentCheckout: (data: { items: { assetId: string | null; inventoryId: string | null; quantity: number }[]; purpose: string; expectedReturn: string }) => Promise<void>;
   approveEquipmentCheckout: (id: string) => Promise<void>;
   returnEquipmentItem: (checkoutId: string, itemId: string, condition: 'GOOD' | 'DAMAGED' | 'BROKEN', notes: string) => Promise<void>;
-  adminAddUser: (name: string, email: string, password: string, role: UserRole, department?: string, phone?: string) => Promise<{ success: boolean; error?: string }>;
+  adminAddUser: (name: string, email: string, password: string, role: UserRole, department?: string, phone?: string, title?: string) => Promise<{ success: boolean; error?: string }>;
   addGoodsReceipt: (data: { receiptNumber: string; purchaseRequestId: string | null; itemName: string; quantityOrdered: number; quantityReceived: number; destinationType: 'ASSET' | 'INVENTORY'; inventoryId?: string | null; assetId?: string | null; condition: 'GOOD' | 'DAMAGED' | 'INCOMPLETE'; notes?: string; assetSerialNumber?: string | null; assetLocation?: string | null; price?: number }) => Promise<void>;
   addInventoryMaster: (data: { name: string; sku: string; unit: string; location: string; minStock: number; description?: string }) => Promise<void>;
   updateInventoryMaster: (id: string, updates: Partial<{ name: string; sku: string; unit: string; location: string; minStock: number; description?: string }>) => Promise<void>;
@@ -193,6 +195,7 @@ interface AppState {
   deleteDirectoryCategory: (id: string) => Promise<void>;
   addDirectoryCategory: (name: string) => Promise<DirectoryCategory>;
   addAuditLog: (action: string, details: string) => void;
+  addGranularAuditLog: (action: string, entityType: string, entityName: string, changes: { field: string; oldValue: any; newValue: any }[]) => void;
   markNotificationRead: (id: string) => Promise<void>;
   markAllNotificationsRead: () => Promise<void>;
   clearNotifications: () => Promise<void>;
@@ -235,6 +238,15 @@ interface AppState {
   submitChecklist: (taskId: string, templateId: string, values: { itemId: string; value: 'OK' | 'FAIL'; notes?: string }[]) => Promise<void>;
   addTicketHelper: (ticketId: string, helperId: string) => Promise<void>;
   requestAssigneeChange: (ticketId: string, reason: string) => Promise<void>;
+  addLocation: (name: string) => Promise<void>;
+  deleteLocation: (id: string) => Promise<void>;
+  verifyLocation: (id: string) => Promise<void>;
+  addMasterDataItem: (category: string, name: string) => Promise<void>;
+  deleteMasterDataItem: (id: string) => Promise<void>;
+  verifyMasterDataItem: (id: string) => Promise<void>;
+  updateUserTitle: (userId: string, title: string) => Promise<void>;
+  bulkAddAssets: (assets: any[]) => Promise<void>;
+  bulkAddInventories: (items: any[]) => Promise<void>;
 }
 
 const defaultUsers: User[] = [
@@ -461,6 +473,8 @@ export const useStore = create<AppState>()(
       systemLogoBase64: '',
       checklistTemplates: [],
       checklistSubmissions: [],
+      locations: [],
+      masterData: [],
 
       // SUPABASE LOAD DATA
       loadAllData: async () => {
@@ -495,7 +509,9 @@ export const useStore = create<AppState>()(
             dbAttachments,
             dbDirCategories,
             dbDirEntries,
-            dbAuditLogs
+            dbAuditLogs,
+            dbLocations,
+            dbMasterData
           ] = await Promise.all([
             userService.getUsers().catch(e => { console.error("Error loading users:", e); return []; }),
             taskService.getSpaces().catch(e => { console.error("Error loading spaces:", e); return []; }),
@@ -517,7 +533,9 @@ export const useStore = create<AppState>()(
             ticketService.getAttachments().catch(e => { console.error("Error loading attachments:", e); return []; }),
             assetService.getDirectoryCategories().catch(e => { console.error("Error loading dir categories:", e); return []; }),
             assetService.getDirectoryEntries().catch(e => { console.error("Error loading dir entries:", e); return []; }),
-            userService.getAuditLogs().catch(e => { console.error("Error loading audit logs:", e); return []; })
+            userService.getAuditLogs().catch(e => { console.error("Error loading audit logs:", e); return []; }),
+            assetService.getLocations().catch(e => { console.error("Error loading locations:", e); return []; }),
+            assetService.getMasterData().catch(e => { console.error("Error loading master data:", e); return []; })
           ]);
 
           const taskIds = (dbTasks || []).map(t => t.id);
@@ -548,7 +566,8 @@ export const useStore = create<AppState>()(
             role: u.role as UserRole,
             department: u.department || 'IT',
             phone: u.phone || '',
-            isActive: !u.isBlocked
+            isActive: !u.isBlocked,
+            title: u.title || ''
           }));
 
           const mappedSpaces = (dbSpaces || []).map(s => ({
@@ -772,7 +791,9 @@ export const useStore = create<AppState>()(
               details: log.details || '',
               userId: log.userId,
               createdAt: log.createdAt
-            }))
+            })),
+            locations: dbLocations || [],
+            masterData: dbMasterData || []
           });
 
           // Run PM Scheduler Logic
@@ -1377,7 +1398,8 @@ export const useStore = create<AppState>()(
               role: dbUser.role as UserRole,
               department: dbUser.department || 'IT',
               phone: dbUser.phone || '',
-              isActive: !dbUser.isBlocked
+              isActive: !dbUser.isBlocked,
+              title: dbUser.title || ''
             };
             set({ currentUser: mappedUser });
             await get().loadAllData();
@@ -1401,7 +1423,8 @@ export const useStore = create<AppState>()(
                 role: dbUser.role as UserRole,
                 department: dbUser.department || 'IT',
                 phone: dbUser.phone || '',
-                isActive: !dbUser.isBlocked
+                isActive: !dbUser.isBlocked,
+                title: dbUser.title || ''
               };
               set({ currentUser: mappedUser });
               await get().loadAllData();
@@ -1460,7 +1483,7 @@ export const useStore = create<AppState>()(
         }
       },
 
-      adminAddUser: async (name, email, password, role, department, phone) => {
+      adminAddUser: async (name, email, password, role, department, phone, title) => {
         const colors = ['#7C3AED', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#EF4444'];
         const randomColor = colors[Math.floor(Math.random() * colors.length)];
         const userId = uuidv4();
@@ -1480,7 +1503,8 @@ export const useStore = create<AppState>()(
             role: role || 'EMPLOYEE',
             department: department || 'IT',
             phone: phone || '',
-            isActive: true
+            isActive: true,
+            title: title || ''
           };
           const { password: _, ...userWithoutPassword } = newUser;
           set({
@@ -1499,6 +1523,7 @@ export const useStore = create<AppState>()(
           department: department || 'IT',
           phone: phone || '',
           isBlocked: false,
+          title: title || '',
           createdAt: now,
           updatedAt: now
         };
@@ -2437,7 +2462,44 @@ export const useStore = create<AppState>()(
         });
       },
       updateAsset: async (id, updates) => {
-        get().addAuditLog('ASSET_UPDATED', `Asset updated`);
+        const existingAsset = get().assets.find(a => a.id === id);
+        if (existingAsset) {
+          const changedFields: { field: string; oldValue: any; newValue: any }[] = [];
+          if (updates.name !== undefined && updates.name !== existingAsset.name) changedFields.push({ field: 'Nama', oldValue: existingAsset.name, newValue: updates.name });
+          if (updates.brand !== undefined && updates.brand !== existingAsset.brand) changedFields.push({ field: 'Merek', oldValue: existingAsset.brand, newValue: updates.brand });
+          if (updates.type !== undefined && updates.type !== existingAsset.type) changedFields.push({ field: 'Tipe', oldValue: existingAsset.type, newValue: updates.type });
+          if (updates.location !== undefined && updates.location !== existingAsset.location) {
+            changedFields.push({ field: 'Lokasi', oldValue: existingAsset.location, newValue: updates.location });
+            
+            // Record relocation
+            const relocPayload = {
+              id: uuidv4(),
+              assetId: id,
+              fromLocation: existingAsset.location || '',
+              toLocation: updates.location,
+              reason: (updates as any)._relocationReason || 'Update Lokasi',
+              relocatedById: get().currentUser?.id || '',
+              relocatedAt: new Date().toISOString()
+            };
+            try {
+              await assetService.insertRelocationHistory(relocPayload);
+            } catch (e) {
+              console.error('Relocation history insert error:', e);
+            }
+          }
+          if (updates.status !== undefined && updates.status !== existingAsset.status) changedFields.push({ field: 'Status', oldValue: existingAsset.status, newValue: updates.status });
+          if (updates.price !== undefined && updates.price !== existingAsset.price) changedFields.push({ field: 'Harga', oldValue: existingAsset.price, newValue: updates.price });
+          if (updates.vendor !== undefined && updates.vendor !== existingAsset.vendor) changedFields.push({ field: 'Vendor', oldValue: existingAsset.vendor, newValue: updates.vendor });
+
+          if (changedFields.length > 0 && typeof (get() as any).addGranularAuditLog === 'function') {
+            (get() as any).addGranularAuditLog('ASSET_UPDATED', 'Aset', existingAsset.name, changedFields);
+          } else {
+            get().addAuditLog('ASSET_UPDATED', `Aset "${existingAsset.name}" diupdate`);
+          }
+        } else {
+          get().addAuditLog('ASSET_UPDATED', `Asset updated`);
+        }
+
         set({ assets: get().assets.map(a => a.id === id ? { ...a, ...updates, updatedAt: new Date().toISOString() } : a) });
 
         const dbUpdates: any = {};
@@ -2573,6 +2635,7 @@ export const useStore = create<AppState>()(
               message: `${inv.name} stock is low: ${newQty} ${inv.unit} left (minimum threshold is ${inv.minStock}).`,
               type: 'STOCK_ALERT',
               isRead: false,
+              link: `/assets?tab=requests&action=restock&inventoryId=${inv.id}&itemName=${encodeURIComponent(inv.name)}&quantity=${inv.minStock * 2 - newQty}`,
               createdAt: new Date().toISOString()
             }));
             if (newDbNotifs.length > 0) {
@@ -3379,6 +3442,7 @@ export const useStore = create<AppState>()(
                     message: `${inv.name} stock is low: ${newQty} ${inv.unit} left (minimum threshold is ${inv.minStock}).`,
                     type: 'STOCK_ALERT',
                     isRead: false,
+                    link: `/assets?tab=requests&action=restock&inventoryId=${inv.id}&itemName=${encodeURIComponent(inv.name)}&quantity=${inv.minStock * 2 - newQty}`,
                     createdAt: new Date().toISOString()
                   }));
                   if (newDbNotifs.length > 0) {
@@ -3566,13 +3630,21 @@ export const useStore = create<AppState>()(
 
       addInventoryMaster: async (data) => {
         const cu = get().currentUser; if (!cu) return;
+        
+        // SKU uniqueness validation
+        const duplicateSku = get().inventories.find(i => i.sku.toLowerCase() === data.sku.trim().toLowerCase());
+        if (duplicateSku) {
+          throw new Error(`SKU "${data.sku}" sudah digunakan oleh item "${duplicateSku.name}". Masukkan SKU yang unik.`);
+        }
+
         const now = new Date().toISOString();
         const newId = uuidv4();
         const newItem = {
           id: newId,
           name: data.name,
-          sku: data.sku,
+          sku: data.sku.trim(),
           quantity: 0,
+          quantityInService: 0,
           minStock: data.minStock || 5,
           unit: data.unit || 'pcs',
           location: data.location || 'Warehouse',
@@ -3585,28 +3657,65 @@ export const useStore = create<AppState>()(
 
         set({ inventories: [...get().inventories, newItem] });
         await get().enqueueWrite('Inventory', 'insert', newItem);
-        get().addAuditLog('INVENTORY_MASTER_CREATED', `Master item "${newItem.name}" registered`);
+        get().addAuditLog('INVENTORY_MASTER_CREATED', `Item master "${newItem.name}" terdaftar`);
       },
 
       updateInventoryMaster: async (id, updates) => {
+        const existingItem = get().inventories.find(i => i.id === id);
+        if (!existingItem) throw new Error('Item master tidak ditemukan.');
+
+        // SKU uniqueness validation if SKU changes
+        if (updates.sku !== undefined && updates.sku.trim().toLowerCase() !== existingItem.sku.toLowerCase()) {
+          const duplicateSku = get().inventories.find(i => i.id !== id && i.sku.toLowerCase() === updates.sku!.trim().toLowerCase());
+          if (duplicateSku) {
+            throw new Error(`SKU "${updates.sku}" sudah digunakan oleh item "${duplicateSku.name}". Masukkan SKU yang unik.`);
+          }
+        }
+
         const now = new Date().toISOString();
         const previousInventories = get().inventories;
 
         set({
-          inventories: get().inventories.map(i => i.id === id ? { ...i, ...updates, updatedAt: now } : i)
+          inventories: get().inventories.map(i => i.id === id ? { ...i, ...updates, sku: updates.sku ? updates.sku.trim() : i.sku, updatedAt: now } : i)
         });
 
         try {
           const dbUpdates: any = { updatedAt: now };
-          if (updates.name !== undefined) dbUpdates.name = updates.name;
-          if (updates.sku !== undefined) dbUpdates.sku = updates.sku;
-          if (updates.unit !== undefined) dbUpdates.unit = updates.unit;
-          if (updates.location !== undefined) dbUpdates.location = updates.location;
-          if (updates.minStock !== undefined) dbUpdates.minStock = updates.minStock;
-          if (updates.description !== undefined) dbUpdates.description = updates.description;
+          const changedFields: { field: string; oldValue: any; newValue: any }[] = [];
+
+          if (updates.name !== undefined) {
+            if (updates.name !== existingItem.name) changedFields.push({ field: 'Nama', oldValue: existingItem.name, newValue: updates.name });
+            dbUpdates.name = updates.name;
+          }
+          if (updates.sku !== undefined) {
+            const trimmedSku = updates.sku.trim();
+            if (trimmedSku !== existingItem.sku) changedFields.push({ field: 'SKU', oldValue: existingItem.sku, newValue: trimmedSku });
+            dbUpdates.sku = trimmedSku;
+          }
+          if (updates.unit !== undefined) {
+            if (updates.unit !== existingItem.unit) changedFields.push({ field: 'Satuan', oldValue: existingItem.unit, newValue: updates.unit });
+            dbUpdates.unit = updates.unit;
+          }
+          if (updates.location !== undefined) {
+            if (updates.location !== existingItem.location) changedFields.push({ field: 'Lokasi', oldValue: existingItem.location, newValue: updates.location });
+            dbUpdates.location = updates.location;
+          }
+          if (updates.minStock !== undefined) {
+            if (updates.minStock !== existingItem.minStock) changedFields.push({ field: 'Batas Minimum', oldValue: existingItem.minStock, newValue: updates.minStock });
+            dbUpdates.minStock = updates.minStock;
+          }
+          if (updates.description !== undefined) {
+            if (updates.description !== existingItem.description) changedFields.push({ field: 'Deskripsi', oldValue: existingItem.description, newValue: updates.description });
+            dbUpdates.description = updates.description;
+          }
 
           await get().enqueueWrite('Inventory', 'update', dbUpdates, 'id', id);
-          get().addAuditLog('INVENTORY_MASTER_UPDATED', `Master item updated`);
+
+          if (changedFields.length > 0 && typeof (get() as any).addGranularAuditLog === 'function') {
+            (get() as any).addGranularAuditLog('INVENTORY_MASTER_UPDATED', 'Item Master', existingItem.name, changedFields);
+          } else {
+            get().addAuditLog('INVENTORY_MASTER_UPDATED', `Item master "${existingItem.name}" diperbarui`);
+          }
         } catch (error) {
           console.error("Failed to update inventory master. Rolling back.", error);
           set({ inventories: previousInventories });
@@ -3674,6 +3783,12 @@ export const useStore = create<AppState>()(
         } catch (e) {
           console.error("Error inserting audit log to Supabase:", e);
         }
+      },
+      addGranularAuditLog: (action, entityType, entityName, changes) => {
+        const cu = get().currentUser;
+        const changeDetails = changes.map(c => `${c.field}: "${c.oldValue !== null && c.oldValue !== undefined ? c.oldValue : '-'}" → "${c.newValue !== null && c.newValue !== undefined ? c.newValue : '-'}"`).join(', ');
+        const details = `${cu?.name || 'Sistem'} mengubah ${entityType} "${entityName}": ${changeDetails}`;
+        get().addAuditLog(action, details);
       },
       markNotificationRead: async (id) => {
         set({ notifications: get().notifications.map(n => n.id === id ? { ...n, read: true } : n) });
@@ -3815,8 +3930,9 @@ export const useStore = create<AppState>()(
             // 2. Create the Ticket and the Task
             const ticketId = uuidv4();
             const ticketNumber = ticketId.slice(0, 8).toUpperCase();
+            const assetName = get().assets.find(a => a.id === schedule.assetId)?.name || schedule.assetId;
             const ticketTitle = `PM: ${schedule.title} - ${scheduledDate.toLocaleDateString('id-ID')}`;
-            const ticketDescription = `Tugas pemeliharaan preventif otomatis.\nAset: ${get().assets.find(a => a.id === schedule.assetId)?.name || schedule.assetId}\nFrekuensi: ${schedule.frequency}\nDeskripsi: ${schedule.description || '-'}`;
+            const ticketDescription = `Tugas pemeliharaan preventif otomatis.\nAset: ${assetName}\nFrekuensi: ${schedule.frequency}\nDeskripsi: ${schedule.description || '-'}`;
             
             const newTicket: Ticket = {
               id: ticketId,
@@ -3923,14 +4039,225 @@ export const useStore = create<AppState>()(
               updatedAt: updatedSchedule.updatedAt
             }, 'id', schedule.id);
 
-            // 5. Trigger Telegram Alert
-            const assetName = get().assets.find(a => a.id === schedule.assetId)?.name || 'Aset';
             get().triggerTelegramAlert(
               `🔧 PM Otomatis Dipicu: ${schedule.title}`,
               `Boss, jadwal PM rutin "${schedule.title}" untuk aset **${assetName}** telah jatuh tempo. Tugas IT baru telah dibuat di papan tugas.`,
               'INFO'
             );
           }
+        }
+      },
+
+      addLocation: async (name) => {
+        const { currentUser } = get();
+        const canDirectAdd = currentUser && ['ROOT', 'SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(currentUser.role);
+        const payload = {
+          id: uuidv4(),
+          name,
+          isVerified: canDirectAdd ? true : false,
+          requestedById: currentUser?.id || null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        try {
+          const result = await assetService.insertLocation(payload);
+          set({ locations: [...get().locations, result || payload] });
+          get().addAuditLog('LOCATION_CREATED', `${currentUser?.name || 'User'} menambahkan lokasi "${name}"${canDirectAdd ? '' : ' (menunggu verifikasi)'}`);
+          if (!canDirectAdd) {
+            await get().triggerTelegramAlert(
+              '📍 Permintaan Lokasi Baru',
+              `Boss, ada pengajuan lokasi baru oleh **${currentUser?.name || 'User'}**:\n\n**Lokasi:** ${name}\n\nSilakan verifikasi di menu Admin.`,
+              'INFO'
+            );
+          }
+        } catch (e: any) {
+          console.error('Add location error:', e);
+          throw e;
+        }
+      },
+
+      deleteLocation: async (id) => {
+        try {
+          await assetService.deleteLocation(id);
+          const loc = get().locations.find(l => l.id === id);
+          set({ locations: get().locations.filter(l => l.id !== id) });
+          get().addAuditLog('LOCATION_DELETED', `Lokasi "${loc?.name || id}" dihapus`);
+        } catch (e: any) {
+          console.error('Delete location error:', e);
+          throw e;
+        }
+      },
+
+      verifyLocation: async (id) => {
+        try {
+          await assetService.updateLocation(id, { isVerified: true });
+          set({ locations: get().locations.map(l => l.id === id ? { ...l, isVerified: true } : l) });
+          const loc = get().locations.find(l => l.id === id);
+          get().addAuditLog('LOCATION_VERIFIED', `Lokasi "${loc?.name || id}" telah disetujui/diverifikasi`);
+        } catch (e: any) {
+          console.error('Verify location error:', e);
+          throw e;
+        }
+      },
+
+      addMasterDataItem: async (category, name) => {
+        const { currentUser } = get();
+        const canDirectAdd = currentUser && ['ROOT', 'SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(currentUser.role);
+        const payload = {
+          id: uuidv4(),
+          category,
+          name,
+          isVerified: canDirectAdd ? true : false,
+          requestedById: currentUser?.id || null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        try {
+          const result = await assetService.insertMasterData(payload);
+          set({ masterData: [...get().masterData, result || payload] });
+          const categoryLabels: Record<string, string> = { BRAND: 'Merek', VENDOR: 'Vendor', ASSET_TYPE: 'Tipe Aset', UNIT: 'Satuan' };
+          const categoryLabel = categoryLabels[category] || category;
+          get().addAuditLog('MASTER_DATA_CREATED', `${currentUser?.name || 'User'} menambahkan ${categoryLabel} "${name}"${canDirectAdd ? '' : ' (menunggu verifikasi)'}`);
+          if (!canDirectAdd) {
+            await get().triggerTelegramAlert(
+              `📋 Permintaan ${categoryLabel} Baru`,
+              `Boss, ada pengajuan ${categoryLabel} baru oleh **${currentUser?.name || 'User'}**:\n\n**Nama:** ${name}\n\nSilakan verifikasi di menu Admin.`,
+              'INFO'
+            );
+          }
+        } catch (e: any) {
+          console.error('Add master data item error:', e);
+          throw e;
+        }
+      },
+
+      deleteMasterDataItem: async (id) => {
+        try {
+          await assetService.deleteMasterData(id);
+          const item = get().masterData.find(m => m.id === id);
+          set({ masterData: get().masterData.filter(m => m.id !== id) });
+          get().addAuditLog('MASTER_DATA_DELETED', `Master data "${item?.name || id}" (${item?.category}) dihapus`);
+        } catch (e: any) {
+          console.error('Delete master data item error:', e);
+          throw e;
+        }
+      },
+
+      verifyMasterDataItem: async (id) => {
+        try {
+          await assetService.updateMasterData(id, { isVerified: true });
+          set({ masterData: get().masterData.map(m => m.id === id ? { ...m, isVerified: true } : m) });
+          const item = get().masterData.find(m => m.id === id);
+          get().addAuditLog('MASTER_DATA_VERIFIED', `Master data "${item?.name || id}" (${item?.category}) telah disetujui/diverifikasi`);
+        } catch (e: any) {
+          console.error('Verify master data item error:', e);
+          throw e;
+        }
+      },
+
+      updateUserTitle: async (userId, title) => {
+        try {
+          await userService.updateUser(userId, { title });
+          set({
+            users: get().users.map(u => u.id === userId ? { ...u, title } : u),
+            currentUser: get().currentUser?.id === userId ? { ...get().currentUser!, title } : get().currentUser
+          });
+          const targetUser = get().users.find(u => u.id === userId);
+          get().addAuditLog('USER_TITLE_UPDATED', `Jabatan/Title user "${targetUser?.name || userId}" diubah menjadi "${title}"`);
+        } catch (e: any) {
+          console.error('Update user title error:', e);
+          throw e;
+        }
+      },
+
+      bulkAddAssets: async (assetsList) => {
+        try {
+          const now = new Date().toISOString();
+          const mappedList = assetsList.map(a => ({
+            id: a.id || uuidv4(),
+            name: a.name || 'New Asset',
+            brand: a.brand || '',
+            type: a.type || 'Other',
+            serialNumber: a.serialNumber || uuidv4().slice(0, 8).toUpperCase(),
+            location: a.location || '',
+            status: a.status || 'AVAILABLE',
+            purchaseDate: a.purchaseDate || null,
+            price: Number(a.price) || 0,
+            vendor: a.vendor || '',
+            assignedToId: a.assignedToId || null,
+            specs: a.specs || {},
+            createdAt: now,
+            updatedAt: now
+          }));
+
+          set({ assets: [...get().assets, ...mappedList] });
+
+          for (const asset of mappedList) {
+            await get().enqueueWrite('Asset', 'insert', {
+              id: asset.id,
+              name: asset.name,
+              brand: asset.brand,
+              type: asset.type,
+              serialNumber: asset.serialNumber,
+              location: asset.location,
+              status: asset.status,
+              purchaseDate: asset.purchaseDate,
+              price: asset.price,
+              vendor: asset.vendor,
+              processor: asset.specs.processor || null,
+              ramSize: asset.specs.ram || null,
+              storageSize: asset.specs.storage || null,
+              osVersion: asset.specs.os || null,
+              ipAddress: asset.specs.ipAddress || null,
+              updatedAt: now
+            });
+          }
+
+          get().addAuditLog('ASSET_IMPORTED', `Berhasil mengimpor ${mappedList.length} aset secara massal via CSV`);
+        } catch (e) {
+          console.error('Bulk add assets error:', e);
+          throw e;
+        }
+      },
+
+      bulkAddInventories: async (itemsList) => {
+        try {
+          const cu = get().currentUser;
+          const now = new Date().toISOString();
+          const mappedList = itemsList.map(i => ({
+            id: i.id || uuidv4(),
+            name: i.name,
+            sku: i.sku || uuidv4().slice(0, 8).toUpperCase(),
+            quantity: Number(i.quantity) || 0,
+            quantityInService: 0,
+            minStock: Number(i.minStock) || 5,
+            unit: i.unit || 'pcs',
+            location: i.location || 'Warehouse',
+            description: i.description || '',
+            isVerified: true,
+            createdAt: now,
+            updatedAt: now,
+            createdById: cu?.id || null
+          }));
+
+          // Validate SKUs
+          for (const item of mappedList) {
+            const duplicateSku = get().inventories.find(inv => inv.sku.toLowerCase() === item.sku.toLowerCase());
+            if (duplicateSku) {
+              throw new Error(`SKU "${item.sku}" sudah digunakan oleh item "${duplicateSku.name}". Impor dibatalkan.`);
+            }
+          }
+
+          set({ inventories: [...get().inventories, ...mappedList] });
+
+          for (const item of mappedList) {
+            await get().enqueueWrite('Inventory', 'insert', item);
+          }
+
+          get().addAuditLog('INVENTORY_IMPORTED', `Berhasil mengimpor ${mappedList.length} item master secara massal via CSV`);
+        } catch (e) {
+          console.error('Bulk add inventories error:', e);
+          throw e;
         }
       },
 

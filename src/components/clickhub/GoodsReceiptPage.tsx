@@ -12,7 +12,9 @@ export default function GoodsReceiptPage() {
     stockRequests,
     inventories,
     addGoodsReceipt,
-    users
+    users,
+    locations,
+    addLocation
   } = useStore();
 
   const [showForm, setShowForm] = useState(false);
@@ -279,13 +281,32 @@ export default function GoodsReceiptPage() {
 
                   <div>
                     <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Location placement</label>
-                    <input
-                      type="text"
+                    <select
                       value={assetLocation}
-                      onChange={e => setAssetLocation(e.target.value)}
-                      placeholder="e.g. Server Room D"
-                      className="w-full rounded-xl border border-gray-800 bg-gray-950/60 px-4 py-2.5 text-xs text-white placeholder-gray-500 outline-none focus:border-violet-600 transition-colors"
-                    />
+                      onChange={e => {
+                        if (e.target.value === '__ADD_NEW__') {
+                          const newLoc = prompt('Masukkan nama lokasi baru:');
+                          if (newLoc && newLoc.trim()) {
+                            addLocation(newLoc.trim()).then(() => {
+                              setAssetLocation(newLoc.trim());
+                              toast.success('Lokasi baru diajukan untuk verifikasi');
+                            }).catch((err) => toast.error(err.message || 'Gagal menambahkan lokasi'));
+                          }
+                        } else {
+                          setAssetLocation(e.target.value);
+                        }
+                      }}
+                      className="w-full rounded-xl border border-gray-800 bg-gray-950 px-3 py-2.5 text-xs text-white outline-none focus:border-violet-500"
+                    >
+                      <option value="">Pilih lokasi...</option>
+                      {locations.filter((l: any) => l.isVerified !== false).map((loc: any) => (
+                        <option key={loc.id} value={loc.name}>{loc.name}</option>
+                      ))}
+                      {assetLocation && !locations.some((l: any) => l.name === assetLocation) && (
+                        <option value={assetLocation}>{assetLocation}</option>
+                      )}
+                      <option value="__ADD_NEW__">＋ Tambah Lokasi Baru...</option>
+                    </select>
                   </div>
                 </div>
               )}
