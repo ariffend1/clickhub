@@ -17,7 +17,7 @@ export default function CalendarView() {
   const days = eachDayOfInterval({ start: calStart, end: calEnd });
 
   return (
-    <div className="flex h-full flex-col p-6">
+    <div className="flex-1 min-h-0 flex flex-col p-6 overflow-y-auto">
       <div className="mb-6 flex items-center justify-between">
         <h2 className="text-xl font-bold text-white">{format(currentDate, 'MMMM yyyy')}</h2>
         <div className="flex items-center gap-2">

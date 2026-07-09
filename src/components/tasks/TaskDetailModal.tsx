@@ -4,6 +4,7 @@ import { cn } from '../../utils/cn';
 import { X, Trash2, Plus, ClipboardList, AlertTriangle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { TaskStatus, Priority } from '../../types';
+import { toast } from 'sonner';
 
 const statusOptions: { value: TaskStatus; label: string; color: string }[] = [
   { value: 'todo', label: 'To Do', color: 'bg-gray-400' },
@@ -26,7 +27,8 @@ export default function TaskDetailModal() {
     getTaskComments, addComment, getUserById,
     toggleSubtask, addSubtask, deleteSubtask, users, activities,
     currentUser, partRequests, inventories, addPartRequest,
-    checklistTemplates, checklistSubmissions, submitChecklist
+    checklistTemplates, checklistSubmissions, submitChecklist,
+    activePage, triggerTelegramAlert, addAuditLog, hasRole
   } = useStore();
 
   const task = tasks.find(t => t.id === selectedTaskId);
@@ -44,6 +46,32 @@ export default function TaskDetailModal() {
   const [checklistAnswers, setChecklistAnswers] = useState<Record<string, { value: 'OK' | 'FAIL'; notes: string }>>({});
 
   const isEmployee = currentUser?.role === 'EMPLOYEE';
+  const isAdmin = hasRole(['ROOT', 'SUPER_ADMIN', 'ADMIN', 'MANAGER']);
+  const isSharedSpace = activePage === 'spaces';
+  const canDeleteDirectly = isAdmin || !isSharedSpace;
+
+  const handleDeleteTask = async () => {
+    if (!task) return;
+    if (canDeleteDirectly) {
+      if (window.confirm(`Hapus tugas "${task.title}"?`)) {
+        await deleteTask(task.id);
+        setShowTaskModal(false);
+        toast.success(`Tugas "${task.title}" berhasil dihapus.`);
+      }
+    } else {
+      if (window.confirm(`Kirim permintaan hapus untuk tugas "${task.title}" ke Admin?`)) {
+        const taskNumber = task.id.slice(0, 8).toUpperCase();
+        await triggerTelegramAlert(
+          `🗑️ Permintaan Hapus Tugas: #${taskNumber}`,
+          `Boss, ada permintaan penghapusan tugas di Space oleh **${currentUser?.name || 'Staf'}**:\n\n**Tugas:** ${task.title}\n**Deskripsi:** ${task.description || '-'}\n\n*Persetujuan Admin diperlukan.*`,
+          'WARN'
+        );
+        addAuditLog('TASK_DELETE_REQUESTED', `Requested deletion for task "${task.title}"`);
+        setShowTaskModal(false);
+        toast.success(`Permintaan hapus tugas telah dikirim ke Admin.`);
+      }
+    }
+  };
 
   if (!task) return null;
 
@@ -113,9 +141,13 @@ export default function TaskDetailModal() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            {!isEmployee && (
-              <button onClick={() => { deleteTask(task.id); setShowTaskModal(false); }} className="rounded-lg p-1.5 text-gray-500 hover:bg-red-500/10 hover:text-red-400"><Trash2 size={16} /></button>
-            )}
+            <button 
+              onClick={handleDeleteTask} 
+              className="rounded-lg p-1.5 text-gray-500 hover:bg-red-500/10 hover:text-red-400"
+              title={canDeleteDirectly ? "Hapus Tugas" : "Minta Hapus Tugas"}
+            >
+              <Trash2 size={16} />
+            </button>
             <button onClick={() => setShowTaskModal(false)} className="rounded-lg p-1.5 text-gray-500 hover:text-white"><X size={18} /></button>
           </div>
         </div>

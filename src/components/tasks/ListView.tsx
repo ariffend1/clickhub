@@ -102,7 +102,7 @@ export default function ListView() {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   return (
-    <div className="h-full overflow-y-auto p-6">
+    <div className="flex-1 min-h-0 overflow-y-auto p-6">
       <table className="w-full">
         <thead>
           <tr className="border-b border-gray-700 text-left text-xs font-medium uppercase tracking-wider text-gray-500">

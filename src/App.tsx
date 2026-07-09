@@ -144,30 +144,30 @@ export default function App() {
         return hasRole(['ROOT', 'SUPER_ADMIN', 'ADMIN', 'MANAGER']) ? <AdminPage /> : <HomePage />;
       case 'my_tasks':
         return (
-          <>
+          <div className="flex flex-col h-full w-full overflow-hidden">
             <DashboardStats />
             {viewMode === 'board' && <BoardView />}
             {viewMode === 'list' && <ListView />}
             {viewMode === 'calendar' && <CalendarView />}
-          </>
+          </div>
         );
       case 'spaces':
         return !hasRole(['EMPLOYEE']) ? (
-          <>
+          <div className="flex flex-col h-full w-full overflow-hidden">
             <DashboardStats />
             {viewMode === 'board' && <BoardView />}
             {viewMode === 'list' && <ListView />}
             {viewMode === 'calendar' && <CalendarView />}
-          </>
+          </div>
         ) : <HomePage />;
       default:
         return (
-          <>
+          <div className="flex flex-col h-full w-full overflow-hidden">
             <DashboardStats />
             {viewMode === 'board' && <BoardView />}
             {viewMode === 'list' && <ListView />}
             {viewMode === 'calendar' && <CalendarView />}
-          </>
+          </div>
         );
     }
   };
