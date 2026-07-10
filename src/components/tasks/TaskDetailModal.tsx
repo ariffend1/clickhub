@@ -5,6 +5,7 @@ import { X, Trash2, Plus, ClipboardList, AlertTriangle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { TaskStatus, Priority } from '../../types';
 import { toast } from 'sonner';
+import SearchableDropdown from '../common/SearchableDropdown';
 
 const statusOptions: { value: TaskStatus; label: string; color: string }[] = [
   { value: 'todo', label: 'To Do', color: 'bg-gray-400' },
@@ -210,11 +211,20 @@ export default function TaskDetailModal() {
                           Claim Task
                         </button>
                       )}
-                      <select onChange={e => { if (e.target.value && !task.assigneeIds.includes(e.target.value)) updateTask(task.id, { assigneeIds: [...task.assigneeIds, e.target.value] }); e.target.value = ''; }}
-                        className="rounded-full border border-gray-700 bg-gray-800/50 px-2 py-1 text-xs text-gray-400 outline-none">
-                        <option value="">+ Add</option>
-                        {users.filter(u => !task.assigneeIds.includes(u.id)).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                      </select>
+                      <div className="w-32 shrink-0">
+                        <SearchableDropdown
+                          options={users.filter(u => !task.assigneeIds.includes(u.id)).map(u => ({
+                            value: u.id,
+                            label: u.name,
+                            sublabel: u.role
+                          }))}
+                          value=""
+                          onChange={val => { if (val) updateTask(task.id, { assigneeIds: [...task.assigneeIds, val] }); }}
+                          placeholder="+ Add Member"
+                          searchPlaceholder="Cari anggota tim..."
+                          emptyLabel="+ Add Member"
+                        />
+                      </div>
                     </>
                   )}
                 </div>
@@ -235,16 +245,17 @@ export default function TaskDetailModal() {
               {currentUser && ['ROOT', 'SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(currentUser.role) && (
                 <div className="mb-4">
                   <p className="mb-2 text-xs font-semibold uppercase text-gray-500">Inspection Checklist</p>
-                  <select
+                  <SearchableDropdown
+                    options={checklistTemplates.map(tpl => ({
+                      value: tpl.id,
+                      label: tpl.name
+                    }))}
                     value={task.checklistTemplateId || ''}
-                    onChange={e => updateTask(task.id, { checklistTemplateId: e.target.value || null })}
-                    className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-1.5 text-xs text-white outline-none focus:border-violet-500"
-                  >
-                    <option value="">-- No Inspection --</option>
-                    {checklistTemplates.map(tpl => (
-                      <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
-                    ))}
-                  </select>
+                    onChange={val => updateTask(task.id, { checklistTemplateId: val || null })}
+                    placeholder="-- No Inspection --"
+                    searchPlaceholder="Cari template..."
+                    emptyLabel="-- No Inspection --"
+                  />
                 </div>
               )}
 
@@ -346,18 +357,18 @@ export default function TaskDetailModal() {
                   <div className="mb-3 rounded-lg border border-gray-700 bg-gray-800/30 p-3 space-y-2.5">
                     <div>
                       <label className="block text-[10px] text-gray-500 uppercase mb-1">Item</label>
-                      <select 
+                      <SearchableDropdown
+                        options={inventories.map(inv => ({
+                          value: inv.id,
+                          label: inv.name,
+                          sublabel: `Stock: ${inv.quantity} ${inv.unit}`
+                        }))}
                         value={partForm.inventoryId}
-                        onChange={e => setPartForm({ ...partForm, inventoryId: e.target.value })}
-                        className="w-full rounded-lg border border-gray-700 bg-gray-800 px-2.5 py-1.5 text-xs text-white outline-none"
-                      >
-                        <option value="">Select Part...</option>
-                        {inventories.map(inv => (
-                          <option key={inv.id} value={inv.id}>
-                            {inv.name} (Stock: {inv.quantity} {inv.unit})
-                          </option>
-                        ))}
-                      </select>
+                        onChange={val => setPartForm({ ...partForm, inventoryId: val })}
+                        placeholder="Select Part..."
+                        searchPlaceholder="Cari spare part..."
+                        emptyLabel="Select Part..."
+                      />
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>

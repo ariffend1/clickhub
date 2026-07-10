@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { X } from 'lucide-react';
 import type { TaskStatus, Priority } from '../../types';
+import SearchableDropdown from '../common/SearchableDropdown';
 
 export default function CreateTaskModal() {
   const { setShowCreateTaskModal, addTask, spaces, lists, users, selectedSpaceId, selectedListId } = useStore();
@@ -83,19 +84,32 @@ export default function CreateTaskModal() {
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-400">Space</label>
-              <select value={spaceId} onChange={e => { setSpaceId(e.target.value); setListId(''); }}
-                className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white outline-none">
-                <option value="">Select space</option>
-                {spaces.map(s => <option key={s.id} value={s.id}>{s.icon} {s.name}</option>)}
-              </select>
+              <SearchableDropdown
+                options={spaces.map(s => ({
+                  value: s.id,
+                  label: `${s.icon} ${s.name}`
+                }))}
+                value={spaceId}
+                onChange={val => { setSpaceId(val); setListId(''); }}
+                placeholder="Select space"
+                searchPlaceholder="Cari space..."
+                emptyLabel="Select space"
+              />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-400">List</label>
-              <select value={listId} onChange={e => setListId(e.target.value)}
-                className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white outline-none">
-                <option value="">Select list</option>
-                {spaceLists.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-              </select>
+              <SearchableDropdown
+                options={spaceLists.map(l => ({
+                  value: l.id,
+                  label: l.name
+                }))}
+                value={listId}
+                onChange={val => setListId(val)}
+                placeholder="Select list"
+                searchPlaceholder="Cari list..."
+                emptyLabel="Select list"
+                disabled={!spaceId}
+              />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-400">Due Date</label>
@@ -104,11 +118,18 @@ export default function CreateTaskModal() {
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-400">Assignees</label>
-              <select onChange={e => { if (e.target.value && !assigneeIds.includes(e.target.value)) setAssigneeIds([...assigneeIds, e.target.value]); e.target.value = ''; }}
-                className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white outline-none">
-                <option value="">Add assignee</option>
-                {users.filter(u => !assigneeIds.includes(u.id)).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-              </select>
+              <SearchableDropdown
+                options={users.filter(u => !assigneeIds.includes(u.id)).map(u => ({
+                  value: u.id,
+                  label: u.name,
+                  sublabel: u.role
+                }))}
+                value=""
+                onChange={val => { if (val) setAssigneeIds([...assigneeIds, val]); }}
+                placeholder="Add assignee"
+                searchPlaceholder="Cari anggota tim..."
+                emptyLabel="Add assignee"
+              />
               {assigneeIds.length > 0 && (
                 <div className="mt-1 flex flex-wrap gap-1">
                   {assigneeIds.map(id => {
