@@ -4,6 +4,7 @@ import { cn } from '../../utils/cn';
 import { Plus, Clipboard, ShieldCheck, User, X, Camera } from 'lucide-react';
 import BarcodeScannerModal from './BarcodeScannerModal';
 import { toast } from 'sonner';
+import SearchableDropdown from '../common/SearchableDropdown';
 
 interface SelectedItem {
   type: 'ASSET' | 'INVENTORY';
@@ -169,57 +170,55 @@ export default function EquipmentCheckoutPage() {
               {/* Item selection grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] text-gray-400 font-semibold mb-1">Select Hardware Asset</label>
-                  <div className="relative">
-                    <select
-                      value={activeAssetId}
-                      onChange={e => {
-                        setActiveAssetId(e.target.value);
-                        setActiveInventoryId('');
-                      }}
-                      className="w-full rounded-lg border border-gray-800 bg-gray-950 pl-2 pr-8 py-1.5 text-xs text-white outline-none focus:border-violet-500"
-                    >
-                      <option value="">-- Choose Asset --</option>
-                      {availableAssets.map(a => (
-                        <option key={a.id} value={a.id}>{a.name} ({a.brand})</option>
-                      ))}
-                    </select>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] text-gray-400 font-semibold">Select Hardware Asset</label>
                     <button
                       type="button"
                       onClick={() => setScanTarget('checkout-asset')}
-                      className="absolute right-2 top-2 text-gray-500 hover:text-white transition-colors"
+                      className="text-gray-500 hover:text-white transition-colors"
                       title="Scan Asset"
                     >
-                      <Camera size={14} />
+                      <Camera size={12} />
                     </button>
                   </div>
+                  <SearchableDropdown
+                    options={availableAssets.map(a => ({
+                      value: a.id,
+                      label: a.name,
+                      sublabel: `${a.brand} · S/N: ${a.serialNumber}`
+                    }))}
+                    value={activeAssetId}
+                    onChange={val => { setActiveAssetId(val); setActiveInventoryId(''); }}
+                    placeholder="-- Choose Asset --"
+                    searchPlaceholder="Cari nama, merek, S/N..."
+                    emptyLabel="-- Pilih Asset --"
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] text-gray-400 font-semibold mb-1">Or Select Inventory Parts</label>
-                  <div className="relative">
-                    <select
-                      value={activeInventoryId}
-                      onChange={e => {
-                        setActiveInventoryId(e.target.value);
-                        setActiveAssetId('');
-                      }}
-                      className="w-full rounded-lg border border-gray-800 bg-gray-950 pl-2 pr-8 py-1.5 text-xs text-white outline-none focus:border-violet-500"
-                    >
-                      <option value="">-- Choose Inventory --</option>
-                      {availableInventories.map(i => (
-                        <option key={i.id} value={i.id}>{i.name} (Qty: {i.quantity})</option>
-                      ))}
-                    </select>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] text-gray-400 font-semibold">Or Select Inventory Parts</label>
                     <button
                       type="button"
                       onClick={() => setScanTarget('checkout-inventory')}
-                      className="absolute right-2 top-2 text-gray-500 hover:text-white transition-colors"
+                      className="text-gray-500 hover:text-white transition-colors"
                       title="Scan SKU"
                     >
-                      <Camera size={14} />
+                      <Camera size={12} />
                     </button>
                   </div>
+                  <SearchableDropdown
+                    options={availableInventories.map(i => ({
+                      value: i.id,
+                      label: i.name,
+                      sublabel: `SKU: ${i.sku} · Stok: ${i.quantity} ${i.unit}`
+                    }))}
+                    value={activeInventoryId}
+                    onChange={val => { setActiveInventoryId(val); setActiveAssetId(''); }}
+                    placeholder="-- Choose Inventory --"
+                    searchPlaceholder="Cari nama atau SKU..."
+                    emptyLabel="-- Pilih Inventory --"
+                  />
                 </div>
               </div>
 

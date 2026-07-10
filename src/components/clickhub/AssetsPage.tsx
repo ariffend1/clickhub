@@ -7,6 +7,7 @@ import BarcodeScannerModal from './BarcodeScannerModal';
 import EquipmentCheckoutPage from './EquipmentCheckoutPage';
 import GoodsReceiptPage from './GoodsReceiptPage';
 import PageHelp from '../layout/PageHelpModal';
+import SearchableDropdown from '../common/SearchableDropdown';
 
 const statusConfig: Record<AssetStatus, { label: string; color: string; bg: string }> = {
   DRAFT: { label: 'Draft', color: 'text-gray-400', bg: 'bg-gray-500/20' },
@@ -1389,42 +1390,30 @@ export default function AssetsPage() {
             <div className="grid grid-cols-2 gap-3">
               <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Asset name *"
                 className="col-span-2 rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500" />
-              <select
+              <SearchableDropdown
+                options={brandOptions.map(b => ({ value: b, label: b }))}
                 value={form.brand}
-                onChange={e => {
-                  if (e.target.value === '__ADD_NEW__') {
-                    const newBrand = prompt('Masukkan nama merek baru:');
-                    if (newBrand && newBrand.trim()) {
-                      addMasterDataItem('BRAND', newBrand.trim()).then(() => setForm({ ...form, brand: newBrand.trim() })).catch(() => {});
-                    }
-                  } else {
-                    setForm({ ...form, brand: e.target.value });
-                  }
+                onChange={val => setForm({ ...form, brand: val })}
+                onAddNew={q => {
+                  const n = q || window.prompt('Masukkan nama merek baru:') || '';
+                  if (n.trim()) addMasterDataItem('BRAND', n.trim()).then(() => setForm({ ...form, brand: n.trim() })).catch(() => {});
                 }}
-                className="rounded-lg border border-gray-700 bg-[#1e2028] px-3 py-2 text-sm text-white outline-none"
-              >
-                <option value="">Pilih merek...</option>
-                {brandOptions.map(b => <option key={b} value={b}>{b}</option>)}
-                <option value="__ADD_NEW__">＋ Tambah Merek Baru...</option>
-              </select>
-              <select
+                placeholder="Pilih merek..."
+                searchPlaceholder="Cari merek..."
+                addNewLabel="＋ Tambah Merek Baru"
+              />
+              <SearchableDropdown
+                options={assetTypes.map(t => ({ value: t, label: t }))}
                 value={form.type}
-                onChange={e => {
-                  if (e.target.value === '__ADD_NEW__') {
-                    const newType = prompt('Masukkan tipe aset baru:');
-                    if (newType && newType.trim()) {
-                      addMasterDataItem('ASSET_TYPE', newType.trim()).then(() => setForm({ ...form, type: newType.trim() })).catch(() => {});
-                    }
-                  } else {
-                    setForm({ ...form, type: e.target.value });
-                  }
+                onChange={val => setForm({ ...form, type: val })}
+                onAddNew={q => {
+                  const n = q || window.prompt('Masukkan tipe aset baru:') || '';
+                  if (n.trim()) addMasterDataItem('ASSET_TYPE', n.trim()).then(() => setForm({ ...form, type: n.trim() })).catch(() => {});
                 }}
-                className="rounded-lg border border-gray-700 bg-[#1e2028] px-3 py-2 text-sm text-white outline-none"
-              >
-                <option value="">Pilih tipe...</option>
-                {assetTypes.map(t => <option key={t} value={t}>{t}</option>)}
-                <option value="__ADD_NEW__">＋ Tambah Tipe Baru...</option>
-              </select>
+                placeholder="Pilih tipe..."
+                searchPlaceholder="Cari tipe..."
+                addNewLabel="＋ Tambah Tipe Baru"
+              />
               <div className="relative">
                 <input value={form.serialNumber} onChange={e => setForm({ ...form, serialNumber: e.target.value })} placeholder="Serial Number"
                   className="w-full rounded-lg border border-gray-700 bg-gray-800/50 pl-3 pr-9 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500" />
@@ -1437,44 +1426,32 @@ export default function AssetsPage() {
                   <Camera size={14} />
                 </button>
               </div>
-              <select
+              <SearchableDropdown
+                options={locationOptions.map(l => ({ value: l, label: l }))}
                 value={form.location}
-                onChange={e => {
-                  if (e.target.value === '__ADD_NEW__') {
-                    const newLoc = prompt('Masukkan lokasi baru:');
-                    if (newLoc && newLoc.trim()) {
-                      addLocation(newLoc.trim()).then(() => setForm({ ...form, location: newLoc.trim() })).catch(() => {});
-                    }
-                  } else {
-                    setForm({ ...form, location: e.target.value });
-                  }
+                onChange={val => setForm({ ...form, location: val })}
+                onAddNew={q => {
+                  const n = q || window.prompt('Masukkan lokasi baru:') || '';
+                  if (n.trim()) addLocation(n.trim()).then(() => setForm({ ...form, location: n.trim() })).catch(() => {});
                 }}
-                className="rounded-lg border border-gray-700 bg-[#1e2028] px-3 py-2 text-sm text-white outline-none"
-              >
-                <option value="">Pilih lokasi...</option>
-                {locationOptions.map(l => <option key={l} value={l}>{l}</option>)}
-                <option value="__ADD_NEW__">＋ Tambah Lokasi Baru...</option>
-              </select>
+                placeholder="Pilih lokasi..."
+                searchPlaceholder="Cari lokasi..."
+                addNewLabel="＋ Tambah Lokasi Baru"
+              />
               <input value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} placeholder="Price" type="number"
                 className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500" />
-              <select
+              <SearchableDropdown
+                options={vendorOptions.map(v => ({ value: v, label: v }))}
                 value={form.vendor}
-                onChange={e => {
-                  if (e.target.value === '__ADD_NEW__') {
-                    const newVendor = prompt('Masukkan vendor baru:');
-                    if (newVendor && newVendor.trim()) {
-                      addMasterDataItem('VENDOR', newVendor.trim()).then(() => setForm({ ...form, vendor: newVendor.trim() })).catch(() => {});
-                    }
-                  } else {
-                    setForm({ ...form, vendor: e.target.value });
-                  }
+                onChange={val => setForm({ ...form, vendor: val })}
+                onAddNew={q => {
+                  const n = q || window.prompt('Masukkan vendor baru:') || '';
+                  if (n.trim()) addMasterDataItem('VENDOR', n.trim()).then(() => setForm({ ...form, vendor: n.trim() })).catch(() => {});
                 }}
-                className="rounded-lg border border-gray-700 bg-[#1e2028] px-3 py-2 text-sm text-white outline-none"
-              >
-                <option value="">Pilih vendor...</option>
-                {vendorOptions.map(v => <option key={v} value={v}>{v}</option>)}
-                <option value="__ADD_NEW__">＋ Tambah Vendor Baru...</option>
-              </select>
+                placeholder="Pilih vendor..."
+                searchPlaceholder="Cari vendor..."
+                addNewLabel="＋ Tambah Vendor Baru"
+              />
             </div>
             <p className="mt-3 mb-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">Specifications (optional)</p>
             <div className="grid grid-cols-2 gap-3">
@@ -2722,49 +2699,35 @@ export default function AssetsPage() {
                 </div>
                 <div>
                   <label className="block font-bold text-gray-400 uppercase mb-2">Unit (Satuan)</label>
-                  <select
-                    required
+                  <SearchableDropdown
+                    options={unitOptions.map(u => ({ value: u, label: u }))}
                     value={masterForm.unit}
-                    onChange={e => {
-                      if (e.target.value === '__ADD_NEW__') {
-                        const newUnit = prompt('Masukkan satuan baru:');
-                        if (newUnit && newUnit.trim()) {
-                          addMasterDataItem('UNIT', newUnit.trim()).then(() => setMasterForm({...masterForm, unit: newUnit.trim()})).catch(() => {});
-                        }
-                      } else {
-                        setMasterForm({...masterForm, unit: e.target.value});
-                      }
+                    onChange={val => setMasterForm({...masterForm, unit: val})}
+                    onAddNew={q => {
+                      const n = q || window.prompt('Masukkan satuan baru:') || '';
+                      if (n.trim()) addMasterDataItem('UNIT', n.trim()).then(() => setMasterForm({...masterForm, unit: n.trim()})).catch(() => {});
                     }}
-                    className="w-full rounded-xl border border-gray-800 bg-gray-950 px-3 py-2 text-white outline-none focus:border-violet-500"
-                  >
-                    <option value="">Pilih satuan...</option>
-                    {unitOptions.map(u => <option key={u} value={u}>{u}</option>)}
-                    <option value="__ADD_NEW__">＋ Tambah Satuan Baru...</option>
-                  </select>
+                    placeholder="Pilih satuan..."
+                    searchPlaceholder="Cari satuan..."
+                    addNewLabel="＋ Tambah Satuan Baru"
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block font-bold text-gray-400 uppercase mb-2">Location</label>
-                  <select
-                    required
+                  <SearchableDropdown
+                    options={locationOptions.map(l => ({ value: l, label: l }))}
                     value={masterForm.location}
-                    onChange={e => {
-                      if (e.target.value === '__ADD_NEW__') {
-                        const newLoc = prompt('Masukkan lokasi baru:');
-                        if (newLoc && newLoc.trim()) {
-                          addLocation(newLoc.trim()).then(() => setMasterForm({...masterForm, location: newLoc.trim()})).catch(() => {});
-                        }
-                      } else {
-                        setMasterForm({...masterForm, location: e.target.value});
-                      }
+                    onChange={val => setMasterForm({...masterForm, location: val})}
+                    onAddNew={q => {
+                      const n = q || window.prompt('Masukkan lokasi baru:') || '';
+                      if (n.trim()) addLocation(n.trim()).then(() => setMasterForm({...masterForm, location: n.trim()})).catch(() => {});
                     }}
-                    className="w-full rounded-xl border border-gray-800 bg-gray-950 px-3 py-2 text-white outline-none focus:border-violet-500"
-                  >
-                    <option value="">Pilih lokasi...</option>
-                    {locationOptions.map(l => <option key={l} value={l}>{l}</option>)}
-                    <option value="__ADD_NEW__">＋ Tambah Lokasi Baru...</option>
-                  </select>
+                    placeholder="Pilih lokasi..."
+                    searchPlaceholder="Cari lokasi..."
+                    addNewLabel="＋ Tambah Lokasi Baru"
+                  />
                 </div>
                 <div>
                   <label className="block font-bold text-gray-400 uppercase mb-2">Min Stock</label>
@@ -2812,49 +2775,35 @@ export default function AssetsPage() {
                 </div>
                 <div>
                   <label className="block font-bold text-gray-400 uppercase mb-2">Unit (Satuan)</label>
-                  <select
-                    required
+                  <SearchableDropdown
+                    options={unitOptions.map(u => ({ value: u, label: u }))}
                     value={masterForm.unit}
-                    onChange={e => {
-                      if (e.target.value === '__ADD_NEW__') {
-                        const newUnit = prompt('Masukkan satuan baru:');
-                        if (newUnit && newUnit.trim()) {
-                          addMasterDataItem('UNIT', newUnit.trim()).then(() => setMasterForm({...masterForm, unit: newUnit.trim()})).catch(() => {});
-                        }
-                      } else {
-                        setMasterForm({...masterForm, unit: e.target.value});
-                      }
+                    onChange={val => setMasterForm({...masterForm, unit: val})}
+                    onAddNew={q => {
+                      const n = q || window.prompt('Masukkan satuan baru:') || '';
+                      if (n.trim()) addMasterDataItem('UNIT', n.trim()).then(() => setMasterForm({...masterForm, unit: n.trim()})).catch(() => {});
                     }}
-                    className="w-full rounded-xl border border-gray-800 bg-gray-950 px-3 py-2 text-white outline-none focus:border-violet-500"
-                  >
-                    <option value="">Pilih satuan...</option>
-                    {unitOptions.map(u => <option key={u} value={u}>{u}</option>)}
-                    <option value="__ADD_NEW__">＋ Tambah Satuan Baru...</option>
-                  </select>
+                    placeholder="Pilih satuan..."
+                    searchPlaceholder="Cari satuan..."
+                    addNewLabel="＋ Tambah Satuan Baru"
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block font-bold text-gray-400 uppercase mb-2">Location</label>
-                  <select
-                    required
+                  <SearchableDropdown
+                    options={locationOptions.map(l => ({ value: l, label: l }))}
                     value={masterForm.location}
-                    onChange={e => {
-                      if (e.target.value === '__ADD_NEW__') {
-                        const newLoc = prompt('Masukkan lokasi baru:');
-                        if (newLoc && newLoc.trim()) {
-                          addLocation(newLoc.trim()).then(() => setMasterForm({...masterForm, location: newLoc.trim()})).catch(() => {});
-                        }
-                      } else {
-                        setMasterForm({...masterForm, location: e.target.value});
-                      }
+                    onChange={val => setMasterForm({...masterForm, location: val})}
+                    onAddNew={q => {
+                      const n = q || window.prompt('Masukkan lokasi baru:') || '';
+                      if (n.trim()) addLocation(n.trim()).then(() => setMasterForm({...masterForm, location: n.trim()})).catch(() => {});
                     }}
-                    className="w-full rounded-xl border border-gray-800 bg-gray-950 px-3 py-2 text-white outline-none focus:border-violet-500"
-                  >
-                    <option value="">Pilih lokasi...</option>
-                    {locationOptions.map(l => <option key={l} value={l}>{l}</option>)}
-                    <option value="__ADD_NEW__">＋ Tambah Lokasi Baru...</option>
-                  </select>
+                    placeholder="Pilih lokasi..."
+                    searchPlaceholder="Cari lokasi..."
+                    addNewLabel="＋ Tambah Lokasi Baru"
+                  />
                 </div>
                 <div>
                   <label className="block font-bold text-gray-400 uppercase mb-2">Min Stock</label>

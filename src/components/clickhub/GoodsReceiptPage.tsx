@@ -5,6 +5,7 @@ import { Truck, Plus, User, X, Camera } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import BarcodeScannerModal from './BarcodeScannerModal';
 import { toast } from 'sonner';
+import SearchableDropdown from '../common/SearchableDropdown';
 
 export default function GoodsReceiptPage() {
   const {
@@ -136,18 +137,18 @@ export default function GoodsReceiptPage() {
 
               <div>
                 <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Link Approved Purchase Request (Optional)</label>
-                <select
+                <SearchableDropdown
+                  options={approvedRequests.map(r => ({
+                    value: r.id,
+                    label: `${r.requestNumber} - ${r.itemName}`,
+                    sublabel: `Qty: ${r.quantity}`
+                  }))}
                   value={purchaseRequestId}
-                  onChange={e => handleSelectRequest(e.target.value)}
-                  className="w-full rounded-xl border border-gray-800 bg-gray-950 px-3 py-2.5 text-xs text-white outline-none focus:border-violet-500"
-                >
-                  <option value="">-- Choose Stock Request --</option>
-                  {approvedRequests.map(r => (
-                    <option key={r.id} value={r.id}>
-                      {r.requestNumber} - {r.itemName} (Qty: {r.quantity})
-                    </option>
-                  ))}
-                </select>
+                  onChange={val => handleSelectRequest(val)}
+                  placeholder="-- Choose Stock Request --"
+                  searchPlaceholder="Cari nomor / nama barang..."
+                  emptyLabel="-- Tanpa Link Request --"
+                />
               </div>
 
               <div>
@@ -233,20 +234,22 @@ export default function GoodsReceiptPage() {
                 <div>
                   <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Target Stock Item</label>
                   <div className="relative">
-                    <select
+                    <SearchableDropdown
+                      options={inventories.map(inv => ({
+                        value: inv.id,
+                        label: inv.name,
+                        sublabel: `SKU: ${inv.sku}`
+                      }))}
                       value={inventoryId}
-                      onChange={e => setInventoryId(e.target.value)}
-                      className="w-full rounded-xl border border-gray-800 bg-gray-950 pl-3 pr-8 py-2.5 text-xs text-white outline-none focus:border-violet-500"
-                    >
-                      <option value="">-- Choose Stock Item to Update --</option>
-                      {inventories.map(inv => (
-                        <option key={inv.id} value={inv.id}>{inv.name} (SKU: {inv.sku})</option>
-                      ))}
-                    </select>
+                      onChange={val => setInventoryId(val)}
+                      placeholder="-- Choose Stock Item to Update --"
+                      searchPlaceholder="Cari nama / SKU..."
+                      emptyLabel="-- Barang Baru (Tanpa Target) --"
+                    />
                     <button
                       type="button"
                       onClick={() => setScanTarget('receipt-inventory')}
-                      className="absolute right-3 top-[11px] text-gray-500 hover:text-white transition-colors"
+                      className="absolute right-7 top-1.5 text-gray-500 hover:text-white transition-colors"
                       title="Scan SKU"
                     >
                       <Camera size={14} />
@@ -281,32 +284,29 @@ export default function GoodsReceiptPage() {
 
                   <div>
                     <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Location placement</label>
-                    <select
+                    <SearchableDropdown
+                      options={locations.filter(l => l.isVerified !== false).map(l => ({
+                        value: l.name,
+                        label: l.name
+                      }))}
                       value={assetLocation}
-                      onChange={e => {
-                        if (e.target.value === '__ADD_NEW__') {
-                          const newLoc = prompt('Masukkan nama lokasi baru:');
-                          if (newLoc && newLoc.trim()) {
-                            addLocation(newLoc.trim()).then(() => {
-                              setAssetLocation(newLoc.trim());
-                              toast.success('Lokasi baru diajukan untuk verifikasi');
-                            }).catch((err) => toast.error(err.message || 'Gagal menambahkan lokasi'));
-                          }
-                        } else {
-                          setAssetLocation(e.target.value);
+                      onChange={val => {
+                        if (val === '__ADD_NEW__') return;
+                        setAssetLocation(val);
+                      }}
+                      onAddNew={(query) => {
+                        const newLoc = query || window.prompt('Masukkan nama lokasi baru:') || '';
+                        if (newLoc.trim()) {
+                          addLocation(newLoc.trim()).then(() => {
+                            setAssetLocation(newLoc.trim());
+                            toast.success('Lokasi baru diajukan untuk verifikasi');
+                          }).catch((err) => toast.error(err.message || 'Gagal menambahkan lokasi'));
                         }
                       }}
-                      className="w-full rounded-xl border border-gray-800 bg-gray-950 px-3 py-2.5 text-xs text-white outline-none focus:border-violet-500"
-                    >
-                      <option value="">Pilih lokasi...</option>
-                      {locations.filter((l: any) => l.isVerified !== false).map((loc: any) => (
-                        <option key={loc.id} value={loc.name}>{loc.name}</option>
-                      ))}
-                      {assetLocation && !locations.some((l: any) => l.name === assetLocation) && (
-                        <option value={assetLocation}>{assetLocation}</option>
-                      )}
-                      <option value="__ADD_NEW__">＋ Tambah Lokasi Baru...</option>
-                    </select>
+                      placeholder="Pilih lokasi..."
+                      searchPlaceholder="Cari lokasi..."
+                      addNewLabel="＋ Tambah Lokasi Baru"
+                    />
                   </div>
                 </div>
               )}

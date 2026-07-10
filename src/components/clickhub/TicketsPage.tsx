@@ -6,6 +6,7 @@ import type { TicketStatus, TicketPriority, Ticket } from '../../types';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { compressImage } from '../../utils/imageCompressor';
+import SearchableDropdown from '../common/SearchableDropdown';
 
 const formatCompressionMetrics = (fileSize: number, originalSize?: number) => {
   if (!originalSize || originalSize <= fileSize) {
@@ -664,11 +665,18 @@ export default function TicketsPage() {
                   </div>
                   <div className="col-span-2 flex flex-col gap-1">
                     <label className="text-[10px] text-gray-400">Link Asset (Hardware Device)</label>
-                    <select value={tempAssetId || ''} onChange={e => setTempAssetId(e.target.value || null)}
-                      className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-1.5 text-xs text-white outline-none w-full cursor-pointer">
-                      <option value="">No linked asset</option>
-                      {assets.map(a => <option key={a.id} value={a.id}>{a.brand} {a.name} ({a.serialNumber})</option>)}
-                    </select>
+                    <SearchableDropdown
+                      options={assets.map(a => ({
+                        value: a.id,
+                        label: `${a.brand} ${a.name}`,
+                        sublabel: `S/N: ${a.serialNumber}`
+                      }))}
+                      value={tempAssetId || ''}
+                      onChange={val => setTempAssetId(val || null)}
+                      placeholder="No linked asset"
+                      searchPlaceholder="Cari nama, merek, S/N..."
+                      emptyLabel="No linked asset"
+                    />
                   </div>
                   {canManage && (tempStatus === 'RESOLVED' || tempStatus === 'CLOSED') && (
                     <div className="col-span-2 flex flex-col gap-1 mt-2">
