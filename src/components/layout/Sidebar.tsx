@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useStore } from '../../store/useStore';
 import { cn } from '../../utils/cn';
 import {
@@ -8,7 +8,11 @@ import {
   MessageSquare, FileText, Sparkles, X
 } from 'lucide-react';
 
-export default function Sidebar() {
+interface SidebarProps {
+  onClose?: () => void;
+}
+
+export default function Sidebar({ onClose }: SidebarProps) {
   const {
     activePage, setActivePage, spaces, tasks, tickets, assets, chatSessions,
     currentUser, sidebarCollapsed, toggleSidebar,
@@ -25,6 +29,21 @@ export default function Sidebar() {
   const [contextMenu, setContextMenu] = useState<{ type: 'space' | 'list'; id: string; x: number; y: number } | null>(null);
   const [showHelpMenu, setShowHelpMenu] = useState(false);
   const [showIconGlossary, setShowIconGlossary] = useState(false);
+
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 1024 : false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const handleNav = (action: () => void) => {
+    action();
+    onClose?.();
+  };
 
   if (!currentUser) return null;
 
@@ -61,7 +80,7 @@ export default function Sidebar() {
     setContextMenu({ type, id, x: e.clientX, y: e.clientY });
   };
 
-  if (sidebarCollapsed) {
+  if (sidebarCollapsed && !isMobile) {
     return (
       <div className="flex h-full w-14 flex-col items-center border-r border-[var(--c-border)] bg-[var(--bg-sidebar)] py-3">
         <button onClick={toggleSidebar} className="mb-4 text-gray-500 hover:text-white"><PanelLeftOpen size={16} /></button>
@@ -184,7 +203,8 @@ export default function Sidebar() {
             <p className="text-[9px] text-gray-500">IT Operations Platform</p>
           </div>
         </div>
-        <button onClick={toggleSidebar} className="text-gray-500 hover:text-white"><PanelLeftClose size={14} /></button>
+        <button onClick={onClose} className="text-gray-500 hover:text-white lg:hidden" title="Close Menu"><X size={16} /></button>
+        <button onClick={toggleSidebar} className="text-gray-500 hover:text-white hidden lg:block"><PanelLeftClose size={14} /></button>
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 py-3">
@@ -193,7 +213,7 @@ export default function Sidebar() {
           {navItems.map(item => {
             const isActive = activePage === item.key;
             return (
-              <button key={item.key} onClick={() => setActivePage(item.key)} id={`tour-nav-${item.key}`}
+              <button key={item.key} onClick={() => handleNav(() => setActivePage(item.key))} id={`tour-nav-${item.key}`}
                 className={cn("group relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-all duration-200 active:scale-98",
                   isActive ? "bg-violet-650/10 text-violet-450 font-semibold" : "text-gray-400 hover:bg-gray-850/30 hover:text-white"
                 )}>
@@ -218,7 +238,7 @@ export default function Sidebar() {
           {itItems.map(item => {
             const isActive = activePage === item.key;
             return (
-              <button key={item.key} onClick={() => setActivePage(item.key)} id={`tour-nav-${item.key}`}
+              <button key={item.key} onClick={() => handleNav(() => setActivePage(item.key))} id={`tour-nav-${item.key}`}
                 className={cn("group relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-all duration-200 active:scale-98",
                   isActive ? "bg-violet-650/10 text-violet-450 font-semibold" : "text-gray-400 hover:bg-gray-850/30 hover:text-white"
                 )}>
@@ -236,7 +256,7 @@ export default function Sidebar() {
             );
           })}
           {isAdmin && (
-            <button onClick={() => setActivePage('admin')} id="tour-nav-admin"
+            <button onClick={() => handleNav(() => setActivePage('admin'))} id="tour-nav-admin"
               className={cn("group relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-all duration-200 active:scale-98",
                 activePage === 'admin' ? "bg-violet-650/10 text-violet-400 font-semibold" : "text-gray-400 hover:bg-gray-850/30 hover:text-white"
               )}>
@@ -274,7 +294,7 @@ export default function Sidebar() {
             {spaces.map(space => (
               <div key={space.id}>
                 <button
-                  onClick={() => { setExpandedSpaces(p => ({ ...p, [space.id]: !p[space.id] })); selectSpace(space.id); }}
+                  onClick={() => { setExpandedSpaces(p => ({ ...p, [space.id]: !p[space.id] })); handleNav(() => selectSpace(space.id)); }}
                   onContextMenu={e => handleContextMenu(e, 'space', space.id)}
                   className={cn("group flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors",
                     selectedSpaceId === space.id && activePage === 'spaces' ? "bg-gray-800/50 text-white" : "text-gray-400 hover:bg-gray-800/30 hover:text-white"
@@ -289,7 +309,7 @@ export default function Sidebar() {
                   <div className="ml-5 space-y-0.5 py-0.5">
                     {getSpaceLists(space.id).map(list => (
                       <button key={list.id}
-                        onClick={() => { selectSpace(space.id); selectList(list.id); }}
+                        onClick={() => handleNav(() => { selectSpace(space.id); selectList(list.id); })}
                         onContextMenu={e => handleContextMenu(e, 'list', list.id)}
                         className={cn("flex w-full items-center gap-2 rounded-md px-2.5 py-1 text-left text-xs transition-colors",
                           selectedListId === list.id ? "bg-gray-800/50 text-white" : "text-gray-500 hover:bg-gray-800/30 hover:text-gray-300"
@@ -458,7 +478,7 @@ export default function Sidebar() {
                   key={item.name} 
                   onClick={() => {
                     setShowIconGlossary(false);
-                    setActivePage(item.key);
+                    handleNav(() => setActivePage(item.key));
                     if (item.stepIndex !== null) {
                       setTimeout(() => {
                         window.dispatchEvent(new CustomEvent('start-clickhub-tour', { detail: { step: item.stepIndex } }));

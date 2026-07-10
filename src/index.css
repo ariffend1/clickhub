@@ -144,3 +144,14 @@ input, textarea, select, button { transition-duration: 150ms; }
   background: #2d313b;
 }
 
+/* Touch and responsive helper classes */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+button, a, input, select, textarea {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}

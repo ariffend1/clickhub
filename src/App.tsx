@@ -22,16 +22,18 @@ import ReportsPage from './components/clickhub/ReportsPage';
 import EquipmentCheckoutPage from './components/clickhub/EquipmentCheckoutPage';
 import GoodsReceiptPage from './components/clickhub/GoodsReceiptPage';
 import ErrorBoundary from './components/common/ErrorBoundary';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from './store/useStore';
 import { Toaster } from 'sonner';
 import { isSupabaseConfigured } from './lib/supabase';
+import { cn } from './utils/cn';
 
 export default function App() {
   const {
     viewMode, showTaskModal, showCreateTaskModal, activePage,
     showSettingsModal, isAuthenticated, theme, hasRole, loadAllData
   } = useStore();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   if (!isSupabaseConfigured) {
     return (
@@ -174,9 +176,24 @@ export default function App() {
 
   return (
     <div data-theme={theme} className="flex h-screen overflow-hidden bg-[var(--bg-main)] text-[var(--c-text)]">
-      <Sidebar />
+      {/* Mobile Sidebar Backdrop */}
+      {mobileOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden transition-opacity duration-300 animate-fade-in"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Sidebar Container */}
+      <div className={cn(
+        "fixed inset-y-0 left-0 z-50 flex h-full transition-transform duration-300 lg:static lg:translate-x-0",
+        mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+      )}>
+        <Sidebar onClose={() => setMobileOpen(false)} />
+      </div>
+
       <div className="flex flex-1 flex-col overflow-hidden bg-[var(--bg-main)]">
-        <Header />
+        <Header onMenuToggle={() => setMobileOpen(true)} />
         <main className="flex-1 overflow-hidden">
           <div key={activePage} className="h-full w-full overflow-hidden animate-page-entry">
             {renderMainContent()}

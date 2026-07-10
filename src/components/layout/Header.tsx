@@ -34,7 +34,11 @@ const pageTitle: Record<string, string> = {
   admin: '🛡️ Admin',
 };
 
-export default function Header() {
+interface HeaderProps {
+  onMenuToggle?: () => void;
+}
+
+export default function Header({ onMenuToggle }: HeaderProps) {
   const {
     activePage, setActivePage, viewMode, setViewMode, searchQuery, setSearchQuery,
     filterPriority, filterAssignee, setFilterPriority, setFilterAssignee,
@@ -70,36 +74,48 @@ export default function Header() {
   return (
     <div className="border-b border-[var(--c-border)] bg-[var(--bg-main)]">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-6 py-3">
-        <h1 className="text-lg font-bold text-white flex items-center">
-          {activePage === 'spaces' ? (
-            <>
-              {currentSpace && (
-                <>
-                  <span>{currentSpace.icon} {currentSpace.name}</span>
-                  {currentList && (
-                    <span className="text-gray-500"> / <span className="text-gray-300">{currentList.name}</span></span>
-                  )}
-                </>
-              )}
-              {!currentSpace && 'All Tasks'}
-            </>
-          ) : (
-            pageTitle[activePage] || 'ClickHub'
-          )}
-          {['home', 'inbox', 'my_tasks', 'tickets', 'assets', 'knowledge', 'reports'].includes(activePage) && (
-            <PageHelp pageKey={activePage} />
-          )}
-        </h1>
+      <div className="flex items-center justify-between px-4 lg:px-6 py-3">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={onMenuToggle}
+            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-850/40 hover:text-white lg:hidden cursor-pointer shrink-0"
+            title="Menu"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          
+          <h1 className="text-lg font-bold text-white flex items-center gap-1.5">
+            {activePage === 'spaces' ? (
+              <>
+                {currentSpace && (
+                  <>
+                    <span>{currentSpace.icon} {currentSpace.name}</span>
+                    {currentList && (
+                      <span className="text-gray-500"> / <span className="text-gray-300">{currentList.name}</span></span>
+                    )}
+                  </>
+                )}
+                {!currentSpace && 'All Tasks'}
+              </>
+            ) : (
+              pageTitle[activePage] || 'ClickHub'
+            )}
+            {['home', 'inbox', 'my_tasks', 'tickets', 'assets', 'knowledge', 'reports'].includes(activePage) && (
+              <PageHelp pageKey={activePage} />
+            )}
+          </h1>
+        </div>
 
         <div className="flex items-center gap-3">
           {/* Search */}
-          <div className="relative">
+          <div className="relative hidden sm:block">
             <Search size={14} className="absolute left-3 top-2.5 text-gray-500" />
             <input
               value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search tasks..."
-              className="w-64 rounded-lg border border-gray-700 bg-gray-800/50 py-2 pl-9 pr-3 text-sm text-white placeholder-gray-500 outline-none transition focus:border-violet-500"
+              className="w-32 md:w-64 rounded-lg border border-gray-700 bg-gray-800/50 py-2 pl-9 pr-3 text-sm text-white placeholder-gray-500 outline-none transition focus:border-violet-500"
             />
             {searchQuery && (
               <button onClick={() => setSearchQuery('')} className="absolute right-3 top-2.5 text-gray-500 hover:text-white">
@@ -114,23 +130,23 @@ export default function Header() {
               failedSyncQueue.length > 0 ? (
                 <>
                   <CloudLightning className="text-red-400 animate-pulse shrink-0" size={14} />
-                  <span className="text-[10px] font-semibold text-red-400">Sync Error</span>
+                  <span className="hidden md:inline text-[10px] font-semibold text-red-400">Sync Error</span>
                 </>
               ) : syncQueue.length > 0 ? (
                 <>
                   <RefreshCw className="text-yellow-400 animate-spin shrink-0" size={14} />
-                  <span className="text-[10px] font-semibold text-yellow-400">Syncing...</span>
+                  <span className="hidden md:inline text-[10px] font-semibold text-yellow-400">Syncing...</span>
                 </>
               ) : (
                 <>
                   <Cloud className="text-emerald-400 shrink-0" size={14} />
-                  <span className="text-[10px] font-semibold text-emerald-400">Synced</span>
+                  <span className="hidden md:inline text-[10px] font-semibold text-emerald-400">Synced</span>
                 </>
               )
             ) : (
               <>
                 <CloudOff className="text-gray-500 shrink-0" size={14} />
-                <span className="text-[10px] font-semibold text-gray-500">Offline</span>
+                <span className="hidden md:inline text-[10px] font-semibold text-gray-500">Offline</span>
               </>
             )}
           </div>
@@ -203,8 +219,8 @@ export default function Header() {
 
       {/* Toolbar */}
       {showViewSwitcher && (
-        <div className="flex items-center justify-between border-t border-[var(--c-border)] px-6 py-2">
-          <div className="flex gap-1">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-0 items-center justify-between border-t border-[var(--c-border)] px-4 lg:px-6 py-3 sm:py-2">
+          <div className="flex gap-1 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
             {viewModes.map(v => (
               <button key={v.mode} onClick={() => setViewMode(v.mode)}
                 className={cn("flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition",
