@@ -162,7 +162,7 @@ export default function SearchableDropdown({
 
       {/* Dropdown Panel */}
       {open && (
-        <div className="absolute z-50 mt-1 w-full min-w-[180px] rounded-xl border border-gray-700 bg-[#1e222b] shadow-2xl shadow-black/50 overflow-hidden animate-fade-in">
+        <div className="absolute z-50 mt-1 w-full min-w-[180px] rounded-xl border border-gray-700 bg-[#1a1d23] shadow-2xl shadow-black/50 overflow-hidden animate-fade-in">
           {/* Search Input */}
           <div className="flex items-center gap-2 border-b border-gray-800 px-3 py-2">
             <Search size={11} className="text-gray-500 shrink-0" />
@@ -188,9 +188,9 @@ export default function SearchableDropdown({
               <button
                 type="button"
                 onClick={() => handleSelect('')}
-                className="w-full text-left px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-800/40 transition-colors"
+                className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-800/40 transition-colors"
               >
-                {emptyLabel}
+                <span className="text-gray-500">{emptyLabel}</span>
               </button>
             )}
 
@@ -198,25 +198,33 @@ export default function SearchableDropdown({
               <p className="px-3 py-4 text-center text-xs text-gray-600">Tidak ditemukan</p>
             )}
 
-            {filtered.map((option, idx) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => handleSelect(option.value)}
-                className={`w-full text-left px-3 py-2 text-xs transition-colors flex flex-col leading-tight
-                  ${value === option.value
-                    ? 'bg-violet-600/20 text-violet-300'
-                    : focusIndex === idx
-                      ? 'bg-gray-800/70 text-white'
-                      : 'text-gray-300 hover:bg-gray-800/50 hover:text-white'
-                  }`}
-              >
-                <span>{option.label}</span>
-                {option.sublabel && (
-                  <span className="text-[9px] text-gray-500 mt-0.5">{option.sublabel}</span>
-                )}
-              </button>
-            ))}
+            {filtered.map((option, idx) => {
+              const isSelected = value === option.value;
+              const isFocused = focusIndex === idx;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => handleSelect(option.value)}
+                  className={`w-full text-left px-3 py-2 text-xs transition-colors flex flex-col leading-tight outline-none
+                    ${isSelected
+                      ? 'bg-violet-600/20 text-violet-300'
+                      : isFocused
+                        ? 'bg-gray-800/70 text-white'
+                        : 'text-gray-300 hover:bg-gray-800/50 hover:text-white'
+                    }`}
+                >
+                  <span className={isSelected ? 'text-violet-300' : isFocused ? 'text-white' : 'text-gray-200'}>
+                    {option.label}
+                  </span>
+                  {option.sublabel && (
+                    <span className={`text-[9px] mt-0.5 ${isSelected ? 'text-violet-400/90' : isFocused ? 'text-gray-300' : 'text-gray-500'}`}>
+                      {option.sublabel}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
 
             {/* Add New Option */}
             {onAddNew && (
@@ -229,8 +237,10 @@ export default function SearchableDropdown({
                     : 'text-violet-400 hover:bg-gray-800/50 hover:text-violet-300'
                   }`}
               >
-                <Plus size={11} />
-                {query ? `${addNewLabel}: "${query}"` : addNewLabel}
+                <Plus size={11} className="text-violet-400" />
+                <span className={focusIndex === filtered.length ? 'text-violet-300' : 'text-violet-400'}>
+                  {query ? `${addNewLabel}: "${query}"` : addNewLabel}
+                </span>
               </button>
             )}
           </div>

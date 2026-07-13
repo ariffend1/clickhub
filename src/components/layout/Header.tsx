@@ -114,7 +114,17 @@ export default function Header({ onMenuToggle }: HeaderProps) {
             <Search size={14} className="absolute left-3 top-2.5 text-gray-500" />
             <input
               value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search tasks..."
+              placeholder={
+                activePage === 'spaces' || activePage === 'my_tasks'
+                  ? 'Search tasks...'
+                  : activePage === 'assets'
+                    ? 'Search assets, inventory, or checkouts...'
+                    : activePage === 'tickets'
+                      ? 'Search tickets...'
+                      : activePage === 'knowledge'
+                        ? 'Search articles...'
+                        : 'Search...'
+              }
               className="w-32 md:w-64 rounded-lg border border-gray-700 bg-gray-800/50 py-2 pl-9 pr-3 text-sm text-white placeholder-gray-500 outline-none transition focus:border-violet-500"
             />
             {searchQuery && (

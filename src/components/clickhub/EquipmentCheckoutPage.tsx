@@ -22,7 +22,8 @@ export default function EquipmentCheckoutPage() {
     addEquipmentCheckout,
     approveEquipmentCheckout,
     returnEquipmentItem,
-    users
+    users,
+    searchQuery
   } = useStore();
 
   const [showForm, setShowForm] = useState(false);
@@ -107,6 +108,35 @@ export default function EquipmentCheckoutPage() {
     const user = users.find(u => u.id === id);
     return user ? user.name : 'Unknown User';
   };
+
+  const filteredCheckouts = equipmentCheckouts.filter(checkout => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    
+    // Check checkout number
+    if ((checkout.checkoutNumber || '').toLowerCase().includes(query)) return true;
+    
+    // Check purpose
+    if ((checkout.purpose || '').toLowerCase().includes(query)) return true;
+    
+    // Check technician
+    const technicianName = getUserName(checkout.technicianId).toLowerCase();
+    if (technicianName.includes(query)) return true;
+    
+    // Check status
+    if ((checkout.status || '').toLowerCase().includes(query)) return true;
+    
+    // Check items in checkout
+    const matchesItems = checkout.items?.some(item => {
+      const itemName = item.assetId
+        ? (assets.find(a => a.id === item.assetId)?.name || '')
+        : (inventories.find(i => i.id === item.inventoryId)?.name || '');
+      return itemName.toLowerCase().includes(query);
+    });
+    if (matchesItems) return true;
+    
+    return false;
+  });
 
   return (
     <div className="flex flex-col gap-6">
@@ -302,14 +332,14 @@ export default function EquipmentCheckoutPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800/40 text-gray-300">
-              {equipmentCheckouts.length === 0 ? (
+              {filteredCheckouts.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-gray-500">
-                    No equipment checkout logs registered in Supabase.
+                    {searchQuery ? 'Tidak ada hasil pencarian yang cocok.' : 'No equipment checkout logs registered in Supabase.'}
                   </td>
                 </tr>
               ) : (
-                equipmentCheckouts.map(checkout => (
+                filteredCheckouts.map(checkout => (
                   <tr key={checkout.id} className="hover:bg-gray-900/10">
                     <td className="py-3 font-semibold text-white font-mono">{checkout.checkoutNumber}</td>
                     <td className="py-3">
