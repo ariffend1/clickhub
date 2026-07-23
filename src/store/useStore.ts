@@ -33,6 +33,36 @@ const calculateSlaDeadline = (priority: string, createdAt: string): string => {
   return date.toISOString();
 };
 
+const isForbiddenFile = (fileName: string, mimeType: string): boolean => {
+  const forbiddenExtensions = [
+    'exe', 'dll', 'bat', 'cmd', 'sh', 'bash', 'com', 'msi', 'scr', 'vbs',
+    'js', 'jse', 'wsf', 'wsh', 'ps1', 'html', 'htm', 'xhtml', 'svg',
+    'php', 'jsp', 'asp', 'aspx', 'jar', 'vbe', 'reg', 'lnk', 'py', 'pl'
+  ];
+
+  const ext = fileName.split('.').pop()?.toLowerCase() || '';
+  if (forbiddenExtensions.includes(ext)) {
+    return true;
+  }
+
+  const forbiddenMimeTypes = [
+    'text/html',
+    'image/svg+xml',
+    'application/x-msdownload',
+    'application/javascript',
+    'text/javascript',
+    'application/x-sh',
+    'application/x-bash',
+    'application/x-executable'
+  ];
+
+  if (forbiddenMimeTypes.includes(mimeType.toLowerCase())) {
+    return true;
+  }
+
+  return false;
+};
+
 const sanitizeDbId = (id: string | null | undefined, users?: User[]): string | null => {
   if (!id) return null;
   if (/^user-\d+$/.test(id)) {
@@ -1943,6 +1973,10 @@ export const useStore = create<AppState>()(
           throw new Error('Offline mode: Uploading attachments is only available online.');
         }
 
+        if (isForbiddenFile(file.name, file.type)) {
+          throw new Error('Tipe berkas ini diblokir demi alasan keamanan.');
+        }
+
         const originalSize = file.size;
         let fileToUpload = file;
         if (file.type.startsWith('image/') && file.type !== 'image/gif') {
@@ -2004,6 +2038,10 @@ export const useStore = create<AppState>()(
       uploadChatFile: async (sessionId, file) => {
         if (!navigator.onLine) {
           throw new Error('Offline mode: Uploading attachments is only available online.');
+        }
+
+        if (isForbiddenFile(file.name, file.type)) {
+          throw new Error('Tipe berkas ini diblokir demi alasan keamanan.');
         }
 
         let fileToUpload = file;
