@@ -1,3 +1,9 @@
+// ⚠️ SECURITY NOTE regarding local crypto:
+// The static SECRET_KEY and XOR cipher are used as a lightweight obfuscation layer to prevent simple plaintext sniffing from localStorage.
+// However, they DO NOT provide robust, industry-grade cryptography (e.g. against targeted local XSS/physical analysis).
+// For strict production safety:
+// 1. Avoid storing sensitive API credentials (like VITE_TELEGRAM_BOT_TOKEN) in localStorage.
+// 2. Transition sensitive actions to secure serverless endpoints (e.g., Supabase Edge Functions) that hold the secrets safely in backend environment variables.
 const SECRET_KEY = 'clickhub_secret_key_10g_network_upgrade';
 
 export const STORAGE_KEYS = {
@@ -6,6 +12,10 @@ export const STORAGE_KEYS = {
   TELEGRAM_CHAT_ID: 'ch_tg_ci_enc'
 };
 
+/**
+ * Encrypts plaintext using XOR cipher with static key for lightweight client-side obfuscation.
+ * @deprecated Avoid using for sensitive secrets in high-security production. Use secure server/backend handling instead.
+ */
 export function encrypt(text: string): string {
   if (!text) return '';
   const charCodes = Array.from(text).map((char, index) => {
