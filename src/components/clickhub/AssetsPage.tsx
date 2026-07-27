@@ -505,17 +505,17 @@ export default function AssetsPage() {
       const qrData = encodeURIComponent(`https://clickhub-id.vercel.app/assets?id=${asset.id}`);
       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${qrData}`;
       return `
-        <div class="label-card" style="width: 260px; height: 140px; border: 2px solid #000; border-radius: 6px; padding: 8px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; background: #fff; page-break-inside: avoid;">
-          <div class="label-header" style="font-size: 10px; font-weight: 800; text-align: center; border-bottom: 1px solid #000; padding-bottom: 3px; letter-spacing: 1px;">CLICKHUB IT ASSET</div>
-          <div class="label-body" style="display: flex; flex: 1; margin-top: 6px; gap: 8px; min-height: 0;">
-            <div class="label-info" style="flex: 1; display: flex; flex-direction: column; justify-content: space-between; min-width: 0;">
-              <div class="asset-name" style="font-size: 11px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px;">${asset.name}</div>
-              <div class="info-row" style="font-size: 9px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Brand: ${asset.brand || '-'}</div>
-              <div class="info-row font-mono" style="font-size: 9px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: Courier, monospace;">S/N: ${asset.serialNumber}</div>
-              <div class="info-row" style="font-size: 9px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Loc: ${asset.location}</div>
-              <div class="info-row" style="font-size: 9px; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Status: ${asset.status}</div>
+        <div class="label-card" style="width: 260px; height: 140px; border: 2.5px solid #000; border-radius: 8px; padding: 10px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; background: #fff; page-break-inside: avoid; margin: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+          <div class="label-header" style="font-size: 11px; font-weight: 900; text-align: center; border-bottom: 2px solid #000; padding-bottom: 4px; letter-spacing: 1.5px; font-family: 'Helvetica Neue', Arial, sans-serif;">CLICKHUB IT ASSET</div>
+          <div class="label-body" style="display: flex; flex: 1; margin-top: 8px; gap: 10px; min-height: 0;">
+            <div class="label-info" style="flex: 1; display: flex; flex-direction: column; justify-content: space-between; min-width: 0; font-family: Arial, sans-serif;">
+              <div class="asset-name" style="font-size: 12px; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; color: #000;">${asset.name}</div>
+              <div class="info-row" style="font-size: 9.5px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #333;">Brand: <strong>${asset.brand || '-'}</strong></div>
+              <div class="info-row font-mono" style="font-size: 9.5px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: 'Courier New', Courier, monospace; font-weight: bold; color: #000;">S/N: ${asset.serialNumber}</div>
+              <div class="info-row" style="font-size: 9.5px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #333;">Loc: ${asset.location}</div>
+              <div class="info-row" style="font-size: 9.5px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #333;">Status: <span style="text-transform: uppercase; font-weight: bold; color: #555;">${asset.status}</span></div>
             </div>
-            <div class="label-qr" style="width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; align-self: center;">
+            <div class="label-qr" style="width: 84px; height: 80px; display: flex; align-items: center; justify-content: center; align-self: center; border: 1px solid #eee; border-radius: 4px; padding: 2px; background: #fff;">
               <img src="${qrUrl}" alt="QR Code" style="width: 100%; height: 100%; object-fit: contain;" onload="window.checkImagesLoaded()" />
             </div>
           </div>
@@ -526,24 +526,33 @@ export default function AssetsPage() {
     printWindow.document.write(`
       <html>
         <head>
-          <title>Print Asset Labels</title>
+          <title>Print Asset Labels - ClickHub</title>
           <style>
             @page {
               size: auto;
-              margin: 0mm;
+              margin: 10mm;
             }
             body {
               margin: 0;
-              padding: 10px;
+              padding: 0;
               font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
               background: #fff;
               color: #000;
             }
             .label-grid {
-              display: flex;
-              flex-wrap: wrap;
-              gap: 15px;
-              justify-content: center;
+              display: grid;
+              grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+              gap: 12px;
+              padding: 10px;
+              justify-items: center;
+            }
+            @media print {
+              body {
+                padding: 0;
+              }
+              .label-grid {
+                padding: 0;
+              }
             }
           </style>
           <script>
@@ -562,7 +571,7 @@ export default function AssetsPage() {
             setTimeout(() => {
               window.print();
               window.close();
-            }, 5000);
+            }, 6000);
           </script>
         </head>
         <body>
@@ -975,17 +984,40 @@ export default function AssetsPage() {
               <option value="all">All Types</option>
               {assetTypes.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
-            {canManage && selectedAssetIds.length > 0 && (
-              <button 
-                onClick={() => {
-                  const assetsToPrint = assets.filter(a => selectedAssetIds.includes(a.id));
-                  handlePrintLabels(assetsToPrint);
-                }} 
-                className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-500 transition-colors shadow"
-                id="print-selected-labels-btn"
-              >
-                Print Labels ({selectedAssetIds.length})
-              </button>
+            {canManage && (
+              <div className="flex gap-1.5 shrink-0">
+                {selectedAssetIds.length === filteredAssets.length && filteredAssets.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedAssetIds([])}
+                    className="flex items-center gap-1 px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-xs font-semibold text-gray-300 hover:text-white transition-colors cursor-pointer"
+                  >
+                    Batal Pilih ({selectedAssetIds.length})
+                  </button>
+                ) : (
+                  filteredAssets.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAssetIds(filteredAssets.map(a => a.id))}
+                      className="flex items-center gap-1 px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-xs font-semibold text-gray-300 hover:text-white transition-colors cursor-pointer"
+                    >
+                      Pilih Semua ({filteredAssets.length})
+                    </button>
+                  )
+                )}
+                {selectedAssetIds.length > 0 && (
+                  <button
+                    onClick={() => {
+                      const assetsToPrint = assets.filter(a => selectedAssetIds.includes(a.id));
+                      handlePrintLabels(assetsToPrint);
+                    }}
+                    className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-500 transition-colors shadow cursor-pointer"
+                    id="print-selected-labels-btn"
+                  >
+                    Print Labels ({selectedAssetIds.length})
+                  </button>
+                )}
+              </div>
             )}
             {canManage && (
               <div className="flex gap-2">
