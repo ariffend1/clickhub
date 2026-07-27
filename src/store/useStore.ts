@@ -22,14 +22,89 @@ import { compressImage } from '../utils/imageCompressor';
 
 const calculateSlaDeadline = (priority: string, createdAt: string): string => {
   const date = new Date(createdAt);
-  let hoursToAdd = 24; // default for Medium
+  let minutesToAdd = 24 * 60; // default for Medium (24 jam kerja = 1440 menit kerja)
   const p = priority.toUpperCase();
-  if (p === 'CRITICAL' || p === 'URGENT') hoursToAdd = 2;
-  else if (p === 'HIGH') hoursToAdd = 8;
-  else if (p === 'MEDIUM') hoursToAdd = 24;
-  else if (p === 'LOW') hoursToAdd = 48;
+  if (p === 'CRITICAL' || p === 'URGENT') minutesToAdd = 2 * 60; // 2 jam kerja
+  else if (p === 'HIGH') minutesToAdd = 8 * 60; // 8 jam kerja
+  else if (p === 'MEDIUM') minutesToAdd = 24 * 60; // 24 jam kerja
+  else if (p === 'LOW') minutesToAdd = 48 * 60; // 48 jam kerja
 
-  date.setHours(date.getHours() + hoursToAdd);
+  // Majukan ke jam kerja jika di luar jam kerja saat ini
+  const adjustToBusinessHours = (d: Date) => {
+    while (true) {
+      const day = d.getDay(); // 0 = Minggu, 1 = Senin, ..., 6 = Sabtu
+      const hour = d.getHours();
+      const min = d.getMinutes();
+      const timeNum = hour + min / 60;
+
+      if (day === 0) {
+        // Hari Minggu -> lompat ke hari Senin pukul 07:00
+        d.setDate(d.getDate() + 1);
+        d.setHours(7, 0, 0, 0);
+        continue;
+      }
+
+      if (day === 6) {
+        // Hari Sabtu -> jam kerja 07:00 s.d. 13:00
+        if (timeNum < 7) {
+          d.setHours(7, 0, 0, 0);
+        } else if (timeNum >= 13) {
+          // Lewat dari jam 13:00 -> lompat ke hari Senin pukul 07:00
+          d.setDate(d.getDate() + 2); // Sabtu + 2 = Senin
+          d.setHours(7, 0, 0, 0);
+          continue;
+        }
+      } else {
+        // Senin s.d. Jumat -> jam kerja 07:00 s.d. 17:00
+        if (timeNum < 7) {
+          d.setHours(7, 0, 0, 0);
+        } else if (timeNum >= 17) {
+          // Lewat dari jam 17:00 -> lompat ke hari esok pukul 07:00
+          d.setDate(d.getDate() + 1);
+          d.setHours(7, 0, 0, 0);
+          continue;
+        }
+      }
+      break;
+    }
+  };
+
+  // Lakukan penambahan menit demi menit kerja
+  adjustToBusinessHours(date);
+
+  while (minutesToAdd > 0) {
+    const day = date.getDay();
+    const hour = date.getHours();
+    const min = date.getMinutes();
+    const timeNum = hour + min / 60;
+
+    let availableMinutesInDay = 0;
+    if (day === 6) {
+      // Sabtu: 07:00 - 13:00 (maks 6 jam / 360 menit)
+      if (timeNum >= 7 && timeNum < 13) {
+        availableMinutesInDay = (13 - timeNum) * 60;
+      }
+    } else if (day >= 1 && day <= 5) {
+      // Senin-Jumat: 07:00 - 17:00 (maks 10 jam / 600 menit)
+      if (timeNum >= 7 && timeNum < 17) {
+        availableMinutesInDay = (17 - timeNum) * 60;
+      }
+    }
+
+    if (availableMinutesInDay <= 0) {
+      adjustToBusinessHours(date);
+      continue;
+    }
+
+    const minutesToSpend = Math.min(minutesToAdd, availableMinutesInDay);
+    date.setMinutes(date.getMinutes() + minutesToSpend);
+    minutesToAdd -= minutesToSpend;
+
+    if (minutesToAdd > 0) {
+      adjustToBusinessHours(date);
+    }
+  }
+
   return date.toISOString();
 };
 
