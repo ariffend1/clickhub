@@ -43,7 +43,7 @@ export default function GoodsReceiptPage() {
       setItemName(req.itemName);
       setQuantityOrdered(req.quantity);
       setQuantityReceived(req.quantity);
-      setDestinationType(req.type === 'NEW_ITEM' ? 'ASSET' : 'INVENTORY');
+      setDestinationType('INVENTORY');
       setInventoryId(req.inventoryId || '');
       setPrice(req.estimatedPrice || 0);
     }

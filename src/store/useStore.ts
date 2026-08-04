@@ -3569,10 +3569,10 @@ export const useStore = create<AppState>()(
             name: data.itemName,
             description: data.notes || `Created via Goods Receipt ${data.receiptNumber}`,
             sku: 'SKU-' + uuidv4().slice(0, 8).toUpperCase(),
-            quantity: 0, // Starts at 0 until verified by Manager
+            quantity: data.quantityReceived,
             unit: 'pcs',
             location: 'Warehouse',
-            isVerified: false, // Pending verification
+            isVerified: true,
             createdAt: now,
             updatedAt: now,
             createdById: cu.id
@@ -3646,6 +3646,17 @@ export const useStore = create<AppState>()(
               inventories: [...get().inventories, newInvItem]
             });
             await get().enqueueWrite('Inventory', 'insert', newInvItem);
+            await get().enqueueWrite('InventoryTransaction', 'insert', {
+              id: uuidv4(),
+              type: 'IN',
+              quantity: data.quantityReceived,
+              previousQty: 0,
+              newQty: data.quantityReceived,
+              notes: `Received new item stock via receipt ${data.receiptNumber}`,
+              inventoryId: targetInventoryId,
+              userId: cu.id,
+              referenceId: data.purchaseRequestId || data.receiptNumber
+            });
           }
         } else if (data.destinationType === 'ASSET') {
           await get().addAsset({
