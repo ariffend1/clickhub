@@ -7,6 +7,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { compressImage } from '../../utils/imageCompressor';
 import SearchableDropdown from '../common/SearchableDropdown';
+import { parseUTCDate, formatDateWIB, formatRelativeWIB } from '../../utils/dateUtils';
 
 const formatCompressionMetrics = (fileSize: number, originalSize?: number) => {
   if (!originalSize || originalSize <= fileSize) {
@@ -33,11 +34,11 @@ function SlaBadge({ ticket }: { ticket: Ticket }) {
 
   if (!ticket.slaDeadline) return null;
 
-  const deadline = new Date(ticket.slaDeadline).getTime();
+  const deadline = parseUTCDate(ticket.slaDeadline)?.getTime() || 0;
   const isResolved = ticket.status === 'RESOLVED' || ticket.status === 'CLOSED';
 
   if (isResolved) {
-    const resolvedTime = ticket.resolvedAt ? new Date(ticket.resolvedAt).getTime() : new Date(ticket.updatedAt).getTime();
+    const resolvedTime = ticket.resolvedAt ? (parseUTCDate(ticket.resolvedAt)?.getTime() || 0) : (parseUTCDate(ticket.updatedAt)?.getTime() || 0);
     const met = resolvedTime <= deadline;
     if (met) {
       return (
@@ -470,7 +471,7 @@ export default function TicketsPage() {
               <div><span className="text-gray-500">Category:</span> <span className="text-gray-300">{selectedTicket.category}</span></div>
               <div><span className="text-gray-500">Reporter:</span> <span className="text-gray-300">{getUserById(selectedTicket.reporterId)?.name}</span></div>
               <div><span className="text-gray-500">Assignee:</span> <span className="text-gray-300">{selectedTicket.assigneeId ? getUserById(selectedTicket.assigneeId)?.name : 'Unassigned'}</span></div>
-              <div><span className="text-gray-500">Created:</span> <span className="text-gray-300">{formatDistanceToNow(new Date(selectedTicket.createdAt), { addSuffix: true })}</span></div>
+              <div><span className="text-gray-500">Created:</span> <span className="text-gray-300">{formatRelativeWIB(selectedTicket.createdAt)}</span></div>
               <div className="col-span-2">
                 <span className="text-gray-500">Helpers:</span>{' '}
                 <span className="text-gray-300 font-semibold">
@@ -498,13 +499,13 @@ export default function TicketsPage() {
                 <div className="space-y-1.5 text-xs text-gray-300">
                   <div className="flex justify-between">
                     <span className="text-gray-500">📅 Dibuat (Created):</span>
-                    <span>{new Date(selectedTicket.createdAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                    <span>{formatDateWIB(selectedTicket.createdAt)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">🚀 Mulai (In Progress):</span>
                     <span>
                       {selectedTicket.inProgressAt 
-                        ? new Date(selectedTicket.inProgressAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })
+                        ? formatDateWIB(selectedTicket.inProgressAt)
                         : <span className="text-amber-500/80 italic">Belum dikerjakan</span>}
                     </span>
                   </div>
@@ -512,7 +513,7 @@ export default function TicketsPage() {
                     <span className="text-gray-500">✅ Selesai (Resolved):</span>
                     <span>
                       {selectedTicket.resolvedAt 
-                        ? new Date(selectedTicket.resolvedAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })
+                        ? formatDateWIB(selectedTicket.resolvedAt)
                         : <span className="text-gray-500 italic">Belum selesai</span>}
                     </span>
                   </div>
@@ -946,7 +947,7 @@ export default function TicketsPage() {
                                   {doc.fileName}
                                 </a>
                                 <span className="text-[9px] text-gray-500">
-                                  {formatCompressionMetrics(doc.fileSize, doc.originalSize)} • {new Date(doc.uploadedAt).toLocaleDateString()}
+                                  {formatCompressionMetrics(doc.fileSize, doc.originalSize)} • {formatDateWIB(doc.uploadedAt, { dateStyle: 'medium' })}
                                 </span>
                               </div>
                             </div>
@@ -1280,7 +1281,7 @@ export default function TicketsPage() {
                             )}
                             <span className="text-[10px] text-gray-500">By: {getUserById(ticket.reporterId)?.name || 'Unknown'}</span>
                           </div>
-                          <span className="text-[9px] text-gray-600">{formatDistanceToNow(new Date(ticket.createdAt), { addSuffix: true })}</span>
+                          <span className="text-[9px] text-gray-600">{formatRelativeWIB(ticket.createdAt)}</span>
                         </div>
                       </button>
                     );
@@ -1343,7 +1344,7 @@ export default function TicketsPage() {
 
                 const formattedDate = (() => {
                   try {
-                    return formatDistanceToNow(new Date(ticket.createdAt), { addSuffix: true });
+                    return formatRelativeWIB(ticket.createdAt);
                   } catch (e) {
                     return 'Unknown';
                   }
