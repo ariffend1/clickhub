@@ -4,7 +4,13 @@
 // For strict production safety:
 // 1. Avoid storing sensitive API credentials (like VITE_TELEGRAM_BOT_TOKEN) in localStorage.
 // 2. Transition sensitive actions to secure serverless endpoints (e.g., Supabase Edge Functions) that hold the secrets safely in backend environment variables.
-const SECRET_KEY = 'clickhub_secret_key_10g_network_upgrade';
+// ⚠️ SECURITY WARNING:
+// The static key defined below acts ONLY as an obfuscation layer to prevent direct plaintext local storage inspection.
+// It DOES NOT protect against active local XSS or determined physical access analysis.
+// To mitigate risks in production:
+// 1. Transition all sensitive operations (like Telegram Dispatch) to Supabase Edge Functions.
+// 2. Do not store sensitive Telegram tokens or webhook endpoints in client-side LocalStorage.
+const DEPRECATED_OBFUSCATION_KEY = 'clickhub_secret_key_10g_network_upgrade';
 
 export const STORAGE_KEYS = {
   TELEGRAM_WEBHOOK_URL: 'ch_tg_wh_enc',
@@ -19,7 +25,7 @@ export const STORAGE_KEYS = {
 export function encrypt(text: string): string {
   if (!text) return '';
   const charCodes = Array.from(text).map((char, index) => {
-    return char.charCodeAt(0) ^ SECRET_KEY.charCodeAt(index % SECRET_KEY.length);
+    return char.charCodeAt(0) ^ DEPRECATED_OBFUSCATION_KEY.charCodeAt(index % DEPRECATED_OBFUSCATION_KEY.length);
   });
   return charCodes.map(code => code.toString(16).padStart(2, '0')).join('');
 }
@@ -33,7 +39,7 @@ export function decrypt(cipherHex: string): string {
       charCodes.push(parseInt(hex, 16));
     }
     return charCodes.map((code, index) => {
-      return String.fromCharCode(code ^ SECRET_KEY.charCodeAt(index % SECRET_KEY.length));
+      return String.fromCharCode(code ^ DEPRECATED_OBFUSCATION_KEY.charCodeAt(index % DEPRECATED_OBFUSCATION_KEY.length));
     }).join('');
   } catch (e) {
     console.error('Decryption failed', e);
