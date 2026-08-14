@@ -147,7 +147,10 @@ export interface Ticket {
   csatFeedback?: string | null;
   resolution?: string | null;
   attachments?: Attachment[];
+  reporterFeedbackStatus?: 'PENDING' | 'CONFIRMED' | 'REJECTED' | null;
+  reporterFeedbackNotes?: string | null;
 }
+
 
 
 export type AssetStatus = 'DRAFT' | 'IN_STORAGE' | 'DEPLOYED' | 'MAINTENANCE' | 'RETIRED';
@@ -378,6 +381,60 @@ export interface ChecklistSubmissionValue {
   value: 'OK' | 'FAIL';
   notes?: string | null;
   createdTicketId?: string | null;
+}
+
+export type ServiceReportFinalStatus = 
+  | 'COMPLETED_NORMAL' 
+  | 'TEMPORARY_DONE' 
+  | 'NEED_PART' 
+  | 'ESCALATED' 
+  | 'UNREPAIRABLE';
+
+export interface ActionStep {
+  id: string;
+  chipId?: string;
+  title: string;
+  notes?: string;
+}
+
+export interface ServiceReportUsedPart {
+  inventoryId: string;
+  quantity: number;
+  notes?: string;
+}
+
+export interface ServiceReport {
+  id: string;
+  taskId: string;
+  ticketId?: string | null;
+  assetId?: string | null;
+  diagnosa: string;
+  actionSteps: ActionStep[];
+  beforePhotoUrl?: string | null;
+  afterPhotoUrl?: string | null;
+  usedParts: ServiceReportUsedPart[];
+  finalStatus: ServiceReportFinalStatus;
+  temporaryReason?: string | null;
+  followUpPlan?: string | null;
+  escalationTargetId?: string | null;
+  escalationReason?: string | null;
+  unrepairableReason?: string | null;
+  additionalNotes?: string | null;
+  systemDurationMinutes: number;
+  technicianDurationNotes?: string | null;
+  isDraft: boolean;
+  submittedAt?: string | null;
+  submittedById?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ActionChip {
+  id: string;
+  label: string;
+  icon: string;
+  isStandard: boolean;
+  isHidden: boolean;
 }
 
 

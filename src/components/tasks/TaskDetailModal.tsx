@@ -6,6 +6,9 @@ import { formatDistanceToNow } from 'date-fns';
 import type { TaskStatus, Priority } from '../../types';
 import { toast } from 'sonner';
 import SearchableDropdown from '../common/SearchableDropdown';
+import AssetServiceHistoryWidget from './AssetServiceHistoryWidget';
+import ServiceReportForm from './ServiceReportForm';
+
 
 const statusOptions: { value: TaskStatus; label: string; color: string }[] = [
   { value: 'todo', label: 'To Do', color: 'bg-gray-400' },
@@ -29,8 +32,10 @@ export default function TaskDetailModal() {
     toggleSubtask, addSubtask, deleteSubtask, users, activities,
     currentUser, partRequests, inventories, addPartRequest,
     checklistTemplates, checklistSubmissions, submitChecklist,
-    activePage, triggerTelegramAlert, addAuditLog, hasRole
+    activePage, triggerTelegramAlert, addAuditLog, hasRole,
+    tickets, serviceReports
   } = useStore();
+
 
   const task = tasks.find(t => t.id === selectedTaskId);
   const [comment, setComment] = useState('');
@@ -76,9 +81,14 @@ export default function TaskDetailModal() {
 
   if (!task) return null;
 
+  const ticket = task.ticketId ? (tickets || []).find(t => t.id === task.ticketId) : null;
+  const existingReport = (serviceReports || []).find(r => r.taskId === task.id);
+  const isReportPending = !existingReport || existingReport.isDraft;
+
   const hasTemplate = !!task.checklistTemplateId;
   const template = checklistTemplates.find(t => t.id === task.checklistTemplateId);
   const submission = checklistSubmissions.find(s => s.taskId === task.id);
+
 
   const taskPartRequests = (partRequests || []).filter(pr => pr.taskId === task.id);
 
@@ -125,13 +135,14 @@ export default function TaskDetailModal() {
               <select value={task.status} onChange={e => updateTask(task.id, { status: e.target.value as TaskStatus })}
                 className="rounded-lg border border-gray-700 bg-gray-800/50 px-2.5 py-1 text-xs text-white outline-none">
                 {statusOptions.map(s => {
-                  const isDisabled = s.value === 'done' && hasTemplate && !submission;
+                  const isDisabled = s.value === 'done' && ((hasTemplate && !submission) || isReportPending);
                   return (
                     <option key={s.value} value={s.value} disabled={isDisabled}>
                       {s.label} {isDisabled ? '(Locked)' : ''}
                     </option>
                   );
                 })}
+
               </select>
             )}
             {!isEmployee && (
@@ -154,7 +165,11 @@ export default function TaskDetailModal() {
         </div>
 
         <div className="p-6">
+          {/* Asset Service History Widget */}
+          <AssetServiceHistoryWidget assetId={ticket?.assetId} />
+
           {/* Title */}
+
           {editingTitle && !isEmployee ? (
             <input autoFocus value={editTitle} onChange={e => setEditTitle(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') { updateTask(task.id, { title: editTitle }); setEditingTitle(false); } if (e.key === 'Escape') setEditingTitle(false); }}
@@ -631,7 +646,11 @@ export default function TaskDetailModal() {
               )}
             </div>
           )}
+
+          {/* Unified Technical Service Report Form */}
+          <ServiceReportForm task={task} />
         </div>
+
       </div>
     </div>
   );

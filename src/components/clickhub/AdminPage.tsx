@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { cn } from '../../utils/cn';
-import { BarChart3, Users, FileText, AlertTriangle, Server, TicketCheck, Plus, X, CheckSquare, ClipboardList, Edit2 } from 'lucide-react';
+import { BarChart3, Users, FileText, AlertTriangle, Server, TicketCheck, Plus, X, CheckSquare, ClipboardList, Edit2, Wrench } from 'lucide-react';
 import type { UserRole } from '../../types';
 import { isPast } from 'date-fns';
 import { toast } from 'sonner';
 import AdminChecklistTab from './AdminChecklistTab';
+import ActionChipsManager from '../admin/ActionChipsManager';
 
-type Tab = 'overview' | 'users' | 'approvals' | 'logs' | 'checklists' | 'verification';
+type Tab = 'overview' | 'users' | 'approvals' | 'logs' | 'checklists' | 'verification' | 'chips';
+
 
 const roleLabels: Record<UserRole, { label: string; color: string }> = {
   ROOT: { label: 'Root', color: 'bg-red-500/20 text-red-400' },
@@ -65,8 +67,10 @@ export default function AdminPage() {
     { key: 'approvals' as const, label: 'Approvals', icon: <CheckSquare size={14} /> },
     { key: 'checklists' as const, label: 'Checklist Templates', icon: <ClipboardList size={14} /> },
     { key: 'verification' as const, label: 'Verifikasi Master', icon: <ClipboardList size={14} /> },
+    { key: 'chips' as const, label: 'Aksi Pekerjaan', icon: <Wrench size={14} /> },
     ...(isAdminOrRoot ? [{ key: 'logs' as const, label: 'Audit Logs', icon: <FileText size={14} /> }] : []),
   ];
+
 
   return (
     <div className="h-full overflow-y-auto p-8">
@@ -688,7 +692,9 @@ export default function AdminPage() {
             </div>
           </div>
         )}
+        {tab === 'chips' && <ActionChipsManager />}
       </div>
+
 
       {/* Add User Modal */}
       {showAddUserModal && (
