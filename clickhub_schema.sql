@@ -674,19 +674,22 @@ CREATE TABLE IF NOT EXISTS public."WorkNote" (
 );
 
 -- =====================
--- 3. ADMIN USER
+-- 3. ADMIN USER (DEACTIVATED FOR SECURITY)
 -- =====================
-INSERT INTO public."User" (
-  "id", "name", "email", "password", "role",
-  "isApproved", "isBlocked", "createdAt", "updatedAt"
-) VALUES (
-  gen_random_uuid()::text,
-  'Support Admin',
-  'support@clickhub.com',
-  crypt('support1234', gen_salt('bf', 10)),
-  'SUPER_ADMIN',
-  true,
-  false,
-  NOW(),
-  NOW()
-);
+-- ⚠️ WARNING: Hardcoded seed superadmin user insertion has been deactivated to prevent default credentials exploitation in production.
+-- Please seed administrators dynamically or change default credentials immediately upon system setup.
+--
+-- INSERT INTO public."User" (
+--   "id", "name", "email", "password", "role",
+--   "isApproved", "isBlocked", "createdAt", "updatedAt"
+-- ) VALUES (
+--   gen_random_uuid()::text,
+--   'Support Admin',
+--   'support@clickhub.com',
+--   crypt('support1234', gen_salt('bf', 10)),
+--   'SUPER_ADMIN',
+--   true,
+--   false,
+--   NOW(),
+--   NOW()
+-- );
