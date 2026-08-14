@@ -100,8 +100,10 @@ export default function TicketsPage() {
     tasks, addTask, selectTask, assets, deleteTicket, approveDeleteTicket, rejectDeleteTicket,
     articles, submitTicketFeedback, addArticle, archivedTicketsLoaded, loadAllArchivedTickets,
     uploadAttachment, deleteAttachment, requestDeleteAttachment, rejectDeleteAttachment,
-    addTicketHelper, requestAssigneeChange
+    addTicketHelper, requestAssigneeChange, confirmReporterFeedback
   } = useStore();
+  const [feedbackNotes, setFeedbackNotes] = useState('');
+
   const [showCreate, setShowCreate] = useState(false);
   const [filterPriority, setFilterPriority] = useState<string>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
@@ -520,6 +522,85 @@ export default function TicketsPage() {
                 </div>
               </div>
             </div>
+
+            {/* Reporter Feedback Widget */}
+            {selectedTicket.status === 'RESOLVED' && (
+              <div className="mt-4 rounded-xl border border-violet-500/30 bg-violet-950/20 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-violet-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <CheckCircle2 size={15} className="text-violet-400" /> Umpan Balik / Konfirmasi Pelapor
+                  </span>
+                  <span className={cn(
+                    "text-[10px] font-semibold px-2 py-0.5 rounded-full border",
+                    selectedTicket.reporterFeedbackStatus === 'CONFIRMED' ? "bg-green-500/10 text-green-400 border-green-500/20" :
+                    selectedTicket.reporterFeedbackStatus === 'REJECTED' ? "bg-red-500/10 text-red-400 border-red-500/20" :
+                    "bg-yellow-500/10 text-yellow-400 border-yellow-500/20"
+                  )}>
+                    {selectedTicket.reporterFeedbackStatus === 'CONFIRMED' ? '✅ Sudah OK' :
+                     selectedTicket.reporterFeedbackStatus === 'REJECTED' ? '🚨 Masih Bermasalah' : '⏳ Menunggu Konfirmasi'}
+                  </span>
+                </div>
+
+                {selectedTicket.reporterFeedbackStatus === 'CONFIRMED' && (
+                  <p className="text-xs text-green-300">
+                    Pelapor telah mengonfirmasi bahwa perbaikan telah berfungsi dengan baik.
+                  </p>
+                )}
+
+                {selectedTicket.reporterFeedbackStatus === 'REJECTED' && (
+                  <div className="space-y-1">
+                    <p className="text-xs text-red-300 font-semibold">
+                      Pelapor melaporkan bahwa masalah belum tuntas dan tiket di-reopen.
+                    </p>
+                    {selectedTicket.reporterFeedbackNotes && (
+                      <p className="text-[11px] text-gray-400 italic">
+                        Catatan: "{selectedTicket.reporterFeedbackNotes}"
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {(!selectedTicket.reporterFeedbackStatus || selectedTicket.reporterFeedbackStatus === 'PENDING') && (
+                  <div className="space-y-2.5 pt-1 border-t border-violet-900/40">
+                    <p className="text-xs text-gray-300">
+                      Apakah perbaikan teknisi sudah menyelesaikan masalah Anda?
+                    </p>
+                    <input
+                      type="text"
+                      placeholder="Catatan tambahan (opsional)..."
+                      value={feedbackNotes}
+                      onChange={e => setFeedbackNotes(e.target.value)}
+                      className="w-full rounded-lg border border-gray-700 bg-gray-900 px-3 py-1.5 text-xs text-white placeholder-gray-500 outline-none"
+                    />
+                    <div className="flex gap-2 justify-end">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await confirmReporterFeedback(selectedTicket.id, false, feedbackNotes);
+                          setFeedbackNotes('');
+                          toast.error('Laporan perbaikan ditolak. Tiket di-reopen & task urgent baru telah dibuat.');
+                        }}
+                        className="rounded-lg bg-red-600/80 hover:bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition"
+                      >
+                        ❌ Masih Bermasalah
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await confirmReporterFeedback(selectedTicket.id, true, feedbackNotes);
+                          setFeedbackNotes('');
+                          toast.success('Terima kasih! Konfirmasi perbaikan telah disimpan.');
+                        }}
+                        className="rounded-lg bg-green-600 hover:bg-green-500 px-3.5 py-1.5 text-xs font-semibold text-white transition shadow-lg shadow-green-500/20"
+                      >
+                        ✅ Sudah OK & Normal
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {canManage && (
               <div className="space-y-3 border-t border-gray-800 pt-4 mb-4">
                 <p className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Update Ticket Attributes & Collaboration</p>

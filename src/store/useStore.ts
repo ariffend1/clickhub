@@ -15,10 +15,27 @@ import type {
   AuthUser, UserRole, Ticket, TicketStatus, TicketPriority, Asset, AssetStatus, Article, Attachment,
   ChatMessage, ChatSession, AuditLog, EquipmentCheckout, CheckoutItem, GoodsReceipt, Holiday, Inventory, MaintenanceSchedule,
   DirectoryCategory, DirectoryEntry, ConfigType,
-  ChecklistTemplate, ChecklistTemplateItem, ChecklistSubmission, ChecklistSubmissionValue
+  ChecklistTemplate, ChecklistTemplateItem, ChecklistSubmission, ChecklistSubmissionValue,
+  ServiceReport, ServiceReportFinalStatus, ActionChip, ActionStep, ServiceReportUsedPart
 } from '../types';
 import { getEncryptedItem, STORAGE_KEYS } from '../utils/crypto';
 import { compressImage } from '../utils/imageCompressor';
+
+export const DEFAULT_ACTION_CHIPS: ActionChip[] = [
+  { id: 'chip-1', label: 'Inspeksi/Cek', icon: '🔍', isStandard: true, isHidden: false },
+  { id: 'chip-2', label: 'Bongkar Unit', icon: '🔧', isStandard: true, isHidden: false },
+  { id: 'chip-3', label: 'Bersihkan', icon: '🧹', isStandard: true, isHidden: false },
+  { id: 'chip-4', label: 'Ganti Part', icon: '🔄', isStandard: true, isHidden: false },
+  { id: 'chip-5', label: 'Setting/Kalibrasi', icon: '⚙️', isStandard: true, isHidden: false },
+  { id: 'chip-6', label: 'Test Fungsi', icon: '🧪', isStandard: true, isHidden: false },
+  { id: 'chip-7', label: 'Update Software', icon: '💻', isStandard: true, isHidden: false },
+  { id: 'chip-8', label: 'Cek Kabel/Koneksi', icon: '🔌', isStandard: true, isHidden: false },
+  { id: 'chip-9', label: 'Eskalasi', icon: '📞', isStandard: true, isHidden: false },
+  { id: 'chip-10', label: 'Restart/Reboot', icon: '🔁', isStandard: true, isHidden: false },
+  { id: 'chip-11', label: 'Packing/Kirim', icon: '📦', isStandard: true, isHidden: false },
+  { id: 'chip-12', label: 'Backup Data', icon: '🛡️', isStandard: true, isHidden: false }
+];
+
 
 const calculateSlaDeadline = (priority: string, createdAt: string): string => {
   const date = new Date(createdAt);
@@ -274,6 +291,17 @@ interface AppState {
   addMasterDataItem: (category: string, name: string) => Promise<void>;
   deleteMasterDataItem: (id: string) => Promise<void>;
   verifyMasterDataItem: (id: string) => Promise<void>;
+  serviceReports: ServiceReport[];
+  actionChips: ActionChip[];
+  saveServiceReportDraft: (taskId: string, data: Partial<ServiceReport>) => Promise<void>;
+  submitServiceReportFinal: (taskId: string, data: Partial<ServiceReport>) => Promise<void>;
+  addActionChip: (label: string, icon: string) => Promise<void>;
+  updateActionChip: (id: string, updates: Partial<ActionChip>) => Promise<void>;
+  deleteActionChip: (id: string) => Promise<void>;
+  toggleHideActionChip: (id: string) => Promise<void>;
+  confirmReporterFeedback: (ticketId: string, isOk: boolean, notes?: string) => Promise<void>;
+  getAssetServiceHistory: (assetId: string) => ServiceReport[];
+
   updateUserTitle: (userId: string, title: string) => Promise<void>;
   bulkAddAssets: (assets: any[]) => Promise<void>;
   bulkAddInventories: (items: any[]) => Promise<void>;
@@ -505,6 +533,9 @@ export const useStore = create<AppState>()(
       checklistSubmissions: [],
       locations: [],
       masterData: [],
+      serviceReports: [],
+      actionChips: DEFAULT_ACTION_CHIPS,
+
 
       // SUPABASE LOAD DATA
       loadAllData: async () => {
@@ -4308,6 +4339,325 @@ export const useStore = create<AppState>()(
           console.error('Bulk add inventories error:', e);
           throw e;
         }
+      },
+
+      // SERVICE REPORT ACTIONS
+      saveServiceReportDraft: async (taskId, data) => {
+        const cu = get().currentUser;
+        const now = new Date().toISOString();
+        const existing = get().serviceReports.find(r => r.taskId === taskId);
+        const reportId = existing ? existing.id : uuidv4();
+
+        const newReport: ServiceReport = {
+          id: reportId,
+          taskId,
+          ticketId: data.ticketId || null,
+          assetId: data.assetId || null,
+          diagnosa: data.diagnosa || '',
+          actionSteps: data.actionSteps || [],
+          beforePhotoUrl: data.beforePhotoUrl || null,
+          afterPhotoUrl: data.afterPhotoUrl || null,
+          usedParts: data.usedParts || [],
+          finalStatus: data.finalStatus || 'COMPLETED_NORMAL',
+          temporaryReason: data.temporaryReason || null,
+          followUpPlan: data.followUpPlan || null,
+          escalationTargetId: data.escalationTargetId || null,
+          escalationReason: data.escalationReason || null,
+          unrepairableReason: data.unrepairableReason || null,
+          additionalNotes: data.additionalNotes || null,
+          systemDurationMinutes: data.systemDurationMinutes || 1,
+          technicianDurationNotes: data.technicianDurationNotes || null,
+          isDraft: true,
+          submittedAt: null,
+          submittedById: cu?.id || null,
+          createdAt: existing ? existing.createdAt : now,
+          updatedAt: now
+        };
+
+        set(state => ({
+          serviceReports: existing 
+            ? state.serviceReports.map(r => r.taskId === taskId ? newReport : r)
+            : [...state.serviceReports, newReport]
+        }));
+
+        await get().enqueueWrite('ServiceReport', 'insert', newReport);
+        get().addAuditLog('SERVICE_REPORT_DRAFT_SAVED', `Draft Laporan Pekerjaan untuk Task #${taskId.slice(0, 8)} disimpan`);
+      },
+
+      submitServiceReportFinal: async (taskId, data) => {
+        const cu = get().currentUser;
+        const now = new Date().toISOString();
+        const existing = get().serviceReports.find(r => r.taskId === taskId);
+        const reportId = existing ? existing.id : uuidv4();
+
+        const finalReport: ServiceReport = {
+          id: reportId,
+          taskId,
+          ticketId: data.ticketId || null,
+          assetId: data.assetId || null,
+          diagnosa: data.diagnosa || '',
+          actionSteps: data.actionSteps || [],
+          beforePhotoUrl: data.beforePhotoUrl || null,
+          afterPhotoUrl: data.afterPhotoUrl || null,
+          usedParts: data.usedParts || [],
+          finalStatus: data.finalStatus || 'COMPLETED_NORMAL',
+          temporaryReason: data.temporaryReason || null,
+          followUpPlan: data.followUpPlan || null,
+          escalationTargetId: data.escalationTargetId || null,
+          escalationReason: data.escalationReason || null,
+          unrepairableReason: data.unrepairableReason || null,
+          additionalNotes: data.additionalNotes || null,
+          systemDurationMinutes: data.systemDurationMinutes || 1,
+          technicianDurationNotes: data.technicianDurationNotes || null,
+          isDraft: false,
+          submittedAt: now,
+          submittedById: cu?.id || null,
+          createdAt: existing ? existing.createdAt : now,
+          updatedAt: now
+        };
+
+        // 1. Update ServiceReports state
+        set(state => ({
+          serviceReports: existing
+            ? state.serviceReports.map(r => r.taskId === taskId ? finalReport : r)
+            : [...state.serviceReports, finalReport]
+        }));
+        await get().enqueueWrite('ServiceReport', 'insert', finalReport);
+
+        // 2. Process Used Parts - Deduct Inventory stock
+        if (finalReport.usedParts && finalReport.usedParts.length > 0) {
+          for (const part of finalReport.usedParts) {
+            const inv = get().inventories.find(i => i.id === part.inventoryId);
+            if (inv) {
+              const newQty = Math.max(0, inv.quantity - part.quantity);
+              await get().updateInventoryMaster(inv.id, { quantity: newQty });
+            }
+          }
+        }
+
+        // 3. Process Task status based on finalStatus
+        const targetTask = get().tasks.find(t => t.id === taskId);
+        if (!targetTask) return;
+
+        if (finalReport.finalStatus === 'ESCALATED') {
+          const newAssignees = Array.from(new Set([...targetTask.assigneeIds, finalReport.escalationTargetId].filter((id): id is string => Boolean(id))));
+          await get().updateTask(taskId, { status: 'in_review', assigneeIds: newAssignees });
+          
+          const managerName = get().getUserById(finalReport.escalationTargetId || '')?.name || 'Manager';
+          await get().triggerTelegramAlert(
+            `⬆️ Eskalasi Tugas: ${targetTask.title}`,
+            `Boss, tugas "${targetTask.title}" telah DIESKALASI oleh **${cu?.name || 'Teknisi'}** kepada **${managerName}**.\n\n**Alasan:** ${finalReport.escalationReason}`,
+            'HIGH'
+          );
+        } else {
+          await get().updateTask(taskId, { status: 'done' });
+        }
+
+        // 4. Handle Auto Follow-Up Tasks & Ticket Updates based on finalStatus
+        const matchingTicket = targetTask.ticketId ? get().tickets.find(t => t.id === targetTask.ticketId) : null;
+
+        if (finalReport.finalStatus === 'COMPLETED_NORMAL') {
+          if (matchingTicket) {
+            await get().updateTicket(matchingTicket.id, { 
+              status: 'RESOLVED',
+              reporterFeedbackStatus: 'PENDING',
+              resolution: `Telah diselesaikan oleh ${cu?.name || 'Teknisi'}. Diagnosa: ${finalReport.diagnosa}`
+            });
+            await get().triggerTelegramAlert(
+              `✅ Tiket Selesai: #TK-${matchingTicket.id.slice(0, 8).toUpperCase()}`,
+              `Boss, tiket "${matchingTicket.title}" telah SELESAI dikerjakan.\n\n**Diagnosa:** ${finalReport.diagnosa}\n**Status Umpan Balik Pelapor:** Menunggu Konfirmasi`,
+              'INFO'
+            );
+          }
+        } else if (finalReport.finalStatus === 'TEMPORARY_DONE') {
+          const followUpTaskId = uuidv4();
+          const newTask: Task = {
+            id: followUpTaskId,
+            title: `🔄 Follow-Up: ${targetTask.title}`,
+            description: `Tindak Lanjut: ${finalReport.followUpPlan || ''}\nAlasan Selesai Sementara: ${finalReport.temporaryReason || ''}`,
+            status: 'todo',
+            priority: targetTask.priority,
+            assigneeIds: targetTask.assigneeIds,
+            tags: targetTask.tags || [],
+            subtasks: [],
+            dueDate: null,
+            createdAt: now,
+            updatedAt: now,
+            spaceId: targetTask.spaceId,
+            listId: targetTask.listId,
+            order: 0,
+            timeEstimate: 0,
+            timeTracked: 0,
+            ticketId: targetTask.ticketId,
+            isRecurring: false
+          };
+          set(state => ({ tasks: [newTask, ...state.tasks] }));
+          await get().enqueueWrite('Task', 'insert', newTask);
+
+          if (matchingTicket) {
+            await get().updateTicket(matchingTicket.id, { status: 'IN_PROGRESS' });
+          }
+          await get().triggerTelegramAlert(
+            `⚠️ Task Selesai Sementara & Task Lanjutan Dibuat: ${targetTask.title}`,
+            `Boss, task "${targetTask.title}" diselesaikan sementara.\n\n**Alasan:** ${finalReport.temporaryReason}\n**Task Lanjutan Dibuat:** 🔄 Follow-Up: ${targetTask.title}`,
+            'WARN'
+          );
+        } else if (finalReport.finalStatus === 'NEED_PART') {
+          const partTaskId = uuidv4();
+          const newTask: Task = {
+            id: partTaskId,
+            title: `📦 Order/Tunggu Part: ${targetTask.title}`,
+            description: `Menunggu part untuk perbaikan. Catatan: ${finalReport.additionalNotes || 'Part dibutuhkan'}`,
+            status: 'pending',
+            priority: targetTask.priority,
+            assigneeIds: targetTask.assigneeIds,
+            tags: targetTask.tags || [],
+            subtasks: [],
+            dueDate: null,
+            createdAt: now,
+            updatedAt: now,
+            spaceId: targetTask.spaceId,
+            listId: targetTask.listId,
+            order: 0,
+            timeEstimate: 0,
+            timeTracked: 0,
+            ticketId: targetTask.ticketId,
+            isRecurring: false
+          };
+
+          set(state => ({ tasks: [newTask, ...state.tasks] }));
+          await get().enqueueWrite('Task', 'insert', newTask);
+
+          if (matchingTicket) {
+            await get().updateTicket(matchingTicket.id, { status: 'PENDING' });
+          }
+          await get().triggerTelegramAlert(
+            `📦 Membutuhkan Part Baru: ${targetTask.title}`,
+            `Boss, task "${targetTask.title}" membutuhkan pemesanan/penantian spare part. Status tugas diubah ke PENDING.`,
+            'WARN'
+          );
+        } else if (finalReport.finalStatus === 'UNREPAIRABLE') {
+          if (matchingTicket) {
+            await get().updateTicket(matchingTicket.id, { 
+              status: 'RESOLVED',
+              resolution: `Unit tidak dapat diperbaiki (Afkir/Write-Off). Alasan: ${finalReport.unrepairableReason}`
+            });
+          }
+          await get().triggerTelegramAlert(
+            `❌ Unit Tidak Dapat Diperbaiki (Afkir): ${targetTask.title}`,
+            `Boss, unit pada task "${targetTask.title}" dinyatakan TIDAK DAPAT DIPERBAIKI.\n\n**Alasan:** ${finalReport.unrepairableReason}\n**Rekomendasi:** Pengadaan Unit Baru / Write-Off Aset`,
+            'HIGH'
+          );
+        }
+
+        get().addAuditLog('SERVICE_REPORT_SUBMITTED', `Laporan Pekerjaan untuk Task "${targetTask.title}" difinalisasi (${finalReport.finalStatus})`);
+      },
+
+      // ACTION CHIPS MANAGEMENT ACTIONS
+      addActionChip: async (label, icon) => {
+        const cu = get().currentUser;
+        const newChip: ActionChip = {
+          id: `chip-custom-${uuidv4().slice(0, 8)}`,
+          label,
+          icon: icon || '🔧',
+          isStandard: false,
+          isHidden: false
+        };
+        set(state => ({ actionChips: [...state.actionChips, newChip] }));
+        await get().enqueueWrite('ActionChip', 'insert', newChip);
+        get().addAuditLog('ACTION_CHIP_ADDED', `Chip aksi custom "${label}" ditambahkan oleh ${cu?.name || 'Admin'}`);
+      },
+
+      updateActionChip: async (id, updates) => {
+        set(state => ({
+          actionChips: state.actionChips.map(c => c.id === id ? { ...c, ...updates } : c)
+        }));
+        await get().enqueueWrite('ActionChip', 'update', updates, 'id', id);
+      },
+
+      deleteActionChip: async (id) => {
+        const chip = get().actionChips.find(c => c.id === id);
+        if (chip?.isStandard) {
+          throw new Error('Chip standar bawaan sistem tidak dapat dihapus. Anda dapat menyembunyikannya (Hide).');
+        }
+        set(state => ({
+          actionChips: state.actionChips.filter(c => c.id !== id)
+        }));
+        await get().enqueueWrite('ActionChip', 'delete', null, 'id', id);
+        get().addAuditLog('ACTION_CHIP_DELETED', `Chip aksi "${chip?.label}" dihapus`);
+      },
+
+      toggleHideActionChip: async (id) => {
+        const chip = get().actionChips.find(c => c.id === id);
+        if (!chip) return;
+        const newHiddenState = !chip.isHidden;
+        set(state => ({
+          actionChips: state.actionChips.map(c => c.id === id ? { ...c, isHidden: newHiddenState } : c)
+        }));
+        await get().enqueueWrite('ActionChip', 'update', { isHidden: newHiddenState }, 'id', id);
+      },
+
+      confirmReporterFeedback: async (ticketId, isOk, notes) => {
+        const cu = get().currentUser;
+        const now = new Date().toISOString();
+        const status = isOk ? 'CONFIRMED' : 'REJECTED';
+
+        await get().updateTicket(ticketId, {
+          reporterFeedbackStatus: status,
+          reporterFeedbackNotes: notes || null
+        });
+
+        if (!isOk) {
+          const targetTicket = get().tickets.find(t => t.id === ticketId);
+          const followUpTaskId = uuidv4();
+
+          let defSpaceId = get().spaces[0]?.id || '';
+          let defListId = get().lists.find(l => l.spaceId === defSpaceId)?.id || '';
+
+          const newTask: Task = {
+            id: followUpTaskId,
+            title: `🚨 Re-open/Bermasalah: ${targetTicket?.title || 'Tiket'}`,
+            description: `Pelapor menyatakan masalah belum tuntas.\n\n**Catatan Pelapor:** ${notes || 'Tidak ada catatan'}`,
+            status: 'todo',
+            priority: 'urgent',
+            assigneeIds: targetTicket?.assigneeId ? [targetTicket.assigneeId] : [],
+            tags: [],
+            subtasks: [],
+            dueDate: null,
+            createdAt: now,
+            updatedAt: now,
+            spaceId: defSpaceId,
+            listId: defListId,
+            order: 0,
+            timeEstimate: 0,
+            timeTracked: 0,
+            ticketId,
+            isRecurring: false
+          };
+
+
+          set(state => ({ tasks: [newTask, ...state.tasks] }));
+          await get().enqueueWrite('Task', 'insert', newTask);
+          await get().updateTicket(ticketId, { status: 'OPEN' });
+
+          await get().triggerTelegramAlert(
+            `🚨 Pelapor Melaporkan Masalah Belum Tuntas: #TK-${ticketId.slice(0, 8).toUpperCase()}`,
+            `Boss, pelapor **${cu?.name || 'Employee'}** menyatakan perbaikan tiket "${targetTicket?.title}" MASIH BERMASALAH.\n\n**Catatan Pelapor:** ${notes || '-'}\n**Status:** Tiket di-reopen & Task Urgent Baru Dibuat!`,
+            'HIGH'
+          );
+        } else {
+          await get().triggerTelegramAlert(
+            `👍 Konfirmasi Pelapor (Sudah OK): #TK-${ticketId.slice(0, 8).toUpperCase()}`,
+            `Boss, pelapor **${cu?.name || 'Employee'}** telah mengonfirmasi bahwa perbaikan telah OK & BERFUNGSI NORMAL.`,
+            'INFO'
+          );
+        }
+
+        get().addAuditLog('REPORTER_FEEDBACK_SUBMITTED', `Pelapor mengonfirmasi perbaikan tiket #${ticketId.slice(0, 8)}: ${status}`);
+      },
+
+      getAssetServiceHistory: (assetId) => {
+        return (get().serviceReports || []).filter(r => r.assetId === assetId && !r.isDraft).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       },
 
       // COMPUTED / GETTERS
