@@ -16,8 +16,9 @@ interface ServiceReportFormProps {
 export default function ServiceReportForm({ task }: ServiceReportFormProps) {
   const { 
     serviceReports, actionChips, tickets, users, inventories, currentUser,
-    saveServiceReportDraft, submitServiceReportFinal
+    saveServiceReportDraft, submitServiceReportFinal, setShowTaskModal
   } = useStore();
+
 
   const ticket = task.ticketId ? (tickets || []).find(t => t.id === task.ticketId) : null;
   const reporter = ticket ? (users || []).find(u => u.id === ticket.reporterId) : null;
@@ -235,7 +236,9 @@ export default function ServiceReportForm({ task }: ServiceReportFormProps) {
       toast.info('Mengirim & memfinalisasi Laporan Pekerjaan...');
       await submitServiceReportFinal(task.id, payload);
       toast.success('Laporan Pekerjaan difinalisasi! Tugas telah diselesaikan.');
+      setShowTaskModal(false);
     } catch (err: any) {
+
       toast.error(err.message || 'Gagal memfinalisasi laporan.');
     }
   };
