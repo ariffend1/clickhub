@@ -1,7 +1,7 @@
 {
-  "name": "react-vite-tailwind",
+  "name": "clickhub-mobile-edition",
   "private": true,
-  "version": "1.4.3",
+  "version": "0.1.0-mobile",
   "type": "module",
   "scripts": {
     "dev": "vite",

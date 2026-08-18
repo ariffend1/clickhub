@@ -53,14 +53,14 @@ export default function ChatWidget() {
 
   if (!showChatWidget) {
     return (
-      <button onClick={() => setShowChatWidget(true)} className="fixed bottom-6 right-6 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-violet-600 text-white shadow-lg shadow-violet-600/30 hover:bg-violet-500 transition-colors">
+      <button onClick={() => setShowChatWidget(true)} className="fixed bottom-20 right-4 lg:bottom-6 lg:right-6 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-violet-600 text-white shadow-lg shadow-violet-600/30 hover:bg-violet-500 transition-colors">
         <MessageCircle size={22} />
       </button>
     );
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-40 flex h-96 w-80 flex-col rounded-2xl border border-gray-700 bg-[#1e2028] shadow-2xl animate-slide-up">
+    <div className="fixed bottom-20 right-4 lg:bottom-6 lg:right-6 z-40 flex h-96 w-80 max-w-[calc(100vw-2rem)] flex-col rounded-2xl border border-gray-700 bg-[#1e2028] shadow-2xl animate-slide-up">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-gray-800 px-4 py-3">
         <div>

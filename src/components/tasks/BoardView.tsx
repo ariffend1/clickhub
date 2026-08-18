@@ -84,6 +84,7 @@ export default function BoardView() {
   const [quickAddTitle, setQuickAddTitle] = useState('');
   const [collapsedCols, setCollapsedCols] = useState<Record<string, boolean>>({});
   const [activeMenu, setActiveMenu] = useState<string | null>(null); // taskId of open quick-action menu
+  const [activeMobileCol, setActiveMobileCol] = useState<TaskStatus | 'all'>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [showLeftShadow, setShowLeftShadow] = useState(false);
   const [showRightShadow, setShowRightShadow] = useState(false);
@@ -216,7 +217,33 @@ export default function BoardView() {
   };
 
   return (
-    <div className="relative flex-1 min-h-0 overflow-hidden">
+    <div className="relative flex-1 min-h-0 flex flex-col overflow-hidden">
+      {/* Mobile Column Switcher Tab Bar */}
+      <div className="md:hidden flex items-center gap-1 overflow-x-auto p-2 bg-gray-900/60 border-b border-[var(--c-border)] shrink-0">
+        <button
+          onClick={() => setActiveMobileCol('all')}
+          className={cn(
+            "px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors cursor-pointer",
+            activeMobileCol === 'all' ? "bg-violet-600 text-white" : "text-gray-400 hover:bg-gray-800"
+          )}
+        >
+          All Cols
+        </button>
+        {columns.map(c => (
+          <button
+            key={c.status}
+            onClick={() => setActiveMobileCol(c.status)}
+            className={cn(
+              "flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors cursor-pointer",
+              activeMobileCol === c.status ? "bg-violet-600 text-white font-semibold" : "text-gray-400 hover:bg-gray-800"
+            )}
+          >
+            <span className={cn("h-1.5 w-1.5 rounded-full", c.dotColor)} />
+            {c.label}
+          </button>
+        ))}
+      </div>
+
       {/* Left scroll shadow */}
       <div className={cn(
         'pointer-events-none absolute left-0 top-0 bottom-0 w-16 z-10 transition-opacity duration-300',
@@ -233,11 +260,11 @@ export default function BoardView() {
       {/* Board container */}
       <div
         ref={boardRef}
-        className="flex h-full gap-3 overflow-x-auto p-4 cursor-grab select-none"
+        className="flex h-full gap-3 overflow-x-auto p-3 sm:p-4 cursor-grab select-none"
         style={{ scrollbarWidth: 'thin', scrollbarColor: '#374151 transparent' }}
         onMouseDown={handleBoardMouseDown}
       >
-        {columns.map(col => {
+        {columns.filter(c => activeMobileCol === 'all' || activeMobileCol === c.status).map(col => {
           const colTasks = getTasksByStatus(col.status);
           const isCollapsed = collapsedCols[col.status];
 
@@ -263,7 +290,8 @@ export default function BoardView() {
           return (
             <div key={col.status}
               className={cn(
-                'flex min-w-[280px] w-[280px] shrink-0 flex-col rounded-xl bg-gray-800/20 transition-colors',
+                'flex shrink-0 flex-col rounded-xl bg-gray-800/20 transition-colors',
+                activeMobileCol !== 'all' ? 'w-full min-w-full sm:min-w-[280px] sm:w-[280px]' : 'min-w-[260px] sm:min-w-[280px] w-[260px] sm:w-[280px]',
                 dragOverColumn === col.status && 'bg-violet-500/5 ring-1 ring-violet-500/20'
               )}
               onDragOver={e => handleDragOver(e, col.status)}

@@ -1308,7 +1308,7 @@ export default function TicketsPage() {
 
       {/* Board View */}
       {viewMode === 'board' ? (
-        <div className="flex gap-4 overflow-x-auto">
+        <div className="flex flex-col sm:flex-row gap-4 sm:overflow-x-auto">
           {columns.map(status => {
             const colTickets = filtered
               .filter(t => t.status === status)
@@ -1324,8 +1324,8 @@ export default function TicketsPage() {
               });
             const config = statusConfig[status];
             return (
-              <div key={status} className="min-w-[260px] flex-1">
-                <div className="mb-3 flex items-center gap-2">
+              <div key={status} className="w-full sm:min-w-[260px] sm:flex-1">
+                <div className="mb-2 sm:mb-3 flex items-center gap-2">
                   <span className={cn("flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium", config.bg, config.color)}>{config.icon} {config.label}</span>
                   <span className="text-xs text-gray-500">{colTickets.length}</span>
                 </div>
@@ -1397,63 +1397,114 @@ export default function TicketsPage() {
             </div>
           )}
 
-          <div className="rounded-xl border border-gray-800 bg-[#282c34] overflow-hidden">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-700 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                <th className="px-4 py-3">Type</th>
-                <th className="px-4 py-3">Ticket</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Priority</th>
-                <th className="px-4 py-3">Category</th>
-                <th className="px-4 py-3">SLA Status</th>
-                <th className="px-4 py-3">Reporter</th>
-                <th className="px-4 py-3">Assignee</th>
-                <th className="px-4 py-3">Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(ticket => {
-                const assignee = ticket.assigneeId ? getUserById(ticket.assigneeId) : null;
-                const reporter = getUserById(ticket.reporterId);
-                
-                const sKey = (ticket.status || 'OPEN').toUpperCase() as TicketStatus;
-                const sConfig = statusConfig[sKey] || statusConfig.OPEN;
+          {/* Mobile Stacked Card View */}
+          <div className="block md:hidden space-y-2">
+            {filtered.map(ticket => {
+              const assignee = ticket.assigneeId ? getUserById(ticket.assigneeId) : null;
+              const reporter = getUserById(ticket.reporterId);
+              const sKey = (ticket.status || 'OPEN').toUpperCase() as TicketStatus;
+              const sConfig = statusConfig[sKey] || statusConfig.OPEN;
+              const pKey = (ticket.priority || 'MEDIUM').toUpperCase() as TicketPriority;
+              const pConfig = priorityConfig[pKey] || priorityConfig.MEDIUM;
 
-                const pKey = (ticket.priority || 'MEDIUM').toUpperCase() as TicketPriority;
-                const pConfig = priorityConfig[pKey] || priorityConfig.MEDIUM;
+              return (
+                <button
+                  key={ticket.id}
+                  onClick={() => setSelectedTicket(ticket)}
+                  className="w-full rounded-xl border border-gray-800 bg-[#282c34] p-3 text-left hover:border-gray-700 transition flex flex-col gap-2"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="rounded bg-violet-950/40 px-1.5 py-0.5 text-[9px] font-semibold text-violet-300 border border-violet-800/30">
+                        {ticket.type || 'Incident'}
+                      </span>
+                      <span className={cn("flex items-center gap-1 text-[10px] font-semibold", sConfig.color)}>
+                        {sConfig.icon} {sConfig.label}
+                      </span>
+                    </div>
+                    <SlaBadge ticket={ticket} />
+                  </div>
 
-                const formattedDate = (() => {
-                  try {
-                    return formatRelativeWIB(ticket.createdAt);
-                  } catch (e) {
-                    return 'Unknown';
-                  }
-                })();
+                  <div>
+                    <h4 className="text-sm font-semibold text-white leading-tight">{ticket.title}</h4>
+                    {ticket.description && <p className="text-xs text-gray-400 line-clamp-2 mt-0.5">{ticket.description}</p>}
+                  </div>
 
-                return (
-                  <tr key={ticket.id} onClick={() => setSelectedTicket(ticket)} className="cursor-pointer border-b border-gray-800/50 hover:bg-gray-800/30">
-                    <td className="px-4 py-3"><span className="rounded bg-violet-950/40 px-2 py-0.5 text-[10px] font-semibold text-violet-300 border border-violet-800/30">{ticket.type || 'Incident'}</span></td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-white">{ticket.title}</span>
-                        {ticket.isDeleteRequested && <span className="rounded bg-red-500/10 px-1.5 py-0.5 text-[8px] font-bold text-red-400 animate-pulse border border-red-500/20">Deletion Requested</span>}
-                        {ticket.isArchived && <span className="rounded bg-gray-800 px-1.5 py-0.5 text-[8px] font-bold text-gray-400 border border-gray-700">Archived</span>}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3"><span className={cn("flex items-center gap-1 text-xs", sConfig.color)}>{sConfig.icon} {sConfig.label}</span></td>
-                    <td className="px-4 py-3"><span className={cn("flex items-center gap-1 text-xs", pConfig.color)}><div className={cn("h-1.5 w-1.5 rounded-full", pConfig.dot)} />{pConfig.label}</span></td>
-                    <td className="px-4 py-3"><span className="text-xs text-gray-400">{ticket.category}</span></td>
-                    <td className="px-4 py-3"><SlaBadge ticket={ticket} /></td>
-                    <td className="px-4 py-3"><span className="text-xs text-gray-300">{reporter?.name || 'Unknown'}</span></td>
-                    <td className="px-4 py-3">{assignee ? <span className="text-xs text-gray-300">{assignee.name}</span> : <span className="text-xs text-gray-600">Unassigned</span>}</td>
-                    <td className="px-4 py-3"><span className="text-xs text-gray-500">{formattedDate}</span></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-800/60 text-[10px]">
+                    <div className="flex items-center gap-2">
+                      <span className={cn("flex items-center gap-1 font-medium", pConfig.color)}>
+                        <div className={cn("h-1.5 w-1.5 rounded-full", pConfig.dot)} />
+                        {pConfig.label}
+                      </span>
+                      <span className="text-gray-400">• {ticket.category}</span>
+                    </div>
+                    <div className="text-gray-400">
+                      {assignee ? `To: ${assignee.name}` : `By: ${reporter?.name || 'Unknown'}`}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Desktop Table View */}
+          <div className="hidden md:block rounded-xl border border-gray-800 bg-[#282c34] overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-700 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  <th className="px-4 py-3">Type</th>
+                  <th className="px-4 py-3">Ticket</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Priority</th>
+                  <th className="px-4 py-3">Category</th>
+                  <th className="px-4 py-3">SLA Status</th>
+                  <th className="px-4 py-3">Reporter</th>
+                  <th className="px-4 py-3">Assignee</th>
+                  <th className="px-4 py-3">Created</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(ticket => {
+                  const assignee = ticket.assigneeId ? getUserById(ticket.assigneeId) : null;
+                  const reporter = getUserById(ticket.reporterId);
+                  
+                  const sKey = (ticket.status || 'OPEN').toUpperCase() as TicketStatus;
+                  const sConfig = statusConfig[sKey] || statusConfig.OPEN;
+
+                  const pKey = (ticket.priority || 'MEDIUM').toUpperCase() as TicketPriority;
+                  const pConfig = priorityConfig[pKey] || priorityConfig.MEDIUM;
+
+                  const formattedDate = (() => {
+                    try {
+                      return formatRelativeWIB(ticket.createdAt);
+                    } catch (e) {
+                      return 'Unknown';
+                    }
+                  })();
+
+                  return (
+                    <tr key={ticket.id} onClick={() => setSelectedTicket(ticket)} className="cursor-pointer border-b border-gray-800/50 hover:bg-gray-800/30">
+                      <td className="px-4 py-3"><span className="rounded bg-violet-950/40 px-2 py-0.5 text-[10px] font-semibold text-violet-300 border border-violet-800/30">{ticket.type || 'Incident'}</span></td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-white">{ticket.title}</span>
+                          {ticket.isDeleteRequested && <span className="rounded bg-red-500/10 px-1.5 py-0.5 text-[8px] font-bold text-red-400 animate-pulse border border-red-500/20">Deletion Requested</span>}
+                          {ticket.isArchived && <span className="rounded bg-gray-800 px-1.5 py-0.5 text-[8px] font-bold text-gray-400 border border-gray-700">Archived</span>}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3"><span className={cn("flex items-center gap-1 text-xs", sConfig.color)}>{sConfig.icon} {sConfig.label}</span></td>
+                      <td className="px-4 py-3"><span className={cn("flex items-center gap-1 text-xs", pConfig.color)}><div className={cn("h-1.5 w-1.5 rounded-full", pConfig.dot)} />{pConfig.label}</span></td>
+                      <td className="px-4 py-3"><span className="text-xs text-gray-400">{ticket.category}</span></td>
+                      <td className="px-4 py-3"><SlaBadge ticket={ticket} /></td>
+                      <td className="px-4 py-3"><span className="text-xs text-gray-300">{reporter?.name || 'Unknown'}</span></td>
+                      <td className="px-4 py-3">{assignee ? <span className="text-xs text-gray-300">{assignee.name}</span> : <span className="text-xs text-gray-600">Unassigned</span>}</td>
+                      <td className="px-4 py-3"><span className="text-xs text-gray-500">{formattedDate}</span></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
       </div>
     )}
 

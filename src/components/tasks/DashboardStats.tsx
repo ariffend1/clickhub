@@ -22,16 +22,16 @@ export default function DashboardStats() {
   ];
 
   return (
-    <div className="mb-6 grid grid-cols-4 gap-4 px-6 pt-4">
+    <div className="mb-3 sm:mb-6 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 px-3 sm:px-6 pt-2 sm:pt-4">
       {statCards.map(card => (
-        <div key={card.label} className="rounded-xl border border-gray-800 bg-[#282c34] p-4">
+        <div key={card.label} className="rounded-xl border border-gray-800 bg-[#282c34] p-2.5 sm:p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[10px] uppercase tracking-wider text-gray-500">{card.label}</p>
-              <p className="text-2xl font-bold text-white">{card.value}</p>
-              {card.subtext && <p className="text-[10px] text-gray-500">{card.subtext}</p>}
+              <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-gray-400 font-semibold">{card.label}</p>
+              <p className="text-lg sm:text-2xl font-bold text-white leading-tight">{card.value}</p>
+              {card.subtext && <p className="text-[9px] sm:text-[10px] text-gray-400">{card.subtext}</p>}
             </div>
-            <div className={cn("flex h-10 w-10 items-center justify-center rounded-xl", card.color)}>{card.icon}</div>
+            <div className={cn("flex h-7 w-7 sm:h-10 sm:w-10 items-center justify-center rounded-lg sm:rounded-xl shrink-0", card.color)}>{card.icon}</div>
           </div>
         </div>
       ))}

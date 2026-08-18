@@ -55,6 +55,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
 
   const showViewSwitcher = activePage === 'spaces' || activePage === 'my_tasks';
   const [showFilter, setShowFilter] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   useEffect(() => {
@@ -109,8 +110,22 @@ export default function Header({ onMenuToggle }: HeaderProps) {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Search */}
-          <div className="relative hidden sm:block">
+          {/* Mobile Search Toggle Button */}
+          <button
+            onClick={() => setMobileSearchOpen(!mobileSearchOpen)}
+            className="rounded-lg p-2 text-gray-400 hover:bg-gray-800 hover:text-white sm:hidden"
+            title="Search"
+          >
+            <Search size={18} />
+          </button>
+
+          {/* Search Input Desktop & Mobile Expanded */}
+          <div className={cn(
+            "relative transition-all duration-200",
+            mobileSearchOpen
+              ? "absolute left-4 right-4 top-3 z-50 flex items-center bg-[var(--bg-panel)] p-1 rounded-xl shadow-xl border border-[var(--c-border)]"
+              : "hidden sm:block"
+          )}>
             <Search size={14} className="absolute left-3 top-2.5 text-gray-500" />
             <input
               value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
@@ -118,20 +133,20 @@ export default function Header({ onMenuToggle }: HeaderProps) {
                 activePage === 'spaces' || activePage === 'my_tasks'
                   ? 'Search tasks...'
                   : activePage === 'assets'
-                    ? 'Search assets, inventory, or checkouts...'
+                    ? 'Search assets...'
                     : activePage === 'tickets'
                       ? 'Search tickets...'
-                      : activePage === 'knowledge'
-                        ? 'Search articles...'
-                        : 'Search...'
+                      : 'Search...'
               }
-              className="w-32 md:w-64 rounded-lg border border-gray-700 bg-gray-800/50 py-2 pl-9 pr-3 text-sm text-white placeholder-gray-500 outline-none transition focus:border-violet-500"
+              className="w-full sm:w-48 md:w-64 rounded-lg border border-gray-700 bg-gray-800/50 py-2 pl-9 pr-8 text-xs text-white placeholder-gray-500 outline-none transition focus:border-violet-500"
+              autoFocus={mobileSearchOpen}
             />
-            {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="absolute right-3 top-2.5 text-gray-500 hover:text-white">
-                <X size={14} />
-              </button>
-            )}
+            <button
+              onClick={() => { setSearchQuery(''); setMobileSearchOpen(false); }}
+              className="absolute right-2.5 top-2 text-gray-400 hover:text-white p-0.5"
+            >
+              <X size={14} />
+            </button>
           </div>
 
           {/* Cloud Sync Status */}

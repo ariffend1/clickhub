@@ -1,5 +1,6 @@
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
+import MobileBottomNav from './components/layout/MobileBottomNav';
 import BoardView from './components/tasks/BoardView';
 import ListView from './components/tasks/ListView';
 import CalendarView from './components/tasks/CalendarView';
@@ -192,7 +193,7 @@ export default function App() {
         <Sidebar onClose={() => setMobileOpen(false)} />
       </div>
 
-      <div className="flex flex-1 flex-col overflow-hidden bg-[var(--bg-main)]">
+      <div className="flex flex-1 flex-col overflow-hidden bg-[var(--bg-main)] pb-14 lg:pb-0">
         <Header onMenuToggle={() => setMobileOpen(true)} />
         <main className="flex-1 overflow-hidden">
           <div key={activePage} className="h-full w-full overflow-hidden animate-page-entry">
@@ -200,6 +201,7 @@ export default function App() {
           </div>
         </main>
       </div>
+      <MobileBottomNav onMenuToggle={() => setMobileOpen(true)} />
       {showTaskModal && <TaskDetailModal />}
       {showCreateTaskModal && <CreateTaskModal />}
       {showSettingsModal && <SettingsModal />}

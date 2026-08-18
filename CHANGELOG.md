@@ -5,6 +5,14 @@ Format versi mengikuti prinsip: `vEDITION.MAJOR.MINOR`.
 - **MAJOR**: Peningkatan modul atau fitur besar
 - **MINOR**: Bug fix, peningkatan performa, pembenahan keamanan
 
+## [v0.1.0-mobile] - 2026-08-18
+### Added
+- **Mobile Bottom Navigation Bar**: Komponen navigasi bawah 1-tap (*MobileBottomNav*) khusus perangkat HP & Tablet.
+- **Mobile Responsive Dual-View Data Cards**: Kartu data responsif untuk modul Tiket, Aset, Goods Receipt, Equipment Checkout, dan Admin.
+- **Kanban Board Mobile Column Switcher**: Tab navigasi cepat antar kolom Kanban di HP.
+- **Full-Screen / Bottom Sheet Modals**: Penyesuaian modal detail dan form di mobile dengan tombol aksi *sticky*.
+- **Mobile Chat Widget Floating Position**: Optimasi posisi floating button widget chat di HP.
+
 ---
 
 ## [v1.4.1] - 2026-06-25

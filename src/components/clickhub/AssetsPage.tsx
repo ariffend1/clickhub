@@ -666,7 +666,7 @@ export default function AssetsPage() {
   };
 
   return (
-    <div className="h-full overflow-y-auto p-6">
+    <div className="h-full overflow-y-auto p-3 sm:p-6">
       {/* Header */}
       <div className="mb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <p className="text-xs text-gray-500 font-medium">Manage hardware assets, spare parts inventory, and procurement requests.</p>
@@ -920,17 +920,17 @@ export default function AssetsPage() {
           </div>
 
           {/* Stats */}
-          <div className="mb-6 grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="mb-4 sm:mb-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-4">
             {Object.entries(statusConfig).map(([status, config]) => (
-              <div key={status} className="rounded-xl border border-gray-800 bg-[#282c34] p-4 text-center shadow-lg">
-                <p className={cn("text-2xl font-bold", config.color)}>{assets.filter(a => a.status === status).length}</p>
-                <p className="text-xs text-gray-500 font-medium">{config.label}</p>
+              <div key={status} className="rounded-xl border border-gray-800 bg-[#282c34] p-2.5 sm:p-4 text-center shadow-lg">
+                <p className={cn("text-lg sm:text-2xl font-bold", config.color)}>{assets.filter(a => a.status === status).length}</p>
+                <p className="text-[10px] sm:text-xs text-gray-400 font-medium">{config.label}</p>
               </div>
             ))}
           </div>
 
           {/* Toolbar */}
-          <div className="mb-4 flex items-center gap-3">
+          <div className="mb-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
             {/* Search */}
             <div className="relative flex-1">
               <Search size={14} className="absolute left-3 top-2.5 text-gray-500" />
@@ -1055,106 +1055,142 @@ export default function AssetsPage() {
               })}
             </div>
           ) : (
-            <div className="rounded-2xl border border-gray-800 bg-[#282c34] overflow-hidden shadow-xl table-responsive text-left">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="border-b border-gray-800 text-gray-400 font-semibold bg-gray-950/20">
-                    {canManage && (
-                      <th className="px-4 py-3 w-10">
-                        <input 
-                          type="checkbox"
-                          checked={selectedAssetIds.length === filteredAssets.length && filteredAssets.length > 0}
-                          onChange={e => {
-                            if (e.target.checked) {
-                              setSelectedAssetIds(filteredAssets.map(a => a.id));
-                            } else {
-                              setSelectedAssetIds([]);
-                            }
-                          }}
-                          className="h-4 w-4 rounded border-gray-700 bg-gray-800 text-violet-600 focus:ring-violet-500 cursor-pointer"
-                        />
-                      </th>
-                    )}
-                    <th className="px-4 py-3">Nama Asset</th>
-                    <th className="px-4 py-3">Merek</th>
-                    <th className="px-4 py-3">Tipe</th>
-                    <th className="px-4 py-3">S/N</th>
-                    <th className="px-4 py-3">Lokasi</th>
-                    <th className="px-4 py-3">Penanggung Jawab</th>
-                    <th className="px-4 py-3">Harga</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-800/40 text-gray-300">
-                  {filteredAssets.length === 0 ? (
-                    <tr>
-                      <td colSpan={canManage ? 10 : 9} className="py-8 text-center text-gray-500">
-                        Tidak ada aset yang cocok dengan filter.
-                      </td>
+            <div>
+              {/* Mobile Stacked Card View */}
+              <div className="block md:hidden space-y-2">
+                {filteredAssets.map(asset => {
+                  const assignee = asset.assignedToId ? getUserById(asset.assignedToId) : null;
+                  const sConfig = statusConfig[asset.status];
+                  return (
+                    <button
+                      key={asset.id}
+                      onClick={() => { setSelected(asset); setModalTab('specs'); }}
+                      className="w-full rounded-xl border border-gray-800 bg-[#282c34] p-3 text-left hover:border-gray-700 transition flex flex-col gap-2"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 font-semibold text-white text-sm">
+                          <span className="text-gray-400">{typeIcons[asset.type] || <Monitor size={14} />}</span>
+                          {asset.name}
+                        </div>
+                        <span className={cn("rounded-full px-2 py-0.5 text-[9px] font-semibold", sConfig.bg, sConfig.color)}>
+                          {sConfig.label}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-400 space-y-0.5">
+                        <p>{asset.brand} • S/N: <span className="font-mono text-gray-300">{asset.serialNumber}</span></p>
+                        <p>📍 {asset.location}</p>
+                      </div>
+                      <div className="flex items-center justify-between pt-2 border-t border-gray-800/60 text-[10px] text-gray-400">
+                        <span>👤 {assignee ? assignee.name : 'Unassigned'}</span>
+                        <span className="font-mono text-gray-300 font-semibold">{formatPrice(asset.price)}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden md:block rounded-2xl border border-gray-800 bg-[#282c34] overflow-hidden shadow-xl table-responsive text-left">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-800 text-gray-400 font-semibold bg-gray-950/20">
+                      {canManage && (
+                        <th className="px-4 py-3 w-10">
+                          <input 
+                            type="checkbox"
+                            checked={selectedAssetIds.length === filteredAssets.length && filteredAssets.length > 0}
+                            onChange={e => {
+                              if (e.target.checked) {
+                                setSelectedAssetIds(filteredAssets.map(a => a.id));
+                              } else {
+                                setSelectedAssetIds([]);
+                              }
+                            }}
+                            className="h-4 w-4 rounded border-gray-700 bg-gray-800 text-violet-600 focus:ring-violet-500 cursor-pointer"
+                          />
+                        </th>
+                      )}
+                      <th className="px-4 py-3">Nama Asset</th>
+                      <th className="px-4 py-3">Merek</th>
+                      <th className="px-4 py-3">Tipe</th>
+                      <th className="px-4 py-3">S/N</th>
+                      <th className="px-4 py-3">Lokasi</th>
+                      <th className="px-4 py-3">Penanggung Jawab</th>
+                      <th className="px-4 py-3">Harga</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3 text-right">Actions</th>
                     </tr>
-                  ) : (
-                    filteredAssets.map(asset => {
-                      const assignee = asset.assignedToId ? getUserById(asset.assignedToId) : null;
-                      const sConfig = statusConfig[asset.status];
-                      return (
-                        <tr key={asset.id} className="hover:bg-gray-900/10 transition-colors">
-                          {canManage && (
-                            <td className="px-4 py-3">
-                              <input 
-                                type="checkbox"
-                                checked={selectedAssetIds.includes(asset.id)}
-                                onChange={e => handleToggleSelectAsset(asset.id, e.target.checked)}
-                                className="h-4 w-4 rounded border-gray-700 bg-gray-800 text-violet-600 focus:ring-violet-500 cursor-pointer"
-                              />
-                            </td>
-                          )}
-                          <td className="px-4 py-3 font-semibold text-white">
-                            <button 
-                              type="button" 
-                              onClick={() => { setSelected(asset); setModalTab('specs'); }}
-                              className="text-left font-semibold text-white hover:text-violet-400 hover:underline transition"
-                            >
-                              {asset.name}
-                            </button>
-                          </td>
-                          <td className="px-4 py-3">{asset.brand}</td>
-                          <td className="px-4 py-3">
-                            <span className="flex items-center gap-1.5 text-gray-400">
-                              {typeIcons[asset.type] || <Monitor size={14} />}
-                              {asset.type}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 font-mono text-[11px]">{asset.serialNumber}</td>
-                          <td className="px-4 py-3">📍 {asset.location}</td>
-                          <td className="px-4 py-3">
-                            {assignee ? (
-                              <span className="text-gray-300">👤 {assignee.name}</span>
-                            ) : (
-                              <span className="text-gray-600 italic">Unassigned</span>
+                  </thead>
+                  <tbody className="divide-y divide-gray-800/40 text-gray-300">
+                    {filteredAssets.length === 0 ? (
+                      <tr>
+                        <td colSpan={canManage ? 10 : 9} className="py-8 text-center text-gray-500">
+                          Tidak ada aset yang cocok dengan filter.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredAssets.map(asset => {
+                        const assignee = asset.assignedToId ? getUserById(asset.assignedToId) : null;
+                        const sConfig = statusConfig[asset.status];
+                        return (
+                          <tr key={asset.id} className="hover:bg-gray-900/10 transition-colors">
+                            {canManage && (
+                              <td className="px-4 py-3">
+                                <input 
+                                  type="checkbox"
+                                  checked={selectedAssetIds.includes(asset.id)}
+                                  onChange={e => handleToggleSelectAsset(asset.id, e.target.checked)}
+                                  className="h-4 w-4 rounded border-gray-700 bg-gray-800 text-violet-600 focus:ring-violet-500 cursor-pointer"
+                                />
+                              </td>
                             )}
-                          </td>
-                          <td className="px-4 py-3 font-mono">{formatPrice(asset.price)}</td>
-                          <td className="px-4 py-3">
-                            <span className={cn("rounded-full px-2 py-0.5 text-[9px] font-semibold inline-block", sConfig.bg, sConfig.color)}>
-                              {sConfig.label}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <button 
-                              type="button"
-                              onClick={() => { setSelected(asset); setModalTab('specs'); }}
-                              className="text-violet-450 hover:text-violet-300 font-semibold hover:underline"
-                            >
-                              Detail
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+                            <td className="px-4 py-3 font-semibold text-white">
+                              <button 
+                                type="button" 
+                                onClick={() => { setSelected(asset); setModalTab('specs'); }}
+                                className="text-left font-semibold text-white hover:text-violet-400 hover:underline transition"
+                              >
+                                {asset.name}
+                              </button>
+                            </td>
+                            <td className="px-4 py-3">{asset.brand}</td>
+                            <td className="px-4 py-3">
+                              <span className="flex items-center gap-1.5 text-gray-400">
+                                {typeIcons[asset.type] || <Monitor size={14} />}
+                                {asset.type}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 font-mono text-[11px]">{asset.serialNumber}</td>
+                            <td className="px-4 py-3">📍 {asset.location}</td>
+                            <td className="px-4 py-3">
+                              {assignee ? (
+                                <span className="text-gray-300">👤 {assignee.name}</span>
+                              ) : (
+                                <span className="text-gray-600 italic">Unassigned</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 font-mono">{formatPrice(asset.price)}</td>
+                            <td className="px-4 py-3">
+                              <span className={cn("rounded-full px-2 py-0.5 text-[9px] font-semibold inline-block", sConfig.bg, sConfig.color)}>
+                                {sConfig.label}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <button 
+                                type="button"
+                                onClick={() => { setSelected(asset); setModalTab('specs'); }}
+                                className="text-violet-450 hover:text-violet-300 font-semibold hover:underline"
+                              >
+                                Detail
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </>
