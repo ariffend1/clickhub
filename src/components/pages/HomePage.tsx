@@ -213,22 +213,22 @@ export default function HomePage() {
   ];
 
   return (
-    <div className="h-full overflow-y-auto p-8 bg-[#13151a] text-white">
-      <div className="mb-8 relative">
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2 tracking-tight">
+    <div className="h-full overflow-y-auto p-4 sm:p-8 pb-20 lg:pb-8 bg-[#13151a] text-white">
+      <div className="mb-6 sm:mb-8 relative">
+        <h1 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2 tracking-tight">
           Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'}, {currentUser.name.split(' ')[0]}! 👋
           <PageHelp pageKey="home" />
         </h1>
-        <p className="mt-1 text-sm text-gray-400 max-w-2xl leading-relaxed">
+        <p className="mt-1 text-xs sm:text-sm text-gray-400 max-w-2xl leading-relaxed">
           {isManagement 
             ? 'Berikut adalah ringkasan operasional dan kesehatan layanan IT perusahaan hari ini.'
             : 'Berikut adalah ringkasan tugas dan tanggung jawab Anda hari ini.'
           }
         </p>
-        <div className="glow-line mt-4 mb-2" />
+        <div className="glow-line mt-3 mb-2" />
       </div>
 
-      <div className="mb-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="mb-6 sm:mb-8 grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
         {stats.map((stat, i) => (
           <div 
             key={i} 

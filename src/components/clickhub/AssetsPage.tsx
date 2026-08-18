@@ -666,25 +666,25 @@ export default function AssetsPage() {
   };
 
   return (
-    <div className="h-full overflow-y-auto p-3 sm:p-6">
+    <div className="h-full overflow-y-auto p-3 sm:p-6 pb-20 lg:pb-6">
       {/* Header */}
-      <div className="mb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="mb-3 sm:mb-4 flex flex-col md:flex-row md:items-center justify-between gap-2 sm:gap-4">
         <p className="text-xs text-gray-500 font-medium">Manage hardware assets, spare parts inventory, and procurement requests.</p>
       </div>
 
       {/* Tabs */}
-      <div className="mb-6 flex flex-wrap gap-2 border-b border-gray-850 pb-3">
+      <div className="mb-4 sm:mb-6 flex overflow-x-auto gap-2 border-b border-gray-850 pb-3 no-scrollbar scrollbar-none">
         <button
           onClick={() => { setActiveTab('assets'); setSearch(''); }}
           className={cn(
-            "flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-200 border",
+            "flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all duration-200 border shrink-0 touch-manipulation min-h-[40px]",
             activeTab === 'assets'
-              ? "bg-violet-500/10 border-violet-500/30 text-violet-400 shadow-sm shadow-violet-500/5 font-bold"
+              ? "bg-violet-500/10 border-violet-500/30 text-violet-400 shadow-sm font-bold"
               : "bg-gray-900/20 border-transparent text-gray-400 hover:bg-gray-800/40 hover:text-gray-200"
           )}
         >
           <Laptop size={14} className={cn("transition-transform", activeTab === 'assets' && "scale-110")} />
-          <span>Hardware Assets</span>
+          <span>Hardware</span>
           <span className={cn(
             "px-1.5 py-0.5 rounded-full text-[10px] font-bold border ml-0.5",
             activeTab === 'assets'
@@ -1637,8 +1637,8 @@ export default function AssetsPage() {
 
       {/* Asset Detail Modal */}
       {selected && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => { setSelected(null); setShowAddSchedule(false); }} id="asset-detail-modal-overlay">
-          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-700 bg-[#1e2028] p-6 shadow-2xl animate-slide-up" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4" onClick={() => { setSelected(null); setShowAddSchedule(false); }} id="asset-detail-modal-overlay">
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl border border-gray-700 bg-[#1e2028] p-4 sm:p-6 shadow-2xl animate-slide-up" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-white">{selected.name}</h2>
               <button onClick={() => { setSelected(null); setShowAddSchedule(false); }} className="text-gray-500 hover:text-white"><X size={18} /></button>

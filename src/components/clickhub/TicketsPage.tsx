@@ -247,34 +247,42 @@ export default function TicketsPage() {
   };
 
   return (
-    <div className="h-full overflow-y-auto p-6">
+    <div className="h-full overflow-y-auto p-3 sm:p-6 pb-20 lg:pb-6">
       {/* Toolbar */}
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+      <div className="mb-4 sm:mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center justify-between">
           <p className="text-xs font-semibold text-gray-500">{filtered.length} tickets</p>
+          {(canManage || currentUser?.role === 'EMPLOYEE') && (
+            <button
+              onClick={() => setShowCreate(true)}
+              className="sm:hidden flex items-center gap-1.5 rounded-xl bg-violet-600 px-3 py-2 text-xs font-semibold text-white active:scale-95 transition-transform touch-manipulation shadow-md shadow-violet-600/20"
+            >
+              <Plus size={14} /> Tiket Baru
+            </button>
+          )}
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex gap-1">
-            <button onClick={() => setViewMode('board')} className={cn("rounded-lg px-3 py-1.5 text-xs", viewMode === 'board' ? "bg-violet-600/20 text-violet-400 font-semibold" : "text-gray-500 hover:text-white")}>Board</button>
-            <button onClick={() => setViewMode('list')} className={cn("rounded-lg px-3 py-1.5 text-xs", viewMode === 'list' ? "bg-violet-600/20 text-violet-400 font-semibold" : "text-gray-500 hover:text-white")}>List</button>
-            <button onClick={() => setViewMode('archive')} className={cn("rounded-lg px-3 py-1.5 text-xs", viewMode === 'archive' ? "bg-violet-600/20 text-violet-400 font-semibold" : "text-gray-500 hover:text-white")}>Archive (Zip)</button>
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none no-scrollbar">
+          <div className="flex gap-1 rounded-xl bg-gray-800/40 p-1 border border-gray-800 shrink-0">
+            <button onClick={() => setViewMode('board')} className={cn("rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all active:scale-95 touch-manipulation min-h-[36px] sm:min-h-0", viewMode === 'board' ? "bg-violet-600 text-white font-semibold shadow-sm" : "text-gray-400 hover:text-white")}>Board</button>
+            <button onClick={() => setViewMode('list')} className={cn("rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all active:scale-95 touch-manipulation min-h-[36px] sm:min-h-0", viewMode === 'list' ? "bg-violet-600 text-white font-semibold shadow-sm" : "text-gray-400 hover:text-white")}>List</button>
+            <button onClick={() => setViewMode('archive')} className={cn("rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all active:scale-95 touch-manipulation min-h-[36px] sm:min-h-0", viewMode === 'archive' ? "bg-violet-600 text-white font-semibold shadow-sm" : "text-gray-400 hover:text-white")}>Archive</button>
           </div>
-          <select value={filterPriority} onChange={e => setFilterPriority(e.target.value)} className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-1.5 text-xs text-white outline-none">
-            <option value="all">All Priority</option>
+          <select value={filterPriority} onChange={e => setFilterPriority(e.target.value)} className="rounded-xl border border-gray-700 bg-gray-800/50 px-2.5 py-2 text-xs text-white outline-none shrink-0 min-h-[38px] cursor-pointer">
+            <option value="all">Priority: All</option>
             {Object.entries(priorityConfig).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
-          <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-1.5 text-xs text-white outline-none">
-            <option value="all">All Categories</option>
+          <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} className="rounded-xl border border-gray-700 bg-gray-800/50 px-2.5 py-2 text-xs text-white outline-none shrink-0 min-h-[38px] cursor-pointer">
+            <option value="all">Category: All</option>
             {categories.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
-          <select value={filterType} onChange={e => setFilterType(e.target.value)} className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-1.5 text-xs text-white outline-none">
-            <option value="all">All Types</option>
+          <select value={filterType} onChange={e => setFilterType(e.target.value)} className="rounded-xl border border-gray-700 bg-gray-800/50 px-2.5 py-2 text-xs text-white outline-none shrink-0 min-h-[38px] cursor-pointer">
+            <option value="all">Type: All</option>
             <option value="Incident">Incident</option>
             <option value="Service Request">Service Request</option>
           </select>
           {(canManage || currentUser?.role === 'EMPLOYEE') && (
-            <button onClick={() => setShowCreate(true)} className="flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-500 btn-new-ticket">
-              <Plus size={12} /> New Ticket
+            <button onClick={() => setShowCreate(true)} className="hidden sm:flex items-center gap-1.5 rounded-xl bg-violet-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-violet-500 active:scale-95 transition-transform touch-manipulation btn-new-ticket shrink-0">
+              <Plus size={14} /> New Ticket
             </button>
           )}
         </div>
@@ -405,8 +413,8 @@ export default function TicketsPage() {
 
       {/* Ticket Detail Modal */}
       {selectedTicket && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setSelectedTicket(null)}>
-          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-700 bg-[#1e2028] p-6 shadow-2xl animate-slide-up" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4" onClick={() => setSelectedTicket(null)}>
+          <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl border border-gray-700 bg-[#1e2028] p-4 sm:p-6 shadow-2xl animate-slide-up" onClick={e => e.stopPropagation()}>
             <div className="text-left mb-3">
               <span className="text-[11px] font-semibold text-violet-400 block tracking-wide mb-1">
                 #{selectedTicket.id.slice(0, 8).toUpperCase()} {selectedTicket.ticketNumber ? `(${selectedTicket.ticketNumber})` : ''}
