@@ -608,14 +608,18 @@ export const useStore = create<AppState>()(
             dbTemplates,
             dbTemplateItems,
             dbSubmissions,
-            dbSubmissionValues
+            dbSubmissionValues,
+            dbServiceReports,
+            dbActionChips
           ] = await Promise.all([
             taskService.getChecklists(taskIds).catch(e => { console.error("Error loading checklists:", e); return []; }),
             chatService.getChatMessages(sessionIds).catch(e => { console.error("Error loading chat messages:", e); return []; }),
             Promise.resolve(supabase.from('ChecklistTemplate').select('*')).catch(e => { console.error("Error loading templates:", e); return { data: [] as any }; }),
             Promise.resolve(supabase.from('ChecklistTemplateItem').select('*').order('order', { ascending: true })).catch(e => { console.error("Error loading template items:", e); return { data: [] as any }; }),
             Promise.resolve(supabase.from('ChecklistSubmission').select('*')).catch(e => { console.error("Error loading submissions:", e); return { data: [] as any }; }),
-            Promise.resolve(supabase.from('ChecklistSubmissionValue').select('*')).catch(e => { console.error("Error loading submission values:", e); return { data: [] as any }; })
+            Promise.resolve(supabase.from('ChecklistSubmissionValue').select('*')).catch(e => { console.error("Error loading submission values:", e); return { data: [] as any }; }),
+            Promise.resolve(supabase.from('ServiceReport').select('*')).catch(e => { console.error("Error loading service reports:", e); return { data: [] as any }; }),
+            Promise.resolve(supabase.from('ActionChip').select('*')).catch(e => { console.error("Error loading action chips:", e); return { data: [] as any }; })
           ]);
 
           const mappedUsers = (dbUsers || []).map(u => ({
@@ -854,7 +858,18 @@ export const useStore = create<AppState>()(
               createdAt: log.createdAt
             })),
             locations: dbLocations || [],
-            masterData: dbMasterData || []
+            masterData: dbMasterData || [],
+            serviceReports: (dbServiceReports?.data || []).map((sr: any) => ({
+              ...sr,
+              actionSteps: Array.isArray(sr.actionSteps) ? sr.actionSteps : (typeof sr.actionSteps === 'string' ? JSON.parse(sr.actionSteps || '[]') : []),
+              usedParts: Array.isArray(sr.usedParts) ? sr.usedParts : (typeof sr.usedParts === 'string' ? JSON.parse(sr.usedParts || '[]') : [])
+            })),
+            actionChips: dbActionChips?.data && dbActionChips.data.length > 0
+              ? [
+                  ...DEFAULT_ACTION_CHIPS,
+                  ...dbActionChips.data.filter((dbChip: any) => !DEFAULT_ACTION_CHIPS.some(std => std.id === dbChip.id))
+                ]
+              : DEFAULT_ACTION_CHIPS
           });
 
           // Run PM Scheduler Logic

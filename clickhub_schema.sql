@@ -673,6 +673,42 @@ CREATE TABLE IF NOT EXISTS public."WorkNote" (
   PRIMARY KEY ("id")
 );
 
+CREATE TABLE IF NOT EXISTS public."ServiceReport" (
+  "id" text NOT NULL,
+  "taskId" text NOT NULL,
+  "ticketId" text,
+  "assetId" text,
+  "diagnosa" text NOT NULL,
+  "actionSteps" jsonb DEFAULT '[]'::jsonb,
+  "beforePhotoUrl" text,
+  "afterPhotoUrl" text,
+  "usedParts" jsonb DEFAULT '[]'::jsonb,
+  "finalStatus" text DEFAULT 'COMPLETED_NORMAL' NOT NULL,
+  "temporaryReason" text,
+  "followUpPlan" text,
+  "escalationTargetId" text,
+  "escalationReason" text,
+  "unrepairableReason" text,
+  "additionalNotes" text,
+  "systemDurationMinutes" integer DEFAULT 1 NOT NULL,
+  "technicianDurationNotes" text,
+  "isDraft" boolean DEFAULT false NOT NULL,
+  "submittedAt" timestamp without time zone,
+  "submittedById" text,
+  "createdAt" timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  "updatedAt" timestamp without time zone DEFAULT NOW() NOT NULL,
+  PRIMARY KEY ("id")
+);
+
+CREATE TABLE IF NOT EXISTS public."ActionChip" (
+  "id" text NOT NULL,
+  "label" text NOT NULL,
+  "icon" text NOT NULL,
+  "isStandard" boolean DEFAULT false NOT NULL,
+  "isHidden" boolean DEFAULT false NOT NULL,
+  PRIMARY KEY ("id")
+);
+
 -- =====================
 -- 3. ADMIN USER (DEACTIVATED FOR SECURITY)
 -- =====================
