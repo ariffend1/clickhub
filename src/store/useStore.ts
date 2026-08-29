@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage, type StateStorage } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../lib/supabase';
 import { ticketService } from '../services/ticketService';
@@ -468,6 +468,31 @@ const sendTelegramAlertDirect = async (subject: string, message: string, severit
   } catch (err) {
     console.error('Error sending direct Telegram message fallback:', err);
     return false;
+  }
+};
+
+const safeStorage: StateStorage = {
+  getItem: (name: string) => {
+    try {
+      return localStorage.getItem(name);
+    } catch (e) {
+      console.warn('Error reading from localStorage:', e);
+      return null;
+    }
+  },
+  setItem: (name: string, value: string) => {
+    try {
+      localStorage.setItem(name, value);
+    } catch (e) {
+      console.warn('QuotaExceededError or error writing to localStorage:', e);
+    }
+  },
+  removeItem: (name: string) => {
+    try {
+      localStorage.removeItem(name);
+    } catch (e) {
+      console.warn('Error removing item from localStorage:', e);
+    }
   }
 };
 
@@ -4719,6 +4744,19 @@ export const useStore = create<AppState>()(
       getTicketsByStatus: (status: TicketStatus) => get().tickets.filter(t => t.status === status),
       hasRole: (roles) => { const cu = get().currentUser; return cu ? roles.includes(cu.role) : false; },
     }),
-    { name: 'clickhub-storage' }
+    {
+      name: 'clickhub-storage',
+      storage: createJSONStorage(() => safeStorage),
+      partialize: (state) => ({
+        currentUser: state.currentUser,
+        isAuthenticated: state.isAuthenticated,
+        theme: state.theme,
+        activePage: state.activePage,
+        viewMode: state.viewMode,
+        selectedSpaceId: state.selectedSpaceId,
+        selectedListId: state.selectedListId,
+        sidebarCollapsed: state.sidebarCollapsed
+      })
+    }
   )
 );
