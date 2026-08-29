@@ -92,9 +92,38 @@ export default function App() {
   useEffect(() => {
     if (isAuthenticated) {
       loadAllData();
+
+      // Auto-sync when user returns/focuses back on the tab
+      const handleFocus = () => {
+        if (navigator.onLine) {
+          loadAllData();
+        }
+      };
+
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible' && navigator.onLine) {
+          loadAllData();
+        }
+      };
+
+      window.addEventListener('focus', handleFocus);
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+
+      // Periodic background polling every 60 seconds
+      const pollInterval = setInterval(() => {
+        if (document.visibilityState === 'visible' && navigator.onLine) {
+          loadAllData();
+        }
+      }, 60000);
+
+      return () => {
+        window.removeEventListener('focus', handleFocus);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        clearInterval(pollInterval);
+      };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
