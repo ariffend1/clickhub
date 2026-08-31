@@ -541,13 +541,31 @@ export const useStore = create<AppState>()(
       loadAllData: async () => {
         if (navigator.onLine) {
           try {
-            await get().processSyncQueue();
+            await Promise.race([
+              get().processSyncQueue(),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('Sync queue timeout')), 2000))
+            ]);
           } catch (e) {
             console.error("SW: Offline sync queue error:", e);
           }
         }
         try {
-          await get().loadBrandingSettings().catch(e => console.error(e));
+          await Promise.race([
+            get().loadBrandingSettings(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Branding fetch timeout')), 2000))
+          ]).catch(e => console.error(e));
+
+          const fetchWithTimeout = async <T>(promise: Promise<T>, fallback: T): Promise<T> => {
+            try {
+              return await Promise.race([
+                promise,
+                new Promise<T>((_, reject) => setTimeout(() => reject(new Error('DB Query timeout')), 2000))
+              ]);
+            } catch (err) {
+              return fallback;
+            }
+          };
+
           const cu = get().currentUser;
           const [
             dbUsers,
@@ -574,29 +592,29 @@ export const useStore = create<AppState>()(
             dbLocations,
             dbMasterData
           ] = await Promise.all([
-            userService.getUsers().catch(e => { console.error("Error loading users:", e); return []; }),
-            taskService.getSpaces().catch(e => { console.error("Error loading spaces:", e); return []; }),
-            taskService.getTaskLists().catch(e => { console.error("Error loading lists:", e); return []; }),
-            taskService.getTasks().catch(e => { console.error("Error loading tasks:", e); return []; }),
-            ticketService.getAllTickets().catch(e => { console.error("Error loading tickets:", e); return []; }),
-            assetService.getAssets().catch(e => { console.error("Error loading assets:", e); return []; }),
-            knowledgeService.getArticles().catch(e => { console.error("Error loading articles:", e); return []; }),
-            assetService.getInventories().catch(e => { console.error("Error loading inventories:", e); return []; }),
-            assetService.getPartRequests().catch(e => { console.error("Error loading part requests:", e); return []; }),
-            assetService.getStockRequests().catch(e => { console.error("Error loading stock requests:", e); return []; }),
-            chatService.getChatSessions().catch(e => { console.error("Error loading chat sessions:", e); return []; }),
-            operationsService.getHolidays().catch(e => { console.error("Error loading holidays:", e); return []; }),
-            operationsService.getEquipmentCheckouts().catch(e => { console.error("Error loading checkouts:", e); return []; }),
-            operationsService.getCheckoutItems().catch(e => { console.error("Error loading checkout items:", e); return []; }),
-            operationsService.getGoodsReceipts().catch(e => { console.error("Error loading goods receipts:", e); return []; }),
-            assetService.getMaintenanceSchedules().catch(e => { console.error("Error loading maintenance schedules:", e); return []; }),
-            cu ? userService.getNotifications(cu.id).catch(e => { console.error("Error loading notifications:", e); return []; }) : Promise.resolve([]),
-            ticketService.getAttachments().catch(e => { console.error("Error loading attachments:", e); return []; }),
-            assetService.getDirectoryCategories().catch(e => { console.error("Error loading dir categories:", e); return []; }),
-            assetService.getDirectoryEntries().catch(e => { console.error("Error loading dir entries:", e); return []; }),
-            userService.getAuditLogs().catch(e => { console.error("Error loading audit logs:", e); return []; }),
-            assetService.getLocations().catch(e => { console.error("Error loading locations:", e); return []; }),
-            assetService.getMasterData().catch(e => { console.error("Error loading master data:", e); return []; })
+            fetchWithTimeout(userService.getUsers(), []),
+            fetchWithTimeout(taskService.getSpaces(), []),
+            fetchWithTimeout(taskService.getTaskLists(), []),
+            fetchWithTimeout(taskService.getTasks(), []),
+            fetchWithTimeout(ticketService.getAllTickets(), []),
+            fetchWithTimeout(assetService.getAssets(), []),
+            fetchWithTimeout(knowledgeService.getArticles(), []),
+            fetchWithTimeout(assetService.getInventories(), []),
+            fetchWithTimeout(assetService.getPartRequests(), []),
+            fetchWithTimeout(assetService.getStockRequests(), []),
+            fetchWithTimeout(chatService.getChatSessions(), []),
+            fetchWithTimeout(operationsService.getHolidays(), []),
+            fetchWithTimeout(operationsService.getEquipmentCheckouts(), []),
+            fetchWithTimeout(operationsService.getCheckoutItems(), []),
+            fetchWithTimeout(operationsService.getGoodsReceipts(), []),
+            fetchWithTimeout(assetService.getMaintenanceSchedules(), []),
+            cu ? fetchWithTimeout(userService.getNotifications(cu.id), []) : Promise.resolve([]),
+            fetchWithTimeout(ticketService.getAttachments(), []),
+            fetchWithTimeout(assetService.getDirectoryCategories(), []),
+            fetchWithTimeout(assetService.getDirectoryEntries(), []),
+            fetchWithTimeout(userService.getAuditLogs(), []),
+            fetchWithTimeout(assetService.getLocations(), []),
+            fetchWithTimeout(assetService.getMasterData(), [])
           ]);
 
           const taskIds = (dbTasks || []).map(t => t.id);
