@@ -46,8 +46,18 @@ export default function Header({ onMenuToggle }: HeaderProps) {
     markNotificationRead, markAllNotificationsRead, clearNotifications,
     getUnreadNotificationCount, users, setShowCreateTaskModal,
     selectedSpaceId, selectedListId, spaces, lists, currentUser,
-    syncQueue, failedSyncQueue, processSyncQueue
+    syncQueue, failedSyncQueue, processSyncQueue, loadAllData
   } = useStore();
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await loadAllData();
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 500);
+    }
+  };
 
   const unreadCount = getUnreadNotificationCount();
   const currentSpace = spaces.find(s => s.id === selectedSpaceId);
@@ -148,6 +158,17 @@ export default function Header({ onMenuToggle }: HeaderProps) {
               <X size={14} />
             </button>
           </div>
+
+          {/* Refresh Manual Button */}
+          <button
+            onClick={handleManualRefresh}
+            disabled={isRefreshing}
+            className="flex items-center gap-1.5 rounded-lg border border-gray-800 bg-gray-800/40 hover:bg-gray-800 px-2.5 py-1.5 text-xs text-gray-300 hover:text-white transition cursor-pointer"
+            title="Refresh Data Dari Server"
+          >
+            <RefreshCw size={14} className={cn("text-violet-400 shrink-0", isRefreshing && "animate-spin")} />
+            <span className="hidden md:inline text-[10px] font-semibold">Refresh</span>
+          </button>
 
           {/* Cloud Sync Status */}
           <div className="flex items-center gap-1.5 rounded-lg border border-gray-800 bg-gray-800/30 px-2.5 py-1.5 text-xs">
