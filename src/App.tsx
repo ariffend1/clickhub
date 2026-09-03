@@ -32,7 +32,7 @@ import { cn } from './utils/cn';
 export default function App() {
   const {
     viewMode, showTaskModal, showCreateTaskModal, activePage,
-    showSettingsModal, isAuthenticated, theme, hasRole, loadAllData
+    showSettingsModal, isAuthenticated, theme, hasRole, loadAllData, subscribeRealtimeChecklists
   } = useStore();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -116,10 +116,13 @@ export default function App() {
         }
       }, 60000);
 
+      const unsubscribeChecklists = subscribeRealtimeChecklists();
+
       return () => {
         window.removeEventListener('focus', handleFocus);
         document.removeEventListener('visibilitychange', handleVisibilityChange);
         clearInterval(pollInterval);
+        unsubscribeChecklists();
       };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

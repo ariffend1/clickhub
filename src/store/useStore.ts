@@ -224,6 +224,7 @@ interface AppState {
   sendChatReply: (sessionId: string, content: string, fileDetails?: { fileUrl?: string; fileName?: string; fileType?: string; fileSize?: number }) => Promise<void>;
   subscribeChatMessages: (sessionId: string, onMessageReceived?: (msg: ChatMessage) => void) => () => void;
   subscribeChatSessions: () => () => void;
+  subscribeRealtimeChecklists: () => () => void;
   convertChatToTicket: (sessionId: string) => Promise<void>;
   addEquipmentCheckout: (data: { items: { assetId: string | null; inventoryId: string | null; quantity: number }[]; purpose: string; expectedReturn: string }) => Promise<void>;
   approveEquipmentCheckout: (id: string) => Promise<void>;
@@ -701,7 +702,7 @@ export const useStore = create<AppState>()(
               title: t.title,
               description: t.description || '',
               status: (t.status || 'TODO').toLowerCase() === 'review' ? 'in_review' : (t.status || 'TODO').toLowerCase() as TaskStatus,
-              priority: (t.priority || 'MEDIUM').toLowerCase() as Priority,
+              priority: (t.priority === 'CRITICAL' ? 'urgent' : t.priority === 'HIGH' ? 'high' : t.priority === 'LOW' ? 'low' : 'normal') as Priority,
               assigneeIds: t.assigneeIds && t.assigneeIds.length > 0 ? t.assigneeIds : (t.assigneeId ? [t.assigneeId] : []),
               tags: [],
               subtasks: taskChecklists.map(c => ({
@@ -1913,11 +1914,12 @@ export const useStore = create<AppState>()(
       },
       selectTask: (id) => set({ selectedTaskId: id, showTaskModal: id !== null }),
       toggleSubtask: async (taskId, subtaskId) => {
-        set({ tasks: get().tasks.map(t => t.id !== taskId ? t : { ...t, subtasks: t.subtasks.map(st => st.id === subtaskId ? { ...st, completed: !st.completed } : st), updatedAt: new Date().toISOString() }) });
         const task = get().tasks.find(t => t.id === taskId);
         const st = task?.subtasks.find(s => s.id === subtaskId);
         if (st) {
-          await get().enqueueWrite('Checklist', 'update', { isCompleted: !st.completed }, 'id', subtaskId);
+          const newCompleted = !st.completed;
+          set({ tasks: get().tasks.map(t => t.id !== taskId ? t : { ...t, subtasks: t.subtasks.map(sub => sub.id === subtaskId ? { ...sub, completed: newCompleted } : sub), updatedAt: new Date().toISOString() }) });
+          await get().enqueueWrite('Checklist', 'update', { isCompleted: newCompleted }, 'id', subtaskId);
         }
       },
       addSubtask: async (taskId, title) => {
@@ -3299,6 +3301,41 @@ export const useStore = create<AppState>()(
                   chatSessions: get().chatSessions.filter(s => s.id !== (payload.old as any).id)
                 });
               }
+            }
+          )
+          .subscribe();
+
+        return () => {
+          supabase.removeChannel(channel);
+        };
+      },
+
+      subscribeRealtimeChecklists: () => {
+        const channel = supabase
+          .channel('checklists-realtime')
+          .on(
+            'postgres_changes',
+            {
+              event: 'UPDATE',
+              schema: 'public',
+              table: 'Checklist'
+            },
+            (payload) => {
+              const updated = payload.new;
+              set((state) => ({
+                tasks: state.tasks.map(t => 
+                  t.id === updated.taskId 
+                    ? {
+                        ...t,
+                        subtasks: t.subtasks.map(st => 
+                          st.id === updated.id 
+                            ? { ...st, completed: updated.isCompleted, title: updated.content || st.title }
+                            : st
+                        )
+                      }
+                    : t
+                )
+              }));
             }
           )
           .subscribe();
