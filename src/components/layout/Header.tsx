@@ -3,7 +3,7 @@ import { useStore } from '../../store/useStore';
 import { cn } from '../../utils/cn';
 import {
   Search, X, Bell, LayoutGrid, List, Calendar,
-  Filter, Plus, Check, Cloud, CloudOff, CloudLightning, RefreshCw, HelpCircle, BookOpen, Sparkles
+  Filter, Plus, Check, Cloud, CloudOff, CloudLightning, RefreshCw
 } from 'lucide-react';
 import type { Priority, ViewMode } from '../../types';
 import { formatDistanceToNow } from 'date-fns';
@@ -199,7 +199,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
 
           {/* Notifications */}
           <div className="relative">
-            <button onClick={() => { setShowNotifications(!showNotifications); setShowHelpMenu(false); }}
+            <button onClick={() => setShowNotifications(!showNotifications)}
               className="relative rounded-lg p-2 text-gray-400 hover:bg-gray-800 hover:text-white">
               <Bell size={18} />
               {unreadCount > 0 && (

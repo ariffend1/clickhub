@@ -2,14 +2,13 @@ import { useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { cn } from '../../utils/cn';
 import { 
-  FileText, Download, BarChart2, Briefcase, 
+  FileText, Download, Briefcase, 
   Layers, Package, Calendar, Database,
-  Clock, Award, Star, RefreshCw, AlertTriangle, TrendingUp, User, ListFilter
+  Clock, Award, Star, AlertTriangle, TrendingUp, User, ListFilter
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
-import PageHelp from '../layout/PageHelpModal';
 
 // Reusable Circular Gauge Chart Component for KPI ratios
 const KpiGauge = ({ 
@@ -96,7 +95,9 @@ export default function ReportsPage() {
     currentUser,
     addAuditLog,
     getUserById,
-    checklistSubmissions
+    checklistSubmissions,
+    users,
+    checklistTemplates
   } = useStore();
 
   const [activeTab, setActiveTab] = useState<'kpi' | 'capex' | 'assets' | 'tickets' | 'inventory' | 'workload'>('kpi');
@@ -475,7 +476,7 @@ export default function ReportsPage() {
     XLSX.writeFile(workbook, `${filename}_${Date.now()}.xlsx`);
   };
 
-  const XcontentExportWatermark = (ws: XLSX.WorkSheet) => {
+  const XcontentExportWatermark = (_ws: XLSX.WorkSheet) => {
     // Add simple watermark log note in Excel metadata if needed
   };
 

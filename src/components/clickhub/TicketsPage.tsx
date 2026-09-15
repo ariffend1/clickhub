@@ -3,7 +3,6 @@ import { useStore } from '../../store/useStore';
 import { cn } from '../../utils/cn';
 import { Plus, Clock, CheckCircle2, AlertCircle, XCircle, X } from 'lucide-react';
 import type { TicketStatus, TicketPriority, Ticket } from '../../types';
-import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { compressImage } from '../../utils/imageCompressor';
 import SearchableDropdown from '../common/SearchableDropdown';
@@ -78,6 +77,7 @@ function SlaBadge({ ticket }: { ticket: Ticket }) {
 const statusConfig: Record<TicketStatus, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
   OPEN: { label: 'Open', color: 'text-blue-400', bg: 'bg-blue-500/20', icon: <AlertCircle size={14} /> },
   IN_PROGRESS: { label: 'In Progress', color: 'text-yellow-400', bg: 'bg-yellow-500/20', icon: <Clock size={14} /> },
+  PENDING: { label: 'Pending', color: 'text-purple-400', bg: 'bg-purple-500/20', icon: <Clock size={14} /> },
   RESOLVED: { label: 'Resolved', color: 'text-green-400', bg: 'bg-green-500/20', icon: <CheckCircle2 size={14} /> },
   CLOSED: { label: 'Closed', color: 'text-gray-400', bg: 'bg-gray-500/20', icon: <XCircle size={14} /> },
 };
@@ -91,8 +91,6 @@ const priorityConfig: Record<TicketPriority, { label: string; color: string; dot
 
 const categories = ['General', 'Network', 'Hardware', 'Software', 'Server', 'Security', 'Policy'];
 const columns: TicketStatus[] = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
-
-import PageHelp from '../layout/PageHelpModal';
 
 export default function TicketsPage() {
   const { 
@@ -702,7 +700,7 @@ export default function TicketsPage() {
                       <div className="flex flex-wrap gap-2 mt-2 bg-gray-900/30 p-2 rounded-lg border border-gray-800/50">
                         {selectedTicket.helperAssigneeIds.map(helperId => {
                           const helperName = getUserById(helperId)?.name || 'Unknown';
-                          const helperTasks = tasks.filter(t => t.ticketId === selectedTicket.id && (t.assigneeId === helperId || (t.assigneeIds && t.assigneeIds.includes(helperId))));
+                          const helperTasks = tasks.filter(t => t.ticketId === selectedTicket.id && (t.assigneeIds && t.assigneeIds.includes(helperId)));
                           const isAccepted = helperTasks.some(t => t.status !== 'todo');
                           return (
                             <span key={helperId} className="flex items-center gap-1.5 bg-violet-900/30 border border-violet-800/50 rounded-full px-2.5 py-1 text-xs text-violet-300">

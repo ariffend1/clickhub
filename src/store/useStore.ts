@@ -15,8 +15,8 @@ import type {
   AuthUser, UserRole, Ticket, TicketStatus, TicketPriority, Asset, AssetStatus, Article, Attachment,
   ChatMessage, ChatSession, AuditLog, EquipmentCheckout, CheckoutItem, GoodsReceipt, Holiday, Inventory, MaintenanceSchedule,
   DirectoryCategory, DirectoryEntry, ConfigType,
-  ChecklistTemplate, ChecklistTemplateItem, ChecklistSubmission, ChecklistSubmissionValue,
-  ServiceReport, ServiceReportFinalStatus, ActionChip, ActionStep, ServiceReportUsedPart
+  ChecklistTemplate, ChecklistTemplateItem, ChecklistSubmission,
+  ServiceReport, ActionChip
 } from '../types';
 import { getEncryptedItem, STORAGE_KEYS } from '../utils/crypto';
 import { compressImage } from '../utils/imageCompressor';
@@ -232,7 +232,7 @@ interface AppState {
   adminAddUser: (name: string, email: string, password: string, role: UserRole, department?: string, phone?: string, title?: string) => Promise<{ success: boolean; error?: string }>;
   addGoodsReceipt: (data: { receiptNumber: string; purchaseRequestId: string | null; itemName: string; quantityOrdered: number; quantityReceived: number; destinationType: 'ASSET' | 'INVENTORY'; inventoryId?: string | null; assetId?: string | null; condition: 'GOOD' | 'DAMAGED' | 'INCOMPLETE'; notes?: string; assetSerialNumber?: string | null; assetLocation?: string | null; price?: number }) => Promise<void>;
   addInventoryMaster: (data: { name: string; sku: string; unit: string; location: string; minStock: number; description?: string }) => Promise<void>;
-  updateInventoryMaster: (id: string, updates: Partial<{ name: string; sku: string; unit: string; location: string; minStock: number; description?: string }>) => Promise<void>;
+  updateInventoryMaster: (id: string, updates: Partial<{ name: string; sku: string; unit: string; location: string; minStock: number; description?: string; quantity?: number }>) => Promise<void>;
   deleteInventoryMaster: (id: string) => Promise<void>;
   verifyInventoryItem: (id: string) => Promise<void>;
   addDirectoryConfig: (name: string, type: ConfigType, categoryName: string, value: string, notes: string, linkedAssetId: string) => Promise<void>;
@@ -272,7 +272,9 @@ interface AppState {
   hasRole: (roles: UserRole[]) => boolean;
   addPartRequest: (inventoryId: string, quantity: number, notes: string, taskId?: string, ticketId?: string) => Promise<void>;
   addStockRequest: (data: { type: 'RESTOCK' | 'NEW_ITEM'; inventoryId?: string; itemName: string; itemDescription?: string; category?: string; quantity: number; estimatedPrice?: number; reason: string }) => Promise<void>;
+  approveStockRequest: (id: string, newStatus: string) => Promise<void>;
   approvePartRequest: (id: string) => Promise<void>;
+  setSelectedTicket: (id: string | null) => void;
   loadAllArchivedTickets: () => Promise<void>;
   systemCompanyName: string;
   systemLogoBase64: string;
@@ -281,7 +283,7 @@ interface AppState {
   checklistTemplates: ChecklistTemplate[];
   checklistSubmissions: ChecklistSubmission[];
   addChecklistTemplate: (name: string, description: string, items: { question: string; priorityOnFailure: TicketPriority; category: string; order: number }[]) => Promise<void>;
-  updateChecklistTemplate: (id: string, updates: Partial<ChecklistTemplate> & { items?: Omit<ChecklistTemplateItem, 'templateId'>[] }) => Promise<void>;
+  updateChecklistTemplate: (id: string, updates: Partial<Omit<ChecklistTemplate, 'items'>> & { items?: Partial<ChecklistTemplateItem>[] }) => Promise<void>;
   deleteChecklistTemplate: (id: string) => Promise<void>;
   submitChecklist: (taskId: string, templateId: string, values: { itemId: string; value: 'OK' | 'FAIL'; notes?: string }[]) => Promise<void>;
   addTicketHelper: (ticketId: string, helperId: string) => Promise<void>;
@@ -330,78 +332,7 @@ const defaultRegisteredUsers: AuthUser[] = [
   { id: 'afc2a734-006a-4191-af89-3aee6c5f3dc1', name: 'Manager Test', email: 'manager@ithub.com', avatar: '', color: '#F59E0B', password: 'password123', role: 'MANAGER', department: 'IT Management', isActive: true },
 ];
 
-const defaultTags: Tag[] = [
-  { id: 'tag-1', name: 'Bug', color: '#EF4444' },
-  { id: 'tag-2', name: 'Feature', color: '#3B82F6' },
-  { id: 'tag-3', name: 'Improvement', color: '#10B981' },
-  { id: 'tag-4', name: 'Design', color: '#8B5CF6' },
-  { id: 'tag-5', name: 'Documentation', color: '#F59E0B' },
-  { id: 'tag-6', name: 'Research', color: '#EC4899' },
-];
 
-const defaultSpaces: Space[] = [
-  { id: 'space-1', name: 'Engineering', color: '#7C3AED', icon: '🚀', order: 0 },
-  { id: 'space-2', name: 'Marketing', color: '#EC4899', icon: '📢', order: 1 },
-  { id: 'space-3', name: 'Design', color: '#F59E0B', icon: '🎨', order: 2 },
-];
-
-const defaultLists: TaskList[] = [
-  { id: 'list-1', name: 'Sprint 24', color: '#7C3AED', spaceId: 'space-1', order: 0 },
-  { id: 'list-2', name: 'Backlog', color: '#6B7280', spaceId: 'space-1', order: 1 },
-  { id: 'list-3', name: 'Campaign Q1', color: '#EC4899', spaceId: 'space-2', order: 0 },
-  { id: 'list-4', name: 'UI Redesign', color: '#F59E0B', spaceId: 'space-3', order: 0 },
-];
-
-const defaultTasks: Task[] = [
-  { id: 'task-1', title: 'Setup CI/CD Pipeline', description: 'Configure GitHub Actions for automated testing and deployment.', status: 'in_progress', priority: 'high', assigneeIds: ['user-1', 'user-2'], tags: ['tag-2'], subtasks: [{ id: 'st-1', title: 'Setup GitHub Actions workflow', completed: true }, { id: 'st-2', title: 'Configure staging environment', completed: false }], dueDate: '2026-06-15', createdAt: '2026-05-01T10:00:00Z', updatedAt: '2026-05-20T10:00:00Z', spaceId: 'space-1', listId: 'list-1', order: 0, timeEstimate: 480, timeTracked: 240 },
-  { id: 'task-2', title: 'Fix Authentication Bug', description: 'Users getting logged out randomly.', status: 'todo', priority: 'urgent', assigneeIds: ['user-1'], tags: ['tag-1'], subtasks: [{ id: 'st-4', title: 'Reproduce issue', completed: true }, { id: 'st-5', title: 'Debug token refresh', completed: false }], dueDate: '2026-05-25', createdAt: '2026-05-18T10:00:00Z', updatedAt: '2026-05-20T10:00:00Z', spaceId: 'space-1', listId: 'list-1', order: 1, timeEstimate: 240, timeTracked: 60 },
-  { id: 'task-3', title: 'Design Landing Page', description: 'Create modern landing page.', status: 'in_review', priority: 'high', assigneeIds: ['user-3', 'user-4'], tags: ['tag-4'], subtasks: [{ id: 'st-6', title: 'Wireframe', completed: true }, { id: 'st-7', title: 'High-fidelity mockup', completed: true }], dueDate: '2026-05-28', createdAt: '2026-05-10T10:00:00Z', updatedAt: '2026-05-20T10:00:00Z', spaceId: 'space-3', listId: 'list-4', order: 0, timeEstimate: 960, timeTracked: 720 },
-  { id: 'task-4', title: 'Write API Documentation', description: 'Document all REST API endpoints.', status: 'todo', priority: 'normal', assigneeIds: ['user-2'], tags: ['tag-5'], subtasks: [], dueDate: '2026-06-01', createdAt: '2026-05-15T10:00:00Z', updatedAt: '2026-05-20T10:00:00Z', spaceId: 'space-1', listId: 'list-2', order: 0, timeEstimate: 360, timeTracked: 0 },
-  { id: 'task-5', title: 'Social Media Campaign', description: 'Plan social media campaign for product launch.', status: 'in_progress', priority: 'high', assigneeIds: ['user-5'], tags: ['tag-2'], subtasks: [{ id: 'st-9', title: 'Content calendar', completed: true }, { id: 'st-10', title: 'Design assets', completed: false }], dueDate: '2026-06-10', createdAt: '2026-05-12T10:00:00Z', updatedAt: '2026-05-20T10:00:00Z', spaceId: 'space-2', listId: 'list-3', order: 0, timeEstimate: 600, timeTracked: 180 },
-  { id: 'task-6', title: 'Database Optimization', description: 'Optimize slow queries.', status: 'done', priority: 'high', assigneeIds: ['user-1'], tags: ['tag-3'], subtasks: [{ id: 'st-12', title: 'Identify slow queries', completed: true }, { id: 'st-13', title: 'Add indexes', completed: true }], dueDate: '2026-05-20', createdAt: '2026-05-05T10:00:00Z', updatedAt: '2026-05-19T10:00:00Z', spaceId: 'space-1', listId: 'list-1', order: 2, timeEstimate: 480, timeTracked: 420 },
-];
-
-const defaultComments: Comment[] = [
-  { id: 'com-1', taskId: 'task-1', userId: 'user-2', content: 'Started working on the GitHub Actions workflow.', createdAt: '2026-05-19T14:30:00Z' },
-  { id: 'com-2', taskId: 'task-1', userId: 'user-1', content: 'Include test suite in pipeline. Need 80% coverage.', createdAt: '2026-05-19T15:00:00Z' },
-];
-
-const defaultActivities: Activity[] = [
-  { id: 'act-1', type: 'created', taskId: 'task-1', userId: 'user-1', description: 'created task "Setup CI/CD Pipeline"', createdAt: '2026-05-01T10:00:00Z' },
-  { id: 'act-2', type: 'moved', taskId: 'task-1', userId: 'user-1', description: 'moved task to "In Progress"', createdAt: '2026-05-15T10:00:00Z' },
-];
-
-const defaultNotifications: Notification[] = [
-  { id: 'notif-1', type: 'assigned', title: 'New Assignment', message: 'Jane assigned you to "Setup CI/CD Pipeline"', taskId: 'task-1', read: false, createdAt: '2026-05-20T10:00:00Z' },
-  { id: 'notif-2', type: 'ticket_assigned', title: 'New Ticket', message: 'Ticket #TK-001 assigned to you', ticketId: 'ticket-1', read: false, createdAt: '2026-05-20T08:00:00Z' },
-  { id: 'notif-3', type: 'asset_alert', title: 'Asset Maintenance', message: 'Dell Latitude 5540 maintenance due in 3 days', read: false, createdAt: '2026-05-22T08:00:00Z' },
-];
-
-const defaultTickets: Ticket[] = [
-  { id: 'ticket-1', title: 'VPN Connection Issues', description: 'Unable to connect to VPN since this morning. Error code 789.', status: 'OPEN', priority: 'HIGH', type: 'Incident', reporterId: 'user-5', assigneeId: 'user-4', category: 'Network', createdAt: '2026-05-20T08:00:00Z', updatedAt: '2026-05-20T08:00:00Z', resolvedAt: null },
-  { id: 'ticket-2', title: 'Email Server Down', description: 'Company email server not responding since 9 AM.', status: 'IN_PROGRESS', priority: 'CRITICAL', type: 'Incident', reporterId: 'user-3', assigneeId: 'user-1', category: 'Server', createdAt: '2026-05-19T09:00:00Z', updatedAt: '2026-05-20T10:00:00Z', resolvedAt: null },
-  { id: 'ticket-3', title: 'New Laptop Request', description: 'Need new laptop for new hire starting next week.', status: 'OPEN', priority: 'MEDIUM', type: 'Service Request', reporterId: 'user-3', assigneeId: 'user-2', category: 'Hardware', createdAt: '2026-05-18T14:00:00Z', updatedAt: '2026-05-18T14:00:00Z', resolvedAt: null },
-  { id: 'ticket-4', title: 'Printer Not Working', description: '3rd floor printer showing offline.', status: 'RESOLVED', priority: 'LOW', type: 'Incident', reporterId: 'user-5', assigneeId: 'user-4', category: 'Hardware', createdAt: '2026-05-17T11:00:00Z', updatedAt: '2026-05-18T10:00:00Z', resolvedAt: '2026-05-18T10:00:00Z' },
-  { id: 'ticket-5', title: 'Software License Renewal', description: 'Adobe Creative Cloud licenses expiring end of month.', status: 'OPEN', priority: 'MEDIUM', type: 'Service Request', reporterId: 'user-2', assigneeId: null, category: 'Software', createdAt: '2026-05-16T09:00:00Z', updatedAt: '2026-05-16T09:00:00Z', resolvedAt: null },
-  { id: 'ticket-6', title: 'WiFi Access Point Failure', description: 'Meeting room AP not broadcasting. Users unable to connect.', status: 'CLOSED', priority: 'HIGH', type: 'Incident', reporterId: 'user-4', assigneeId: 'user-1', category: 'Network', createdAt: '2026-05-15T08:00:00Z', updatedAt: '2026-05-16T14:00:00Z', resolvedAt: '2026-05-16T14:00:00Z' },
-];
-
-const defaultAssets: Asset[] = [
-  { id: 'asset-1', name: 'Dell Latitude 5540', brand: 'Dell', type: 'Laptop', serialNumber: 'DL-5540-001', location: 'Office A - Floor 3', status: 'DEPLOYED', purchaseDate: '2025-03-15', price: 15000000, vendor: 'Dell Indonesia', assignedToId: 'user-1', specs: { processor: 'Intel i7-1365U', ram: '16GB DDR5', storage: '512GB NVMe', os: 'Windows 11 Pro' }, createdAt: '2025-03-15T00:00:00Z', updatedAt: '2026-05-01T00:00:00Z' },
-  { id: 'asset-2', name: 'MacBook Pro 14"', brand: 'Apple', type: 'Laptop', serialNumber: 'AP-MBP14-002', location: 'Office A - Floor 2', status: 'DEPLOYED', purchaseDate: '2025-06-01', price: 35000000, vendor: 'Apple Store', assignedToId: 'user-3', specs: { processor: 'Apple M3 Pro', ram: '18GB', storage: '512GB SSD', os: 'macOS Sonoma' }, createdAt: '2025-06-01T00:00:00Z', updatedAt: '2026-05-01T00:00:00Z' },
-  { id: 'asset-3', name: 'HP ProDesk 400', brand: 'HP', type: 'Desktop', serialNumber: 'HP-PD400-003', location: 'IT Room', status: 'IN_STORAGE', purchaseDate: '2024-09-10', price: 8000000, vendor: 'HP Indonesia', assignedToId: null, specs: { processor: 'Intel i5-13500', ram: '8GB DDR4', storage: '256GB SSD', os: 'Windows 11 Pro' }, createdAt: '2024-09-10T00:00:00Z', updatedAt: '2026-05-01T00:00:00Z' },
-  { id: 'asset-4', name: 'Cisco Catalyst 9200', brand: 'Cisco', type: 'Switch', serialNumber: 'CS-9200-004', location: 'Server Room', status: 'DEPLOYED', purchaseDate: '2024-01-20', price: 25000000, vendor: 'Cisco Indonesia', assignedToId: null, specs: { processor: '-', ram: '-', storage: '-', ipAddress: '192.168.1.1' }, createdAt: '2024-01-20T00:00:00Z', updatedAt: '2026-05-01T00:00:00Z' },
-  { id: 'asset-5', name: 'Epson EcoTank L3250', brand: 'Epson', type: 'Printer', serialNumber: 'EP-ET3250-005', location: 'Office A - Floor 1', status: 'DEPLOYED', purchaseDate: '2025-02-05', price: 3500000, vendor: 'Epson Indonesia', assignedToId: null, specs: {}, createdAt: '2025-02-05T00:00:00Z', updatedAt: '2026-05-01T00:00:00Z' },
-  { id: 'asset-6', name: 'Dell PowerEdge R750', brand: 'Dell', type: 'Server', serialNumber: 'DL-PE750-006', location: 'Server Room', status: 'DEPLOYED', purchaseDate: '2024-06-15', price: 85000000, vendor: 'Dell Indonesia', assignedToId: null, specs: { processor: 'Intel Xeon Gold 6338', ram: '128GB DDR4', storage: '4x 1TB NVMe RAID 10', ipAddress: '10.0.0.1' }, createdAt: '2024-06-15T00:00:00Z', updatedAt: '2026-05-01T00:00:00Z' },
-  { id: 'asset-7', name: 'ThinkPad X1 Carbon', brand: 'Lenovo', type: 'Laptop', serialNumber: 'LN-X1C-007', location: 'Warehouse', status: 'MAINTENANCE', purchaseDate: '2024-08-22', price: 22000000, vendor: 'Lenovo Indonesia', assignedToId: null, specs: { processor: 'Intel i7-1365U', ram: '16GB LPDDR5', storage: '512GB SSD', os: 'Windows 11 Pro' }, createdAt: '2024-08-22T00:00:00Z', updatedAt: '2026-05-10T00:00:00Z' },
-];
-
-const defaultArticles: Article[] = [
-  { id: 'art-1', title: 'How to Connect VPN', content: '# VPN Connection Guide\n\n1. Open Cisco AnyConnect\n2. Enter server: vpn.company.com\n3. Use your AD credentials\n4. Click Connect\n\nIf you encounter error 789, try restarting the VPN service.', category: 'Network', isPublic: true, authorId: 'user-1', createdAt: '2026-01-15T00:00:00Z', updatedAt: '2026-05-01T00:00:00Z' },
-  { id: 'art-2', title: 'Printer Setup Guide', content: '# Printer Setup\n\n1. Go to Settings > Printers\n2. Click Add Printer\n3. Search for printer on network\n4. Install drivers automatically', category: 'Hardware', isPublic: true, authorId: 'user-4', createdAt: '2026-02-10T00:00:00Z', updatedAt: '2026-05-01T00:00:00Z' },
-  { id: 'art-3', title: 'Email Configuration', content: '# Email Setup\n\n- Server: mail.company.com\n- Port: 993 (IMAP) / 587 (SMTP)\n- Use full email as username', category: 'Software', isPublic: true, authorId: 'user-2', createdAt: '2026-03-05T00:00:00Z', updatedAt: '2026-05-01T00:00:00Z' },
-  { id: 'art-4', title: 'Onboarding Checklist for IT', content: '# New Employee IT Checklist\n\n- [ ] Create AD account\n- [ ] Assign laptop\n- [ ] Setup email\n- [ ] Install standard software\n- [ ] Grant VPN access\n- [ ] Add to relevant groups', category: 'Policy', isPublic: false, authorId: 'user-1', createdAt: '2026-04-01T00:00:00Z', updatedAt: '2026-05-01T00:00:00Z' },
-];
 
 const defaultAuditLogs: AuditLog[] = [
   { id: 'log-1', action: 'TICKET_CREATED', details: 'Ticket "VPN Connection Issues" created', userId: 'user-5', createdAt: '2026-05-20T08:00:00Z' },
@@ -1013,7 +944,7 @@ export const useStore = create<AppState>()(
         }
       },
 
-      updateChecklistTemplate: async (id: string, updates: Partial<ChecklistTemplate> & { items?: Omit<ChecklistTemplateItem, 'templateId'>[] }) => {
+      updateChecklistTemplate: async (id: string, updates: Partial<Omit<ChecklistTemplate, 'items'>> & { items?: Partial<ChecklistTemplateItem>[] }) => {
         try {
           if (updates.name || updates.description !== undefined) {
             const { error: tErr } = await supabase.from('ChecklistTemplate').update({
@@ -1077,10 +1008,10 @@ export const useStore = create<AppState>()(
           });
           if (sErr) throw sErr;
 
-          const submissionValues = [];
+          const submissionValues: any[] = [];
           for (const val of values) {
             const valId = uuidv4();
-            let ticketId = null;
+            let ticketId: string | null = null;
 
             if (val.value === 'FAIL') {
               const item = template?.items?.find(i => i.id === val.itemId);
@@ -2548,6 +2479,7 @@ export const useStore = create<AppState>()(
         );
       },
       selectTicket: (id) => set({ selectedTicketId: id, showTicketModal: id !== null }),
+      setSelectedTicket: (id) => set({ selectedTicketId: id, showTicketModal: id !== null }),
 
       // ASSET CRUD
       addAsset: async (data) => {
@@ -3685,7 +3617,7 @@ export const useStore = create<AppState>()(
 
         let targetInventoryId = data.inventoryId || null;
         let isNewInventoryItem = false;
-        let newInvItem = null;
+        let newInvItem: any = null;
 
         if (data.destinationType === 'INVENTORY' && !data.inventoryId) {
           isNewInventoryItem = true;
@@ -4164,7 +4096,8 @@ export const useStore = create<AppState>()(
               timeEstimate: 0,
               timeTracked: 0,
               ticketId: newTicket.id,
-              checklistTemplateId: schedule.checklistTemplateId || null
+              checklistTemplateId: schedule.checklistTemplateId || null,
+              isRecurring: false
             };
 
             // Save Task to Supabase Staging and state

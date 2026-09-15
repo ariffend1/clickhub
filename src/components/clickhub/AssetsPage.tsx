@@ -6,8 +6,8 @@ import type { AssetStatus, Asset, ConfigType } from '../../types';
 import BarcodeScannerModal from './BarcodeScannerModal';
 import EquipmentCheckoutPage from './EquipmentCheckoutPage';
 import GoodsReceiptPage from './GoodsReceiptPage';
-import PageHelp from '../layout/PageHelpModal';
 import SearchableDropdown from '../common/SearchableDropdown';
+import { toast } from 'sonner';
 
 const statusConfig: Record<AssetStatus, { label: string; color: string; bg: string }> = {
   DRAFT: { label: 'Draft', color: 'text-gray-400', bg: 'bg-gray-500/20' },
@@ -15,6 +15,8 @@ const statusConfig: Record<AssetStatus, { label: string; color: string; bg: stri
   DEPLOYED: { label: 'Deployed', color: 'text-green-400', bg: 'bg-green-500/20' },
   MAINTENANCE: { label: 'Maintenance', color: 'text-yellow-400', bg: 'bg-yellow-500/20' },
   RETIRED: { label: 'Retired', color: 'text-red-400', bg: 'bg-red-500/20' },
+  AVAILABLE: { label: 'In Storage', color: 'text-blue-400', bg: 'bg-blue-500/20' },
+  IN_USE: { label: 'Deployed', color: 'text-green-400', bg: 'bg-green-500/20' },
 };
 
 const typeIcons: Record<string, React.ReactNode> = {
@@ -105,7 +107,8 @@ export default function AssetsPage() {
       category: categoryName,
       value: e.value,
       linkedAssetId: linkedAssetId || '',
-      notes: e.description || ''
+      notes: e.description || '',
+      isDeleteRequested: e.isDeleteRequested || false
     };
   });
 
@@ -310,7 +313,7 @@ export default function AssetsPage() {
         }
 
         const parseCSVLine = (line: string) => {
-          const result = [];
+          const result: string[] = [];
           let current = '';
           let inQuotes = false;
           for (let i = 0; i < line.length; i++) {
@@ -336,7 +339,7 @@ export default function AssetsPage() {
           return;
         }
 
-        const assetsToImport = [];
+        const assetsToImport: any[] = [];
         for (let i = 1; i < lines.length; i++) {
           const cols = parseCSVLine(lines[i]);
           const name = cols[headers.indexOf('name')] || '';
@@ -391,7 +394,7 @@ export default function AssetsPage() {
       i.minStock.toString(),
       i.description || ''
     ]);
-    const csvContent = [headers.join(','), ...rows.map(r => r.map(val => `"${val.replace(/"/g, '""')}"`).join(','))].join('\n');
+    const csvContent = [headers.join(','), ...rows.map(r => r.map(val => `"${(val || '').replace(/"/g, '""')}"`).join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -418,7 +421,7 @@ export default function AssetsPage() {
         }
 
         const parseCSVLine = (line: string) => {
-          const result = [];
+          const result: string[] = [];
           let current = '';
           let inQuotes = false;
           for (let i = 0; i < line.length; i++) {
@@ -444,7 +447,7 @@ export default function AssetsPage() {
           return;
         }
 
-        const itemsToImport = [];
+        const itemsToImport: any[] = [];
         for (let i = 1; i < lines.length; i++) {
           const cols = parseCSVLine(lines[i]);
           const name = cols[headers.indexOf('name')] || '';
@@ -1224,7 +1227,7 @@ export default function AssetsPage() {
                           <div className="text-[10px] text-amber-400/80 bg-amber-950/20 rounded p-1.5 mb-3">
                             <p>Penerima: {users.find(u => u.id === receipt.receivedById)?.name || 'Unknown'}</p>
                             <p>Catatan GR: {receipt.notes || '-'}</p>
-                            {receipt.price > 0 && <p>Harga Satuan: Rp {Number(receipt.price).toLocaleString('id-ID')}</p>}
+                            {receipt.price !== undefined && receipt.price > 0 && <p>Harga Satuan: Rp {Number(receipt.price).toLocaleString('id-ID')}</p>}
                           </div>
                         )}
                       </div>
@@ -1913,7 +1916,7 @@ export default function AssetsPage() {
                               </div>
                               <p className="text-white font-medium">Checked out by <span className="text-violet-400">{tech?.name || c.technicianId}</span></p>
                               <p className="text-gray-400 mt-0.5"><span className="text-gray-500">Purpose:</span> {c.purpose}</p>
-                              <p className="text-gray-400"><span className="text-gray-500">Expected Return:</span> {new Date(c.expectedReturn).toLocaleDateString()}</p>
+                              <p className="text-gray-400"><span className="text-gray-500">Expected Return:</span> {c.expectedReturn ? new Date(c.expectedReturn).toLocaleDateString() : '-'}</p>
                               
                               {item?.scannedIn ? (
                                 <div className="mt-1 bg-green-500/10 border border-green-500/20 rounded p-1.5 text-[11px] text-green-400">

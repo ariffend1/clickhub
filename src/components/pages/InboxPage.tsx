@@ -30,7 +30,7 @@ export default function InboxPage() {
     if (n.ticketId) {
       const targetTicket = tickets.find(t => t.id === n.ticketId);
       if (targetTicket) {
-        setSelectedTicket(targetTicket);
+        setSelectedTicket(targetTicket.id);
       }
     } else if (n.taskId) {
       selectTask(n.taskId);

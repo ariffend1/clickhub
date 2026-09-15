@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../../store/useStore';
-import { Plus, Trash2, Edit2, ClipboardList, Check, AlertTriangle } from 'lucide-react';
-import type { TicketPriority, ChecklistTemplate, ChecklistTemplateItem } from '../../types';
+import { Plus, Trash2, Edit2, ClipboardList, Check } from 'lucide-react';
+import type { TicketPriority, ChecklistTemplate } from '../../types';
 import { toast } from 'sonner';
 
 interface EditItemForm {

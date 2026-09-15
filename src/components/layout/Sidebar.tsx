@@ -7,6 +7,7 @@ import {
   Sun, Moon, PanelLeftClose, PanelLeftOpen, Trash2, List, Settings,
   MessageSquare, FileText, Sparkles, X
 } from 'lucide-react';
+import type { ActivePage } from '../../types';
 
 interface SidebarProps {
   onClose?: () => void;
@@ -464,16 +465,18 @@ export default function Sidebar({ onClose }: SidebarProps) {
             </div>
             
             <div className="max-h-[350px] overflow-y-auto pr-1 space-y-2.5 no-scrollbar">
-              {[
-                { key: 'home', stepIndex: 0, icon: '🏠', name: 'Home', desc: 'Dashboard utama untuk memantau aktivitas sistem, tren SLA, status inventaris, and log aktivitas IT.' },
-                { key: 'inbox', stepIndex: 1, icon: '📥', name: 'Inbox', desc: 'Pusat notifikasi untuk melihat update terkini dari tiket, tugas baru, atau komentar obrolan tim.' },
-                { key: 'my_tasks', stepIndex: 2, icon: '✅', name: 'My Tasks', desc: 'Daftar tugas personal Anda, termasuk tugas Preventative Maintenance (PM) dan pengisian checklist harian.' },
-                { key: 'tickets', stepIndex: 3, icon: '🎫', name: 'Tickets', desc: 'Sistem helpdesk IT untuk melihat laporan tiket kerusakan, melakukan klaim perbaikan, and mencatat spare parts.' },
-                { key: 'assets', stepIndex: 4, icon: '🖥️', name: 'Assets', desc: 'Registri lengkap seluruh perangkat keras hardware, jadwal perawatan berkala, and pencetakan label QR.' },
-                { key: 'knowledge', stepIndex: 5, icon: '📖', name: 'Knowledge', desc: 'Dokumentasi solusi masalah IT (KB) dan SOP kerja untuk mempercepat penyelesaian insiden berulang.' },
-                { key: 'chat_admin', stepIndex: null, icon: '💬', name: 'Chat Admin', desc: 'Platform bantuan obrolan langsung (live support chat) bagi karyawan untuk bertanya langsung ke tim IT.' },
-                { key: 'reports', stepIndex: 6, icon: '📊', name: 'Reports', desc: 'Analytics center untuk memantau biaya CAPEX, depresiasi linear aset, kepatuhan SLA, and point kinerja teknisi.' }
-              ].map(item => (
+              {(
+                [
+                  { key: 'home', stepIndex: 0, icon: '🏠', name: 'Home', desc: 'Dashboard utama untuk memantau aktivitas sistem, tren SLA, status inventaris, and log aktivitas IT.' },
+                  { key: 'inbox', stepIndex: 1, icon: '📥', name: 'Inbox', desc: 'Pusat notifikasi untuk melihat update terkini dari tiket, tugas baru, atau komentar obrolan tim.' },
+                  { key: 'my_tasks', stepIndex: 2, icon: '✅', name: 'My Tasks', desc: 'Daftar tugas personal Anda, termasuk tugas Preventative Maintenance (PM) dan pengisian checklist harian.' },
+                  { key: 'tickets', stepIndex: 3, icon: '🎫', name: 'Tickets', desc: 'Sistem helpdesk IT untuk melihat laporan tiket kerusakan, melakukan klaim perbaikan, and mencatat spare parts.' },
+                  { key: 'assets', stepIndex: 4, icon: '🖥️', name: 'Assets', desc: 'Registri lengkap seluruh perangkat keras hardware, jadwal perawatan berkala, and pencetakan label QR.' },
+                  { key: 'knowledge', stepIndex: 5, icon: '📖', name: 'Knowledge', desc: 'Dokumentasi solusi masalah IT (KB) dan SOP kerja untuk mempercepat penyelesaian insiden berulang.' },
+                  { key: 'chat_admin', stepIndex: null, icon: '💬', name: 'Chat Admin', desc: 'Platform bantuan obrolan langsung (live support chat) bagi karyawan untuk bertanya langsung ke tim IT.' },
+                  { key: 'reports', stepIndex: 6, icon: '📊', name: 'Reports', desc: 'Analytics center untuk memantau biaya CAPEX, depresiasi linear aset, kepatuhan SLA, and point kinerja teknisi.' }
+                ] as { key: ActivePage; stepIndex: number | null; icon: string; name: string; desc: string }[]
+              ).map(item => (
                 <button 
                   key={item.name} 
                   onClick={() => {

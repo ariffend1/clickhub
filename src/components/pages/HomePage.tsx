@@ -1,14 +1,14 @@
 import { useStore } from '../../store/useStore';
 import { cn } from '../../utils/cn';
-import { Clock, CheckCircle2, AlertTriangle, TrendingUp, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { format, formatDistanceToNow, isPast } from 'date-fns';
 import PageHelp from '../layout/PageHelpModal';
 
 export default function HomePage() {
   const { 
     tasks, currentUser, activities, spaces, getUserById, selectTask, 
-    setActivePage, selectSpace, tickets, assets, showChatWidget, setShowChatWidget,
-    setShowCreateTicketModal, inventories, equipmentCheckouts, auditLogs
+    setActivePage, selectSpace, tickets, assets, setShowChatWidget,
+    auditLogs
   } = useStore();
 
   if (!currentUser) return null;
@@ -33,7 +33,6 @@ export default function HomePage() {
 
   // Employee Dashboard specific calculations
   const myTickets = tickets.filter(t => t.reporterId === currentUser.id);
-  const activeTickets = myTickets.filter(t => t.status !== 'CLOSED' && t.status !== 'RESOLVED');
   
   // Aset yang dipinjam oleh Employee ini (mencocokkan serial number di checkout / data aset)
   const myAssignedAssets = assets.filter(a => {

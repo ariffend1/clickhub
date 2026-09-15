@@ -126,11 +126,12 @@ export interface Attachment {
 
 export interface Ticket {
   id: string;
+  ticketNumber?: string;
   title: string;
   description: string;
   status: TicketStatus;
   priority: TicketPriority;
-  type: 'Incident' | 'Service Request';
+  type?: 'Incident' | 'Service Request';
   reporterId: string;
   assigneeId: string | null;
   helperAssigneeIds?: string[];
@@ -153,7 +154,7 @@ export interface Ticket {
 
 
 
-export type AssetStatus = 'DRAFT' | 'IN_STORAGE' | 'DEPLOYED' | 'MAINTENANCE' | 'RETIRED';
+export type AssetStatus = 'DRAFT' | 'IN_STORAGE' | 'DEPLOYED' | 'MAINTENANCE' | 'RETIRED' | 'AVAILABLE' | 'IN_USE';
 
 export interface Asset {
   id: string;
@@ -246,7 +247,7 @@ export interface EquipmentCheckout {
   taskId: string | null;
   purpose: string;
   status: 'PENDING_APPROVAL' | 'APPROVED' | 'CHECKED_OUT' | 'RETURNED' | 'OVERDUE' | 'PARTIALLY_RETURNED' | 'LOST';
-  expectedReturn: string;
+  expectedReturn: string | null;
   actualReturn: string | null;
   notes: string | null;
   createdAt: string;
@@ -330,12 +331,17 @@ export interface DirectoryCategory {
 
 export interface DirectoryEntry {
   id: string;
-  categoryId: string;
+  categoryId?: string;
   name: string;
   value: string;
   description?: string | null;
   location?: string | null;
   isPublic?: boolean;
+  type?: ConfigType;
+  category?: string;
+  notes?: string | null;
+  linkedAssetId?: string | null;
+  isDeleteRequested?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }

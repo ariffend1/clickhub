@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { cn } from '../../utils/cn';
-import { Truck, Plus, User, X, Camera } from 'lucide-react';
+import { Plus, User, X, Camera } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import BarcodeScannerModal from './BarcodeScannerModal';
 import { toast } from 'sonner';

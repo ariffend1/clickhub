@@ -10,7 +10,7 @@ interface TourStep {
 }
 
 export default function TourGuide() {
-  const { activePage, setActivePage, setShowSettingsModal } = useStore();
+  const { activePage, setActivePage } = useStore();
   const [isOpen, setIsOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [coords, setCoords] = useState<{ top: number; left: number; width: number; height: number } | null>(null);

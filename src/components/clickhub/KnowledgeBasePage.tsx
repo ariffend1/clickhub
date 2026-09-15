@@ -6,8 +6,6 @@ import type { Article } from '../../types';
 
 const categories = ['All', 'Network', 'Hardware', 'Software', 'Server', 'Security', 'Policy', 'General'];
 
-import PageHelp from '../layout/PageHelpModal';
-
 export default function KnowledgeBasePage() {
   const { articles, addArticle, updateArticle, deleteArticle, getUserById, hasRole } = useStore();
   const [search, setSearch] = useState('');

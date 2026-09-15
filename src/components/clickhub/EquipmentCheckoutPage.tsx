@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useStore } from '../../store/useStore';
 import { cn } from '../../utils/cn';
-import { Plus, Clipboard, ShieldCheck, User, X, Camera } from 'lucide-react';
+import { Plus, ShieldCheck, User, X, Camera } from 'lucide-react';
 import BarcodeScannerModal from './BarcodeScannerModal';
 import { toast } from 'sonner';
 import SearchableDropdown from '../common/SearchableDropdown';
@@ -387,7 +387,7 @@ export default function EquipmentCheckoutPage() {
                         })}
                       </div>
                     </td>
-                    <td className="py-3 text-gray-500">{new Date(checkout.expectedReturn).toLocaleDateString()}</td>
+                    <td className="py-3 text-gray-500">{checkout.expectedReturn ? new Date(checkout.expectedReturn).toLocaleDateString() : '-'}</td>
                     <td className="py-3">
                       <span className={cn(
                         "px-2 py-0.5 rounded-full text-[9px] font-bold uppercase",
