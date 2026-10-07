@@ -3,6 +3,7 @@ export type TaskStatus = 'todo' | 'in_progress' | 'pending' | 'in_review' | 'don
 export type ViewMode = 'board' | 'list' | 'calendar';
 export type ActivePage = 'home' | 'inbox' | 'my_tasks' | 'dashboards' | 'spaces' | 'tickets' | 'assets' | 'knowledge' | 'admin' | 'chat_admin' | 'reports' | 'checkout' | 'receipt';
 export type UserRole = 'ROOT' | 'SUPER_ADMIN' | 'ADMIN' | 'MANAGER' | 'TECHNICIAN' | 'EMPLOYEE';
+export type Role = UserRole;
 
 export interface AuthUser extends User {
   password: string;

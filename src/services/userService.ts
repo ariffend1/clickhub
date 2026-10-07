@@ -1,9 +1,13 @@
 import { supabase } from '../lib/supabase';
 
+const USER_SAFE_FIELDS = 'id, email, name, avatar, profilePhoto, role, department, title, phone, telegramId, isActive, isBlocked, isApproved, createdAt, updatedAt';
+
 export const userService = {
   // --- USERS ---
   async getUsers() {
-    const { data, error } = await supabase.from('User').select('*');
+    const { data, error } = await supabase
+      .from('User')
+      .select(USER_SAFE_FIELDS);
     if (error) throw error;
     return data || [];
   },
@@ -11,7 +15,7 @@ export const userService = {
   async getUserByEmailMaybe(email: string) {
     const { data, error } = await supabase
       .from('User')
-      .select('*')
+      .select(USER_SAFE_FIELDS)
       .eq('email', email.toLowerCase())
       .maybeSingle();
     if (error) throw error;
@@ -21,7 +25,7 @@ export const userService = {
   async getUserByEmailSingle(email: string) {
     const { data, error } = await supabase
       .from('User')
-      .select('*')
+      .select(USER_SAFE_FIELDS)
       .eq('email', email.toLowerCase())
       .single();
     if (error) throw error;

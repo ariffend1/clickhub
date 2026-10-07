@@ -115,7 +115,7 @@ export default function LoginPage() {
             Public registration is disabled. Please contact your IT Administrator to request an account.
           </p>
 
-          {import.meta.env.VITE_BYPASS_AUTH === 'true' && (
+          {import.meta.env.DEV && import.meta.env.VITE_BYPASS_AUTH === 'true' && (
             <div className="mt-6 rounded-lg border border-gray-800 bg-gray-800/30 p-4">
               <p className="mb-2 text-xs font-medium text-gray-400">Quick demo login:</p>
               <div className="grid grid-cols-2 gap-2">

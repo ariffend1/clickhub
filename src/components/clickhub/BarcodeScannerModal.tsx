@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { X, Camera, AlertCircle } from 'lucide-react';
 
@@ -17,55 +17,95 @@ export default function BarcodeScannerModal({
 }: BarcodeScannerModalProps) {
   const [error, setError] = useState<string | null>(null);
   const [cameraPermission, setCameraPermission] = useState<'prompt' | 'granted' | 'denied' | 'unknown'>('unknown');
+  const [activeContainerId, setActiveContainerId] = useState<string | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
-  const containerId = "clickhub-barcode-reader";
+  const isStoppingRef = useRef(false);
+
+  const cleanupScanner = useCallback(async () => {
+    if (scannerRef.current) {
+      const scanner = scannerRef.current;
+      scannerRef.current = null;
+      if (scanner.isScanning && !isStoppingRef.current) {
+        isStoppingRef.current = true;
+        try {
+          await scanner.stop();
+          await scanner.clear();
+        } catch (err) {
+          console.error("Failed to stop scanner:", err);
+        } finally {
+          isStoppingRef.current = false;
+        }
+      } else {
+        try {
+          await scanner.clear();
+        } catch (err) {
+          // ignore clear error
+        }
+      }
+    }
+  }, []);
+
+  const handleClose = useCallback(async () => {
+    await cleanupScanner();
+    onClose();
+  }, [cleanupScanner, onClose]);
+
+  // Callback ref guarantees the container DOM node is mounted before initializing
+  const containerRefCallback = useCallback((node: HTMLDivElement | null) => {
+    if (node) {
+      setActiveContainerId(node.id);
+    } else {
+      setActiveContainerId(null);
+    }
+  }, []);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !activeContainerId) return;
 
     setError(null);
     setCameraPermission('unknown');
-    let isMounted = true;
+    let isCancelled = false;
 
-    // Start scanner after component mounts the target div
     const startScanner = async () => {
-      try {
-        // Wait briefly for DOM node to render
-        await new Promise((resolve) => setTimeout(resolve, 300));
-        
-        if (!isMounted) return;
+      // Ensure any existing scanner instance is cleaned up first
+      await cleanupScanner();
+      if (isCancelled) return;
 
-        const html5QrCode = new Html5Qrcode(containerId);
+      const targetEl = document.getElementById(activeContainerId);
+      if (!targetEl) return;
+
+      try {
+        const html5QrCode = new Html5Qrcode(activeContainerId);
         scannerRef.current = html5QrCode;
 
-        // Try environment camera first, fallback to user camera
         await html5QrCode.start(
           { facingMode: "environment" },
           {
             fps: 10,
             qrbox: (width, height) => {
-              // Create a box relative to container size
               const size = Math.min(width, height) * 0.7;
               return { width: size, height: size };
             },
             aspectRatio: 1.0
           },
           (decodedText) => {
-            // Success
+            if (isCancelled) return;
             onScan(decodedText);
             handleClose();
           },
           () => {
-            // Ignored standard verbose scan errors
+            // Ignored standard verbose scan frames
           }
         );
-        
-        if (isMounted) {
+
+        if (!isCancelled) {
           setCameraPermission('granted');
+        } else {
+          await cleanupScanner();
         }
       } catch (err: any) {
         console.error("Scanner start error:", err);
-        if (isMounted) {
+        if (!isCancelled) {
           setError(err.message || "Failed to access camera.");
           setCameraPermission('denied');
         }
@@ -75,28 +115,10 @@ export default function BarcodeScannerModal({
     startScanner();
 
     return () => {
-      isMounted = false;
+      isCancelled = true;
       cleanupScanner();
     };
-  }, [isOpen]);
-
-  const cleanupScanner = async () => {
-    if (scannerRef.current) {
-      if (scannerRef.current.isScanning) {
-        try {
-          await scannerRef.current.stop();
-        } catch (err) {
-          console.error("Failed to stop scanner:", err);
-        }
-      }
-      scannerRef.current = null;
-    }
-  };
-
-  const handleClose = async () => {
-    await cleanupScanner();
-    onClose();
-  };
+  }, [isOpen, activeContainerId, cleanupScanner, onScan, handleClose]);
 
   if (!isOpen) return null;
 
@@ -157,7 +179,7 @@ export default function BarcodeScannerModal({
           )}
 
           {/* html5-qrcode rendering target */}
-          <div id={containerId} className="w-full h-full" />
+          <div ref={containerRefCallback} id="clickhub-barcode-reader" className="w-full h-full" />
 
           {/* Loading or Perm state */}
           {cameraPermission === 'unknown' && !error && (

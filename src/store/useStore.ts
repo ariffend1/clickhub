@@ -1431,7 +1431,7 @@ export const useStore = create<AppState>()(
 
       // AUTH ACTIONS
       login: async (email, password) => {
-        if (import.meta.env.VITE_BYPASS_AUTH === 'true') {
+        if (import.meta.env.DEV && import.meta.env.VITE_BYPASS_AUTH === 'true') {
           const user = get().registeredUsers.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
           if (user) {
             const { password: _, ...userWithoutPassword } = user;
@@ -1492,7 +1492,7 @@ export const useStore = create<AppState>()(
       },
 
       register: async (name, email, password, role) => {
-        if (import.meta.env.VITE_BYPASS_AUTH === 'true') {
+        if (import.meta.env.DEV && import.meta.env.VITE_BYPASS_AUTH === 'true') {
           if (get().registeredUsers.some(u => u.email.toLowerCase() === email.toLowerCase()))
             return { success: false, error: 'Email already registered' };
           const colors = ['#7C3AED', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#EF4444'];
@@ -1543,7 +1543,7 @@ export const useStore = create<AppState>()(
         const userId = uuidv4();
         const now = new Date().toISOString();
 
-        if (import.meta.env.VITE_BYPASS_AUTH === 'true') {
+        if (import.meta.env.DEV && import.meta.env.VITE_BYPASS_AUTH === 'true') {
           if (get().registeredUsers.some(u => u.email.toLowerCase() === email.toLowerCase()))
             return { success: false, error: 'Email already registered' };
           
@@ -1597,7 +1597,7 @@ export const useStore = create<AppState>()(
       logout: async () => {
         const cu = get().currentUser;
         if (cu) get().addAuditLog('USER_LOGOUT', `${cu.name} logged out`);
-        if (import.meta.env.VITE_BYPASS_AUTH !== 'true') {
+        if (!import.meta.env.DEV || import.meta.env.VITE_BYPASS_AUTH !== 'true') {
           await supabase.auth.signOut();
         }
         set({ isAuthenticated: false, currentUser: null, activePage: 'home', showTaskModal: false, showTicketModal: false, showCreateTaskModal: false, showCreateTicketModal: false, showNotifications: false, showSettingsModal: false, showChatWidget: false });
