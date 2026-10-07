@@ -500,7 +500,7 @@ export const useStore = create<AppState>()(
           try {
             await Promise.race([
               get().processSyncQueue(),
-              new Promise((_, reject) => setTimeout(() => reject(new Error('Sync queue timeout')), 2000))
+              new Promise((_, reject) => setTimeout(() => reject(new Error('Sync queue timeout')), 10000))
             ]);
           } catch (e) {
             console.error("SW: Offline sync queue error:", e);
@@ -509,21 +509,24 @@ export const useStore = create<AppState>()(
         try {
           await Promise.race([
             get().loadBrandingSettings(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Branding fetch timeout')), 2000))
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Branding fetch timeout')), 10000))
           ]).catch(e => console.error(e));
+
+          const currentStore = get();
 
           const fetchWithTimeout = async <T>(promise: Promise<T>, fallback: T): Promise<T> => {
             try {
               return await Promise.race([
                 promise,
-                new Promise<T>((_, reject) => setTimeout(() => reject(new Error('DB Query timeout')), 2000))
+                new Promise<T>((_, reject) => setTimeout(() => reject(new Error('DB Query timeout')), 10000))
               ]);
             } catch (err) {
+              console.warn("fetchWithTimeout: Request timed out or failed, using fallback/existing state:", err);
               return fallback;
             }
           };
 
-          const cu = get().currentUser;
+          const cu = currentStore.currentUser;
           const [
             dbUsers,
             dbSpaces,
@@ -549,29 +552,29 @@ export const useStore = create<AppState>()(
             dbLocations,
             dbMasterData
           ] = await Promise.all([
-            fetchWithTimeout(userService.getUsers(), []),
-            fetchWithTimeout(taskService.getSpaces(), []),
-            fetchWithTimeout(taskService.getTaskLists(), []),
-            fetchWithTimeout(taskService.getTasks(), []),
-            fetchWithTimeout(ticketService.getAllTickets(), []),
-            fetchWithTimeout(assetService.getAssets(), []),
-            fetchWithTimeout(knowledgeService.getArticles(), []),
-            fetchWithTimeout(assetService.getInventories(), []),
-            fetchWithTimeout(assetService.getPartRequests(), []),
-            fetchWithTimeout(assetService.getStockRequests(), []),
-            fetchWithTimeout(chatService.getChatSessions(), []),
-            fetchWithTimeout(operationsService.getHolidays(), []),
-            fetchWithTimeout(operationsService.getEquipmentCheckouts(), []),
+            fetchWithTimeout(userService.getUsers(), (currentStore.users && currentStore.users.length > 0) ? (currentStore.users as any) : []),
+            fetchWithTimeout(taskService.getSpaces(), (currentStore.spaces && currentStore.spaces.length > 0) ? (currentStore.spaces as any) : []),
+            fetchWithTimeout(taskService.getTaskLists(), (currentStore.lists && currentStore.lists.length > 0) ? (currentStore.lists as any) : []),
+            fetchWithTimeout(taskService.getTasks(), (currentStore.tasks && currentStore.tasks.length > 0) ? (currentStore.tasks as any) : []),
+            fetchWithTimeout(ticketService.getAllTickets(), (currentStore.tickets && currentStore.tickets.length > 0) ? (currentStore.tickets as any) : []),
+            fetchWithTimeout(assetService.getAssets(), (currentStore.assets && currentStore.assets.length > 0) ? (currentStore.assets as any) : []),
+            fetchWithTimeout(knowledgeService.getArticles(), (currentStore.articles && currentStore.articles.length > 0) ? (currentStore.articles as any) : []),
+            fetchWithTimeout(assetService.getInventories(), (currentStore.inventories && currentStore.inventories.length > 0) ? (currentStore.inventories as any) : []),
+            fetchWithTimeout(assetService.getPartRequests(), (currentStore.partRequests && currentStore.partRequests.length > 0) ? (currentStore.partRequests as any) : []),
+            fetchWithTimeout(assetService.getStockRequests(), (currentStore.stockRequests && currentStore.stockRequests.length > 0) ? (currentStore.stockRequests as any) : []),
+            fetchWithTimeout(chatService.getChatSessions(), (currentStore.chatSessions && currentStore.chatSessions.length > 0) ? (currentStore.chatSessions as any) : []),
+            fetchWithTimeout(operationsService.getHolidays(), (currentStore.holidays && currentStore.holidays.length > 0) ? (currentStore.holidays as any) : []),
+            fetchWithTimeout(operationsService.getEquipmentCheckouts(), (currentStore.equipmentCheckouts && currentStore.equipmentCheckouts.length > 0) ? (currentStore.equipmentCheckouts as any) : []),
             fetchWithTimeout(operationsService.getCheckoutItems(), []),
-            fetchWithTimeout(operationsService.getGoodsReceipts(), []),
-            fetchWithTimeout(assetService.getMaintenanceSchedules(), []),
-            cu ? fetchWithTimeout(userService.getNotifications(cu.id), []) : Promise.resolve([]),
+            fetchWithTimeout(operationsService.getGoodsReceipts(), (currentStore.goodsReceipts && currentStore.goodsReceipts.length > 0) ? (currentStore.goodsReceipts as any) : []),
+            fetchWithTimeout(assetService.getMaintenanceSchedules(), (currentStore.maintenanceSchedules && currentStore.maintenanceSchedules.length > 0) ? (currentStore.maintenanceSchedules as any) : []),
+            cu ? fetchWithTimeout(userService.getNotifications(cu.id), (currentStore.notifications && currentStore.notifications.length > 0) ? (currentStore.notifications as any) : []) : Promise.resolve([]),
             fetchWithTimeout(ticketService.getAttachments(), []),
-            fetchWithTimeout(assetService.getDirectoryCategories(), []),
-            fetchWithTimeout(assetService.getDirectoryEntries(), []),
-            fetchWithTimeout(userService.getAuditLogs(), []),
-            fetchWithTimeout(assetService.getLocations(), []),
-            fetchWithTimeout(assetService.getMasterData(), [])
+            fetchWithTimeout(assetService.getDirectoryCategories(), (currentStore.directoryCategories && currentStore.directoryCategories.length > 0) ? (currentStore.directoryCategories as any) : []),
+            fetchWithTimeout(assetService.getDirectoryEntries(), (currentStore.directoryEntries && currentStore.directoryEntries.length > 0) ? (currentStore.directoryEntries as any) : []),
+            fetchWithTimeout(userService.getAuditLogs(), (currentStore.auditLogs && currentStore.auditLogs.length > 0) ? (currentStore.auditLogs as any) : []),
+            fetchWithTimeout(assetService.getLocations(), (currentStore.locations && currentStore.locations.length > 0) ? (currentStore.locations as any) : []),
+            fetchWithTimeout(assetService.getMasterData(), (currentStore.masterData && currentStore.masterData.length > 0) ? (currentStore.masterData as any) : [])
           ]);
 
           const taskIds = (dbTasks || []).map(t => t.id);
