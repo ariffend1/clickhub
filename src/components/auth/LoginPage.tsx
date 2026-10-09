@@ -21,17 +21,26 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (isLogin) {
-      const res = await login(email, password);
-      if (!res.success) setError(res.error || 'Login failed');
-    } else {
-      if (!name.trim()) { setError('Name is required'); return; }
-      const res = await register(name, email, password);
-      if (!res.success) setError(res.error || 'Registration failed');
+    setLoading(true);
+    try {
+      if (isLogin) {
+        const res = await login(email, password);
+        if (!res.success) setError(res.error || 'Login failed');
+      } else {
+        if (!name.trim()) { setError('Name is required'); return; }
+        const res = await register(name, email, password);
+        if (!res.success) setError(res.error || 'Registration failed');
+      }
+    } catch (err: any) {
+      console.error('Login error:', err);
+      setError(err?.message || 'An unexpected error occurred during login');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -106,8 +115,13 @@ export default function LoginPage() {
 
             {error && <p className="text-xs text-red-400">{error}</p>}
 
-            <button type="submit" className="w-full rounded-lg bg-violet-600 py-2.5 text-sm font-semibold text-white hover:bg-violet-500 transition">
-              {isLogin ? 'Sign In' : 'Create Account'}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-lg bg-violet-600 py-2.5 text-sm font-semibold text-white hover:bg-violet-500 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {loading && <span className="inline-block w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />}
+              {loading ? 'Signing in...' : (isLogin ? 'Sign In' : 'Create Account')}
             </button>
           </form>
 

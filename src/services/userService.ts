@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
 
-const USER_SAFE_FIELDS = 'id, email, name, avatar, profilePhoto, role, department, title, phone, telegramId, isActive, isBlocked, isApproved, createdAt, updatedAt';
+const USER_SAFE_FIELDS = 'id, email, name, profilePhoto, role, department, title, phone, telegramId, isBlocked, isApproved, createdAt, updatedAt';
 
 export const userService = {
   // --- USERS ---

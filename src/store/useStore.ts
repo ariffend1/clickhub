@@ -1463,31 +1463,36 @@ export const useStore = create<AppState>()(
           }
           return { success: false, error: 'Invalid email or password' };
         } else {
-          const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-          if (error) return { success: false, error: error.message };
-          if (data?.user) {
-            const dbUser = await userService.getUserByEmailSingle(email);
-            if (dbUser) {
-              const mappedUser: User = {
-                id: dbUser.id,
-                name: dbUser.name || dbUser.email,
-                email: dbUser.email,
-                avatar: dbUser.profilePhoto || '',
-                color: '#7C3AED',
-                role: dbUser.role as UserRole,
-                department: dbUser.department || 'IT',
-                phone: dbUser.phone || '',
-                isActive: !dbUser.isBlocked,
-                title: dbUser.title || ''
-              };
-              set({ currentUser: mappedUser });
-              await get().loadAllData();
-              set({ isAuthenticated: true });
-              get().addAuditLog('USER_LOGIN', `${mappedUser.name} logged in`);
-              return { success: true };
+          try {
+            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+            if (error) return { success: false, error: error.message };
+            if (data?.user) {
+              const dbUser = await userService.getUserByEmailSingle(email);
+              if (dbUser) {
+                const mappedUser: User = {
+                  id: dbUser.id,
+                  name: dbUser.name || dbUser.email,
+                  email: dbUser.email,
+                  avatar: dbUser.profilePhoto || '',
+                  color: '#7C3AED',
+                  role: dbUser.role as UserRole,
+                  department: dbUser.department || 'IT',
+                  phone: dbUser.phone || '',
+                  isActive: !dbUser.isBlocked,
+                  title: dbUser.title || ''
+                };
+                set({ currentUser: mappedUser });
+                await get().loadAllData();
+                set({ isAuthenticated: true });
+                get().addAuditLog('USER_LOGIN', `${mappedUser.name} logged in`);
+                return { success: true };
+              }
             }
+            return { success: false, error: 'User profile not found in database' };
+          } catch (err: any) {
+            console.error('Supabase login error:', err);
+            return { success: false, error: err?.message || 'Failed to authenticate user' };
           }
-          return { success: false, error: 'User profile not found in database' };
         }
       },
 
