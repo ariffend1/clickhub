@@ -4,7 +4,6 @@ import { cn } from '../../utils/cn';
 import { Plus, Clock, CheckCircle2, AlertCircle, XCircle, X } from 'lucide-react';
 import type { TicketStatus, TicketPriority, Ticket } from '../../types';
 import { toast } from 'sonner';
-import { compressImage } from '../../utils/imageCompressor';
 import SearchableDropdown from '../common/SearchableDropdown';
 import { parseUTCDate, formatDateWIB, formatRelativeWIB } from '../../utils/dateUtils';
 
@@ -92,6 +91,14 @@ const priorityConfig: Record<TicketPriority, { label: string; color: string; dot
 const categories = ['General', 'Network', 'Hardware', 'Software', 'Server', 'Security', 'Policy'];
 const columns: TicketStatus[] = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
 
+const quickTemplates = [
+  { label: '🌐 Internet / Wi-Fi', title: 'Gangguan Koneksi Internet / Wi-Fi', desc: 'Koneksi terputus / lemot di lokasi:' },
+  { label: '🖨️ Printer Error', title: 'Printer Rusak / Macet', desc: 'Printer tidak bisa mencetak / paper jam di:' },
+  { label: '🖥️ PC / Laptop', title: 'PC / Laptop Bermasalah', desc: 'Perangkat mati / lemot / restart sendiri di:' },
+  { label: '🔑 Akun / Password', title: 'Permintaan Reset Password / Akses Akun', desc: 'Permintaan reset login untuk akun:' },
+  { label: '📦 Hardware / Kabel', title: 'Permintaan / Perbaikan Hardware', desc: 'Kebutuhan perangkat/kabel tambahan di:' },
+];
+
 export default function TicketsPage() {
   const { 
     tickets, getUserById, currentUser, addTicket, updateTicket, hasRole, users,
@@ -108,10 +115,6 @@ export default function TicketsPage() {
   const [filterType, setFilterType] = useState<string>('all');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [priority, setPriority] = useState<TicketPriority>('MEDIUM');
-  const [category, setCategory] = useState('General');
-  const [type, setType] = useState<'Incident' | 'Service Request'>('Incident');
-  const [assigneeId, setAssigneeId] = useState('');
   const [viewMode, setViewMode] = useState<'board' | 'list' | 'archive'>('board');
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const currentTicket = selectedTicket ? (tickets.find(t => t.id === selectedTicket.id) || selectedTicket) : null;
@@ -120,7 +123,6 @@ export default function TicketsPage() {
 
 
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -194,38 +196,30 @@ export default function TicketsPage() {
   const linkedTasks = selectedTicket ? tasks.filter(t => t.ticketId === selectedTicket.id) : [];
 
   const handleCreate = async () => {
-    if (!title.trim()) return;
+    if (!title.trim()) {
+      toast.error("Judul tiket wajib diisi!");
+      return;
+    }
     try {
-      const ticketId = await addTicket({
+      // Otomatis assign ke teknisi pembuat tiket jika bukan EMPLOYEE
+      const targetAssigneeId = (currentUser && currentUser.role !== 'EMPLOYEE') ? currentUser.id : null;
+
+      await addTicket({
         title: title.trim(),
-        description: description.trim(),
-        priority,
-        category,
-        type,
-        assigneeId: assigneeId || null
+        description: description.trim() || 'Tidak ada catatan tambahan.',
+        priority: 'MEDIUM',
+        category: 'General',
+        type: 'Incident',
+        assigneeId: targetAssigneeId
       });
 
-      if (selectedFiles.length > 0) {
-        toast.loading(`Mengunggah ${selectedFiles.length} lampiran...`, { id: 'upload-toast' });
-        for (const file of selectedFiles) {
-          await uploadAttachment(ticketId, file);
-        }
-        toast.success("Tiket & lampiran berhasil dibuat!", { id: 'upload-toast' });
-      } else {
-        toast.success("Tiket berhasil dibuat!");
-      }
-
+      toast.success("Tiket berhasil dibuat!");
       setTitle('');
       setDescription('');
-      setPriority('MEDIUM');
-      setCategory('General');
-      setType('Incident');
-      setAssigneeId('');
-      setSelectedFiles([]);
       setShowCreate(false);
     } catch (err: any) {
       console.error(err);
-      toast.error(`Gagal membuat tiket: ${err.message}`, { id: 'upload-toast' });
+      toast.error(`Gagal membuat tiket: ${err?.message || 'Terjadi kesalahan'}`);
     }
   };
 
@@ -286,123 +280,108 @@ export default function TicketsPage() {
         </div>
       </div>
 
-      {/* Create Modal */}
+      {/* Create Modal - Fast 3-Second Ticket */}
       {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowCreate(false)}>
-          <div className="w-full max-w-lg rounded-2xl border border-gray-700 bg-[#1e2028] p-6 shadow-2xl animate-slide-up" onClick={e => e.stopPropagation()}>
-            <h2 className="mb-4 text-lg font-bold text-white">Create New Ticket</h2>
-            <div className="space-y-3">
-              <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Ticket title..."
-                className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-4 py-2.5 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500" />
-              <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Description..." rows={3}
-                className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-4 py-2.5 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500" />
-              {currentUser?.role !== 'EMPLOYEE' && (
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-gray-400 font-bold uppercase">Ticket Type</label>
-                  <select value={type} onChange={e => setType(e.target.value as 'Incident' | 'Service Request')}
-                    className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white outline-none cursor-pointer">
-                    <option value="Incident">Incident</option>
-                    <option value="Service Request">Service Request</option>
-                  </select>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowCreate(false)}>
+          <div className="w-full max-w-lg rounded-2xl border border-gray-700 bg-[#1e2028] p-5 sm:p-6 shadow-2xl animate-slide-up" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-600/20 text-violet-400">
+                  <Plus size={18} />
+                </span>
+                <div>
+                  <h2 className="text-base font-bold text-white">Buat Tiket Cepat</h2>
+                  <p className="text-[11px] text-gray-400">Form ringkas untuk teknisi & pelapor lapangan</p>
                 </div>
-              )}
-              {currentUser?.role !== 'EMPLOYEE' && (
-                <div className="grid grid-cols-2 gap-3">
-                  <select value={priority} onChange={e => setPriority(e.target.value as TicketPriority)}
-                    className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white outline-none">
-                    {Object.entries(priorityConfig).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                  </select>
-                  <select value={category} onChange={e => setCategory(e.target.value)}
-                    className="rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white outline-none">
-                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-              )}
-              {currentUser?.role !== 'EMPLOYEE' && (
-                <select value={assigneeId} onChange={e => setAssigneeId(e.target.value)}
-                  className="w-full rounded-lg border border-gray-700 bg-gray-800/50 px-3 py-2 text-sm text-white outline-none">
-                  <option value="">Assign to...</option>
-                  {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                </select>
-              )}
+              </div>
+              <button onClick={() => setShowCreate(false)} className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800 cursor-pointer">
+                <X size={18} />
+              </button>
+            </div>
 
-              {/* Attachment input */}
-              <div className="space-y-1">
-                <label className="text-[10px] text-gray-400 font-bold uppercase">Attachments (Maks. 10MB per file)</label>
-                {isOnline ? (
-                  <div className="border border-dashed border-gray-700 hover:border-violet-500 rounded-lg p-3 text-center bg-gray-850/20 hover:bg-gray-800/10 transition cursor-pointer relative">
-                    <input
-                      type="file"
-                      multiple
-                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                      onChange={async (e) => {
-                        const files = Array.from(e.target.files || []);
-                        const validFiles = files.filter(f => {
-                          if (f.size > 10 * 1024 * 1024) {
-                            toast.error(`Berkas ${f.name} melebihi batas ukuran 10MB.`);
-                            return false;
-                          }
-                          return true;
-                        });
-
-                        const processedFiles: File[] = [];
-                        for (const file of validFiles) {
-                          if (file.type.startsWith('image/') && file.type !== 'image/gif') {
-                            try {
-                              const compressed = await compressImage(file);
-                              processedFiles.push(compressed);
-                            } catch (err) {
-                              console.warn("Failed to compress image, using original:", err);
-                              processedFiles.push(file);
-                            }
-                          } else {
-                            processedFiles.push(file);
-                          }
-                        }
-
-                        setSelectedFiles(prev => [...prev, ...processedFiles]);
+            <div className="space-y-4">
+              {/* Quick Template Chips */}
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block mb-1.5">
+                  ⚡ Template Cepat (Klik untuk Isi Otomatis)
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {quickTemplates.map((tpl, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => {
+                        setTitle(tpl.title);
+                        if (!description) setDescription(tpl.desc + ' ');
                       }}
-                    />
-                    <div className="text-xs text-gray-400">
-                      <span className="text-violet-400 font-semibold">Click to upload</span> or drag and drop files here
-                    </div>
-                  </div>
-                ) : (
-                  <div className="border border-dashed border-red-900/30 rounded-lg p-3 text-center bg-red-950/10 text-xs text-red-400">
-                    ⚠️ Upload lampiran hanya tersedia dalam mode online.
-                  </div>
-                )}
-
-                {/* Selected files preview */}
-                {selectedFiles.length > 0 && (
-                  <div className="mt-2 space-y-1 max-h-32 overflow-y-auto pr-1">
-                    {selectedFiles.map((file, idx) => (
-                      <div key={idx} className="flex items-center justify-between bg-gray-800/40 border border-gray-800/80 rounded px-2.5 py-1.5 text-xs">
-                        <div className="flex items-center gap-1.5 truncate max-w-[80%]">
-                          {file.type.startsWith('image/') ? (
-                            <span className="text-sm">🖼️</span>
-                          ) : (
-                            <span className="text-sm">📄</span>
-                          )}
-                          <span className="text-gray-300 truncate" title={file.name}>{file.name}</span>
-                          <span className="text-[10px] text-gray-500">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedFiles(prev => prev.filter((_, i) => i !== idx))}
-                          className="text-gray-500 hover:text-red-400 p-0.5"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      className="rounded-lg border border-gray-700 bg-gray-800/60 hover:bg-violet-600/30 hover:border-violet-500/60 px-2.5 py-1 text-xs text-gray-300 hover:text-white transition-all active:scale-95 cursor-pointer"
+                    >
+                      {tpl.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <div className="flex justify-end gap-3">
-                <button onClick={() => { setShowCreate(false); setSelectedFiles([]); }} className="rounded-lg px-4 py-2 text-sm text-gray-400 hover:text-white">Cancel</button>
-                <button onClick={handleCreate} className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500">Create</button>
+              {/* Title Input */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block">
+                  Judul Tiket <span className="text-red-400">*</span>
+                </label>
+                <input
+                  value={title}
+                  onChange={e => setTitle(e.target.value)}
+                  placeholder="Contoh: PC Kasir Mati Total / Wi-Fi Gudang Putus..."
+                  autoFocus
+                  className="w-full rounded-xl border border-gray-700 bg-gray-800/50 px-3.5 py-2.5 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500 transition"
+                />
+              </div>
+
+              {/* Description Input */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block">
+                  Catatan / Lokasi (Opsional)
+                </label>
+                <textarea
+                  value={description}
+                  onChange={e => setDescription(e.target.value)}
+                  placeholder="Detail singkat, nomor ruangan, atau keterangan tambahan..."
+                  rows={3}
+                  className="w-full rounded-xl border border-gray-700 bg-gray-800/50 px-3.5 py-2.5 text-sm text-white placeholder-gray-500 outline-none focus:border-violet-500 transition resize-none"
+                />
+              </div>
+
+              {/* Auto Default Summary Banner */}
+              <div className="rounded-xl border border-gray-800/80 bg-gray-900/50 p-2.5 text-[11px] text-gray-400 flex flex-wrap items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  Tipe: <strong className="text-gray-200">Incident</strong>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
+                  Prioritas: <strong className="text-gray-200">Medium</strong>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-violet-400" />
+                  Teknisi: <strong className="text-gray-200">{currentUser?.name ? `${currentUser.name} (Anda)` : 'Otomatis'}</strong>
+                </span>
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => { setShowCreate(false); setTitle(''); setDescription(''); }}
+                  className="rounded-xl px-4 py-2 text-xs font-medium text-gray-400 hover:bg-gray-800 hover:text-white transition cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCreate}
+                  disabled={!title.trim()}
+                  className="rounded-xl bg-violet-600 px-5 py-2 text-xs font-semibold text-white hover:bg-violet-500 active:scale-95 transition disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-violet-600/30 cursor-pointer flex items-center gap-1.5"
+                >
+                  <Plus size={14} /> Buat Tiket Sekarang
+                </button>
               </div>
             </div>
           </div>
