@@ -118,7 +118,8 @@ interface AppState {
   discardFailedSyncItem: (id: string) => void;
   clearFailedSyncQueue: () => void;
   triggerTelegramAlert: (subject: string, message: string, severity?: 'INFO' | 'WARN' | 'HIGH') => Promise<void>;
-  loadAllData: () => Promise<void>;
+  loadAllData: (force?: boolean) => Promise<void>;
+  fetchServiceReportPhotos: (reportIdOrTaskId: string) => Promise<{ beforePhotoUrl: string | null; afterPhotoUrl: string | null } | null>;
   theme: 'dark' | 'light';
   toggleTheme: () => void;
   isAuthenticated: boolean;
@@ -427,6 +428,11 @@ const safeStorage: StateStorage = {
     }
   }
 };
+// Anti-Egress throttling & field optimization
+let lastLoadAllDataTimestamp = 0;
+let isCurrentlyLoadingAllData = false;
+const LOAD_ALL_DATA_COOLDOWN_MS = 60000; // 60s minimum interval to protect Supabase egress quota
+const SERVICE_REPORT_LIGHT_FIELDS = 'id, taskId, ticketId, assetId, diagnosa, actionSteps, usedParts, finalStatus, temporaryReason, followUpPlan, escalationTargetId, escalationReason, unrepairableReason, additionalNotes, systemDurationMinutes, technicianDurationNotes, isDraft, submittedAt, submittedById, createdAt, updatedAt';
 
 export const useStore = create<AppState>()(
   persist(
@@ -494,8 +500,21 @@ export const useStore = create<AppState>()(
       actionChips: DEFAULT_ACTION_CHIPS,
 
 
-      // SUPABASE LOAD DATA
-      loadAllData: async () => {
+      // SUPABASE LOAD DATA (Protected by anti-egress throttling)
+      loadAllData: async (force = false) => {
+        const now = Date.now();
+        if (!force && (now - lastLoadAllDataTimestamp < LOAD_ALL_DATA_COOLDOWN_MS)) {
+          const remainingSec = Math.round((LOAD_ALL_DATA_COOLDOWN_MS - (now - lastLoadAllDataTimestamp)) / 1000);
+          console.log(`[Anti-Egress] loadAllData throttled: ${remainingSec}s cooldown remaining`);
+          return;
+        }
+        if (isCurrentlyLoadingAllData) {
+          console.log("[Anti-Egress] loadAllData skipped: fetch already running");
+          return;
+        }
+        isCurrentlyLoadingAllData = true;
+        lastLoadAllDataTimestamp = now;
+
         if (navigator.onLine) {
           try {
             await Promise.race([
@@ -596,7 +615,7 @@ export const useStore = create<AppState>()(
             Promise.resolve(supabase.from('ChecklistTemplateItem').select('*').order('order', { ascending: true })).catch(e => { console.error("Error loading template items:", e); return { data: [] as any }; }),
             Promise.resolve(supabase.from('ChecklistSubmission').select('*')).catch(e => { console.error("Error loading submissions:", e); return { data: [] as any }; }),
             Promise.resolve(supabase.from('ChecklistSubmissionValue').select('*')).catch(e => { console.error("Error loading submission values:", e); return { data: [] as any }; }),
-            Promise.resolve(supabase.from('ServiceReport').select('*')).catch(e => { console.error("Error loading service reports:", e); return { data: [] as any }; }),
+            Promise.resolve(supabase.from('ServiceReport').select(SERVICE_REPORT_LIGHT_FIELDS)).catch(e => { console.error("Error loading service reports:", e); return { data: [] as any }; }),
             Promise.resolve(supabase.from('ActionChip').select('*')).catch(e => { console.error("Error loading action chips:", e); return { data: [] as any }; })
           ]);
 
@@ -854,6 +873,31 @@ export const useStore = create<AppState>()(
           await get().processMaintenanceSchedules();
         } catch (err) {
           console.error("Error loading data from Supabase:", err);
+        } finally {
+          isCurrentlyLoadingAllData = false;
+        }
+      },
+
+      fetchServiceReportPhotos: async (reportIdOrTaskId: string) => {
+        try {
+          const { data, error } = await supabase
+            .from('ServiceReport')
+            .select('id, taskId, beforePhotoUrl, afterPhotoUrl')
+            .or(`id.eq.${reportIdOrTaskId},taskId.eq.${reportIdOrTaskId}`)
+            .maybeSingle();
+          if (error || !data) return null;
+
+          set(state => ({
+            serviceReports: state.serviceReports.map(r =>
+              (r.id === data.id || r.taskId === data.taskId)
+                ? { ...r, beforePhotoUrl: data.beforePhotoUrl, afterPhotoUrl: data.afterPhotoUrl }
+                : r
+            )
+          }));
+          return { beforePhotoUrl: data.beforePhotoUrl, afterPhotoUrl: data.afterPhotoUrl };
+        } catch (e) {
+          console.error("Error fetching service report photos:", e);
+          return null;
         }
       },
 

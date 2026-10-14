@@ -16,7 +16,8 @@ interface ServiceReportFormProps {
 export default function ServiceReportForm({ task }: ServiceReportFormProps) {
   const { 
     serviceReports, actionChips, tickets, users, inventories, currentUser,
-    saveServiceReportDraft, submitServiceReportFinal, setShowTaskModal
+    saveServiceReportDraft, submitServiceReportFinal, setShowTaskModal,
+    fetchServiceReportPhotos
   } = useStore();
 
 
@@ -73,8 +74,18 @@ export default function ServiceReportForm({ task }: ServiceReportFormProps) {
       setUnrepairableReason(existingReport.unrepairableReason || '');
       setAdditionalNotes(existingReport.additionalNotes || '');
       setTechnicianDurationNotes(existingReport.technicianDurationNotes || '');
+
+      // On-demand fetch photos if not loaded into memory yet
+      if (existingReport.beforePhotoUrl === undefined || existingReport.afterPhotoUrl === undefined) {
+        fetchServiceReportPhotos(task.id).then(photos => {
+          if (photos) {
+            if (photos.beforePhotoUrl) setBeforePhotoUrl(photos.beforePhotoUrl);
+            if (photos.afterPhotoUrl) setAfterPhotoUrl(photos.afterPhotoUrl);
+          }
+        });
+      }
     }
-  }, [existingReport]);
+  }, [existingReport, task.id, fetchServiceReportPhotos]);
 
   const activeChips = (actionChips || []).filter(c => !c.isHidden);
   const managers = (users || []).filter(u => ['ROOT', 'SUPER_ADMIN', 'ADMIN', 'MANAGER'].includes(u.role));

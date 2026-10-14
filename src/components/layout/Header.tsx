@@ -53,7 +53,7 @@ export default function Header({ onMenuToggle }: HeaderProps) {
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await loadAllData();
+      await loadAllData(true);
     } finally {
       setTimeout(() => setIsRefreshing(false), 500);
     }
